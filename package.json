@@ -1,15 +1,20 @@
 {
   "name": "rp2040js",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "Raspberry Pi Pico (RP2040) Emulator",
+  "repository": "https://github.com/wokwi/rp2040js",
+  "keywords": [
+    "rp2040",
+    "raspberry pi pico",
+    "emulator"
+  ],
+  "author": "Uri Shaked <uri@wokwi.com>",
+  "license": "MIT",
   "main": "index.js",
   "scripts": {
     "start": "ts-node src/run-blink.ts",
     "test": "jest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/jest": "^26.0.20",
     "@types/node": "^14.14.22",
