@@ -2,15 +2,40 @@
 
 import { loadHex } from './intelhex';
 
+export const FLASH_START_ADDRESS = 0x10000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
+
+// export const APSR_N = 0x80000000;
+// export const APSR_Z = 0x40000000;
+// export const APSR_C = 0x20000000;
+// export const APSR_V = 0x10000000;
+
+export type CPUReadCallback = (address: number) => number;
+
+function signExtend8(value: number) {
+  return value & 0x80 ? 0x80000000 + (value & 0x7f) : value;
+}
+
+function signExtend16(value: number) {
+  return value & 0x8000 ? 0x80000000 + (value & 0x7fff) : value;
+}
 
 export class RP2040 {
   readonly sram = new Uint8Array(264 * 1024);
   readonly sramView = new DataView(this.sram.buffer);
   readonly flash = new Uint8Array(16 * 1024 * 1024);
   readonly flash16 = new Uint16Array(this.flash.buffer);
+  readonly flashView = new DataView(this.flash.buffer);
   readonly registers = new Uint32Array(16);
+
+  readonly readHooks = new Map<number, CPUReadCallback>();
+
+  // APSR fields
+  public N: boolean = false;
+  public C: boolean = false;
+  public Z: boolean = false;
+  public V: boolean = false;
 
   constructor(hex: string) {
     this.SP = 0x20041000;
@@ -42,6 +67,60 @@ export class RP2040 {
     this.registers[15] = value;
   }
 
+  checkCondition(cond: number) {
+    // Evaluate base condition.
+    let result = false;
+    switch (cond >> 1) {
+      case 0b000:
+        result = this.Z;
+        break;
+      case 0b001:
+        result = this.C;
+        break;
+      case 0b010:
+        result = this.N;
+        break;
+      case 0b011:
+        result = this.V;
+        break;
+      case 0b100:
+        result = this.C && !this.Z;
+        break;
+      case 0b101:
+        result = this.N === this.V;
+        break;
+      case 0b110:
+        result = this.N === this.V && !this.Z;
+        break;
+      case 0b111:
+        result = true;
+        break;
+    }
+    return cond & 0b1 && cond != 0b1111 ? !result : result;
+  }
+
+  readUint32(address: number) {
+    if (address < FLASH_START_ADDRESS) {
+      // TODO: should be readonly from bootrom once we have it
+      return this.flashView.getUint32(address, true);
+    } else if (address >= FLASH_START_ADDRESS && address < RAM_START_ADDRESS) {
+      return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
+    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
+    } else {
+      const hook = this.readHooks.get(address);
+      if (hook) {
+        return hook(address);
+      }
+    }
+    console.warn(`Read from invalid memory address: ${address.toString(16)}`);
+    return 0xffffffff;
+  }
+
+  readUint16(address: number) {
+    return this.readUint32(address) & 0xffff;
+  }
+
   writeUint32(address: number, value: number) {
     if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
@@ -69,8 +148,19 @@ export class RP2040 {
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcode = this.flash16[this.PC / 2];
     const opcode2 = this.flash16[this.PC / 2 + 1];
+    // B (with cond)
+    if (opcode >> 12 === 0b1101) {
+      let imm8 = (opcode & 0xff) << 1;
+      const cond = (opcode >> 8) & 0xf;
+      if (imm8 & (1 << 8)) {
+        imm8 = (imm8 & 0x1ff) - 0x200;
+      }
+      if (this.checkCondition(cond)) {
+        this.PC += imm8 + 2;
+      }
+    }
     // B
-    if (opcode >> 11 === 0b11100) {
+    else if (opcode >> 11 === 0b11100) {
       let imm11 = (opcode & 0x7ff) << 1;
       if (imm11 & (1 << 11)) {
         imm11 = (imm11 & 0x7ff) - 0x800;
@@ -78,32 +168,79 @@ export class RP2040 {
       this.PC += imm11 + 2;
     }
     // BL
-    if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11) {
+    else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11) {
       // right now we just ignore it. but let's print it!
       console.log('BL ignored');
+      this.PC += 2;
+    }
+    // CMP immediate
+    else if (opcode >> 11 === 0b00101) {
+      const Rn = (opcode >> 8) & 0x7;
+      const imm8 = signExtend8(opcode & 0xff);
+      const value = this.registers[Rn] | 0;
+      const result = (value - imm8) | 0;
+      this.N = value < imm8;
+      this.Z = value === imm8;
+      this.C = value >= imm8;
+      this.V = (value > 0 && imm8 < 0 && result < 0) || (value < 0 && imm8 > 0 && result > 0);
+    }
+    // CMP (register)
+    else if (opcode >> 6 === 0b0100001010) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rn = opcode & 0x7;
+      const leftValue = this.registers[Rn] | 0;
+      const rightValue = this.registers[Rm] | 0;
+      const result = (leftValue - rightValue) | 0;
+      this.N = leftValue < rightValue;
+      this.Z = leftValue === rightValue;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (leftValue > 0 && rightValue < 0 && result < 0) ||
+        (leftValue < 0 && rightValue > 0 && result > 0);
+    }
+    // LDR (immediate)
+    else if (opcode >> 11 === 0b01101) {
+      const imm5 = ((opcode >> 6) & 0x1f) << 2;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rn] + imm5;
+      this.registers[Rt] = this.readUint32(addr);
+    }
+    // LDR (literal)
+    else if (opcode >> 11 === 0b01001) {
+      const imm8 = (opcode & 0xff) << 2;
+      const Rt = (opcode >> 8) & 7;
+      const nextPC = this.PC + 2;
+      const addr = nextPC - (nextPC % 4) + imm8;
+      this.registers[Rt] = this.readUint32(addr);
+    }
+    // LDRSH (immediate)
+    else if (opcode >> 9 === 0b0101111) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rm] + this.registers[Rn];
+      this.registers[Rt] = signExtend16(this.readUint16(addr));
     }
     // LSLS
     else if (opcode >> 11 === 0b00000) {
       const imm5 = (opcode >> 6) & 0x1f;
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      this.registers[Rd] = this.registers[Rm] << imm5;
-      // update flags
-      // APSR.N = result<31>;
-      // APSR.Z = IsZeroBit(result);
-      // APSR.C = carry;
-      // APSR.V unchanged
+      const input = this.registers[Rm];
+      const result = input << imm5;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = imm5 ? !!(input & (1 << (32 - imm5))) : this.C;
     }
     // MOVS
     else if (opcode >> 11 === 0b00100) {
       const value = opcode & 0xff;
       const Rd = (opcode >> 8) & 7;
       this.registers[Rd] = value;
-      // update status flags (if InITBlock)?
-      // APSR.N = result<31>;
-      // APSR.Z = IsZeroBit(result);
-      // APSR.C = carry;
-      // APSR.V unchanged
+      this.N = !!(value & 0x80000000);
+      this.Z = value === 0;
     }
     // PUSH
     else if (opcode >> 9 === 0b1011010) {
@@ -132,6 +269,16 @@ export class RP2040 {
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
       this.writeUint32(address, this.registers[Rt]);
+    }
+    // TST
+    else if (opcode >> 6 == 0b0100001000) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rn = opcode & 0x7;
+      const result = this.registers[Rn] & this.registers[Rm];
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+    } else {
+      console.log(`Warning: Instruction at ${this.PC.toString(16)} is not implemented yet!`);
     }
 
     this.PC += 2;
