@@ -11,7 +11,9 @@ npm start
 
 ## Learn more
 
-Check out the [live stream playlist](https://www.youtube.com/playlist?list=PLLomdjsHtJTxT-vdJHwa3z62dFXZnzYBm).
+- [Live-coding stream playlist](https://www.youtube.com/playlist?list=PLLomdjsHtJTxT-vdJHwa3z62dFXZnzYBm)
+- [Hackaday project page](https://hackaday.io/project/177082-raspberry-pi-pico-emulator)
+- [Sign up to watch the next live stream](https://pages.wokwi.com/rp2040)
 
 ## License
 
