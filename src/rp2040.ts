@@ -156,8 +156,8 @@ export class RP2040 {
 
   executeInstruction() {
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
-    const opcode = this.flash16[this.PC / 2];
-    const opcode2 = this.flash16[this.PC / 2 + 1];
+    const opcode = this.readUint16(this.PC);
+    const opcode2 = this.readUint16(this.PC + 1);
     const opcodePC = this.PC;
     this.PC += 2;
     // ADCS
