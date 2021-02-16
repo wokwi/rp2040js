@@ -1,10 +1,13 @@
 // Run blink!
 
 import { loadHex } from './intelhex';
+import { bootrom } from './bootrom';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
+
+const SIO_CPUID_OFFSET = 0;
 
 // export const APSR_N = 0x80000000;
 // export const APSR_Z = 0x40000000;
@@ -40,8 +43,13 @@ export class RP2040 {
   public V: boolean = false;
 
   constructor(hex: string) {
-    this.SP = 0x20041000;
+    this.SP = bootrom[0];
+    this.PC = bootrom[1] & 0xfffffffe;
     this.flash.fill(0xff);
+    this.readHooks.set(SIO_START_ADDRESS + SIO_CPUID_OFFSET, () => {
+      // Returns the current CPU core id (always 0 for now)
+      return 0;
+    });
     loadHex(hex, this.flash);
   }
 
@@ -101,10 +109,10 @@ export class RP2040 {
     return cond & 0b1 && cond != 0b1111 ? !result : result;
   }
 
+  /** We assume the address is 32-bit aligned */
   readUint32(address: number) {
-    if (address < FLASH_START_ADDRESS) {
-      // TODO: should be readonly from bootrom once we have it
-      return this.flashView.getUint32(address, true);
+    if (address < bootrom.length) {
+      return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < RAM_START_ADDRESS) {
       return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
@@ -119,12 +127,15 @@ export class RP2040 {
     return 0xffffffff;
   }
 
+  /** We assume the address is 16-bit aligned */
   readUint16(address: number) {
-    return this.readUint32(address) & 0xffff;
+    const value = this.readUint32(address & 0xfffffffc);
+    return address & 0x2 ? (value & 0xffff0000) >>> 16 : value & 0xffff;
   }
 
   readUint8(address: number) {
-    return this.readUint32(address) & 0xff;
+    const value = this.readUint16(address & 0xfffffffe);
+    return (address & 0x1 ? (value & 0xff00) >>> 8 : value & 0xff) >>> 0;
   }
 
   writeUint32(address: number, value: number) {
@@ -157,7 +168,7 @@ export class RP2040 {
   executeInstruction() {
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcode = this.readUint16(this.PC);
-    const opcode2 = this.readUint16(this.PC + 1);
+    const opcode2 = this.readUint16(this.PC + 2);
     const opcodePC = this.PC;
     this.PC += 2;
     // ADCS
@@ -207,10 +218,18 @@ export class RP2040 {
       this.PC += imm11 + 2;
     }
     // BL
-    else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11) {
-      // right now we just ignore it. but let's print it!
-      console.log('BL ignored');
-      this.PC += 2;
+    else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11 && ((opcode2 >> 12) & 0x1) == 1) {
+      const imm11 = opcode2 & 0x7ff;
+      const J2 = (opcode2 >> 11) & 0x1;
+      const J1 = (opcode2 >> 13) & 0x1;
+      const imm10 = opcode & 0x3ff;
+      const S = (opcode2 >> 10) & 0x1;
+      const I1 = 1 - (S ^ J1);
+      const I2 = 1 - (S ^ J2);
+      const imm32 =
+        ((S ? 0b11111111 : 0) << 24) | ((I1 << 23) | (I2 << 22) | (imm10 << 12) | (imm11 << 1));
+      this.LR = this.PC + 2;
+      this.PC += 2 + imm32;
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
@@ -237,6 +256,22 @@ export class RP2040 {
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
     }
+    // LDMIA
+    else if (opcode >> 11 === 0b11001) {
+      const Rn = (opcode >> 8) & 0x7;
+      const registers = opcode & 0xff;
+      let address = this.registers[Rn];
+      for (let i = 0; i < 8; i++) {
+        if (registers & (1 << i)) {
+          this.registers[i] = this.readUint32(address);
+          address += 4;
+        }
+      }
+      // Write back
+      if (!(registers & (1 << Rn))) {
+        this.registers[Rn] = address;
+      }
+    }
     // LDR (immediate)
     else if (opcode >> 11 === 0b01101) {
       const imm5 = ((opcode >> 6) & 0x1f) << 2;
@@ -252,6 +287,7 @@ export class RP2040 {
       const nextPC = this.PC + 2;
       const addr = (nextPC & 0xfffffffc) + imm8;
       console.log('reading from', addr.toString(16));
+      console.log('value: ', this.readUint32(addr).toString(16));
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDRB (immediate)
@@ -281,6 +317,18 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
       this.C = imm5 ? !!(input & (1 << (32 - imm5))) : this.C;
+    }
+    // LSLR (immediate)
+    else if (opcode >> 11 === 0b00001) {
+      const imm5 = (opcode >> 6) & 0x1f;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      const result = imm5 ? input >>> imm5 : 0;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
     }
     // MOVS
     else if (opcode >> 11 === 0b00100) {
