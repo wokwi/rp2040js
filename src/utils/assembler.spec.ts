@@ -1,11 +1,18 @@
 import {
   opcodeADCS,
   opcodeADDS2,
+  opcodeADR,
+  opcodeBICS,
   opcodeBL,
+  opcodeBLX,
+  opcodeBX,
   opcodeLDMIA,
   opcodeLDRB,
+  opcodeLDRH,
   opcodeLSRS,
+  opcodePOP,
   opcodeRSBS,
+  opcodeSTMIA,
   opcodeSUBS2,
   opcodeUXTB,
 } from './assembler';
@@ -14,6 +21,10 @@ const r0 = 0;
 const r1 = 1;
 const r2 = 2;
 const r3 = 3;
+const r4 = 4;
+const r7 = 7;
+const lr = 14;
+const pc = 15;
 
 describe('assembler', () => {
   //
@@ -25,12 +36,28 @@ describe('assembler', () => {
     expect(opcodeADDS2(r1, 1)).toEqual(0x3101);
   });
 
+  it('should correctly encode an `adr r4, #52` instruction', () => {
+    expect(opcodeADR(r4, 52)).toEqual(0xa40d);
+  });
+
+  it('should correctly encode an `bics r0, r3` instruction', () => {
+    expect(opcodeBICS(r0, r3)).toEqual(0x4398);
+  });
+
   it('should correctly encode an `bl .-198` instruction', () => {
     expect(opcodeBL(-198)).toEqual(0xff9df7ff);
   });
 
   it('should correctly encode an `bl .+10` instruction', () => {
     expect(opcodeBL(10)).toEqual(0xf805f000);
+  });
+
+  it('should correctly encode an `blx	r1` instruction', () => {
+    expect(opcodeBLX(r1)).toEqual(0x4788);
+  });
+
+  it('should correctly encode an `bx lr` instruction', () => {
+    expect(opcodeBX(lr)).toEqual(0x4770);
   });
 
   it('should correctly encode an `ldmia	r0!, {r1, r2}` instruction', () => {
@@ -45,8 +72,20 @@ describe('assembler', () => {
     expect(opcodeLDRB(r0, r1, 0)).toEqual(0x7808);
   });
 
+  it('should correctly encode an `ldrh r3, [r7, #0]` instruction', () => {
+    expect(opcodeLDRH(r3, r7, 0)).toEqual(0x883b);
+  });
+
+  it('should correctly encode an `pop {r0, r1, pc}` instruction', () => {
+    expect(opcodePOP(true, (1 << r0) | (1 << r1))).toEqual(0xbd03);
+  });
+
   it('should correctly encode an `rsbs r0, r3` instruction', () => {
     expect(opcodeRSBS(r0, r3)).toEqual(0x4258);
+  });
+
+  it('should correctly encode an `stmia	r2!, {r0}` instruction', () => {
+    expect(opcodeSTMIA(r2, 1 << r0)).toEqual(0xc201);
   });
 
   it('should correctly encode an `subs r3, #13` instruction', () => {

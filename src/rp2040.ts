@@ -4,10 +4,17 @@ import { loadHex } from './intelhex';
 import { bootrom } from './bootrom';
 
 export const FLASH_START_ADDRESS = 0x10000000;
+export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 const SIO_CPUID_OFFSET = 0;
+
+const XIP_SSI_BASE = 0x18000000;
+const SSI_SR_OFFSET = 0x00000028;
+const SSI_DR0_OFFSET = 0x00000060;
+const SSI_SR_BUSY_BITS = 0x00000001;
+const SSI_SR_TFE_BITS = 0x00000004;
 
 // export const APSR_N = 0x80000000;
 // export const APSR_Z = 0x40000000;
@@ -50,6 +57,21 @@ export class RP2040 {
       // Returns the current CPU core id (always 0 for now)
       return 0;
     });
+    this.readHooks.set(XIP_SSI_BASE + SSI_SR_OFFSET, () => {
+      return SSI_SR_TFE_BITS;
+    });
+
+    let dr0 = 0;
+    this.writeHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, (value) => {
+      const CMD_READ_STATUS = 0x05;
+      if (value === CMD_READ_STATUS) {
+        dr0 = 1; // tell stage2 that we completed a write
+      }
+    });
+    this.readHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, () => {
+      return dr0;
+    });
+
     loadHex(hex, this.flash);
   }
 
@@ -113,7 +135,7 @@ export class RP2040 {
   readUint32(address: number) {
     if (address < bootrom.length) {
       return bootrom[address / 4];
-    } else if (address >= FLASH_START_ADDRESS && address < RAM_START_ADDRESS) {
+    } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
       return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
@@ -198,6 +220,12 @@ export class RP2040 {
       this.C = result >= 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm8 < 0x80 && (result | 0) < 0;
     }
+    // ADR
+    else if (opcode >> 11 === 0b10100) {
+      const imm8 = opcode & 0xff;
+      const Rd = (opcode >> 8) & 0x7;
+      this.registers[Rd] = (opcodePC & 0xfffffffc) + 4 + (imm8 << 2);
+    }
     // B (with cond)
     else if (opcode >> 12 === 0b1101) {
       let imm8 = (opcode & 0xff) << 1;
@@ -217,6 +245,14 @@ export class RP2040 {
       }
       this.PC += imm11 + 2;
     }
+    // BICS
+    else if (opcode >> 6 === 0b0100001110) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rdn = opcode & 0x7;
+      const result = (this.registers[Rdn] &= ~this.registers[Rm]);
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+    }
     // BL
     else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11 && ((opcode2 >> 12) & 0x1) == 1) {
       const imm11 = opcode2 & 0x7ff;
@@ -230,6 +266,17 @@ export class RP2040 {
         ((S ? 0b11111111 : 0) << 24) | ((I1 << 23) | (I2 << 22) | (imm10 << 12) | (imm11 << 1));
       this.LR = this.PC + 2;
       this.PC += 2 + imm32;
+    }
+    // BLX
+    else if (opcode >> 7 === 0b010001111 && (opcode & 0x7) === 0) {
+      const Rm = (opcode >> 3) & 0xf;
+      this.LR = this.PC;
+      this.PC = this.registers[Rm] & ~1;
+    }
+    // BX
+    else if (opcode >> 7 === 0b010001110 && (opcode & 0x7) === 0) {
+      const Rm = (opcode >> 3) & 0xf;
+      this.PC = this.registers[Rm] & ~1;
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
@@ -298,7 +345,15 @@ export class RP2040 {
       const addr = this.registers[Rn] + imm5;
       this.registers[Rt] = this.readUint8(addr);
     }
-    // LDRSH (immediate)
+    // LDRH (immediate)
+    else if (opcode >> 11 === 0b10001) {
+      const imm5 = (opcode >> 6) & 0x1f;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rn] + imm5;
+      this.registers[Rt] = this.readUint16(addr);
+    }
+    // LDRSH
     else if (opcode >> 9 === 0b0101111) {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
@@ -338,6 +393,22 @@ export class RP2040 {
       this.N = !!(value & 0x80000000);
       this.Z = value === 0;
     }
+    // POP
+    else if (opcode >> 9 === 0b1011110) {
+      let address = this.SP;
+      for (let i = 0; i <= 7; i++) {
+        if (opcode & (1 << i)) {
+          this.registers[i] = this.readUint32(address);
+          address += 4;
+        }
+      }
+      if ((opcode >> 8) & 1) {
+        this.PC = this.readUint32(address);
+        this.writeUint32(address, this.registers[14]);
+        address += 4;
+      }
+      this.SP = address;
+    }
     // PUSH
     else if (opcode >> 9 === 0b1011010) {
       let bitCount = 0;
@@ -368,6 +439,22 @@ export class RP2040 {
       this.Z = value === 0;
       this.C = value === -1;
       this.V = value === 0x7fffffff;
+    }
+    // STMIA
+    else if (opcode >> 11 === 0b11000) {
+      const Rn = (opcode >> 8) & 0x7;
+      const registers = opcode & 0xff;
+      let address = this.registers[Rn];
+      for (let i = 0; i < 8; i++) {
+        if (registers & (1 << i)) {
+          this.writeUint32(address, this.registers[i]);
+          address += 4;
+        }
+      }
+      // Write back
+      if (!(registers & (1 << Rn))) {
+        this.registers[Rn] = address;
+      }
     }
     // STR (immediate)
     else if (opcode >> 11 === 0b01100) {

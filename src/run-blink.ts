@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { RAM_START_ADDRESS, RP2040 } from './rp2040';
+import { RP2040 } from './rp2040';
 import { RPUART } from './uart';
 
 // Create an array with the compiled code of blink
@@ -19,13 +19,10 @@ uart.onByte = (value) => {
 // mcu.sram.set(mcu.flash.slice(0, BOOT2_SIZE), mcu.sram.length - BOOT2_SIZE);
 // mcu.PC = RAM_START_ADDRESS + mcu.sram.length - BOOT2_SIZE;
 
-// To start right after boot_stage2:
-// mcu.PC = 0x10000100;
-
-mcu.PC = 0x10000370;
-for (let i = 0; i < 50; i++) {
-  console.log(mcu.PC.toString(16));
+mcu.PC = 0x10000000;
+for (let i = 0; i < 10000; i++) {
+  if (mcu.PC >= 0x10000100) {
+    console.log('PC:', mcu.PC.toString(16));
+  }
   mcu.executeInstruction();
-  // uncomment for debugging:
-  // console.log(mcu.PC.toString(16), mcu.registers[2].toString(16));
 }
