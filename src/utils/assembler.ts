@@ -17,6 +17,10 @@ export function opcodeBL(imm: number) {
   return opcode >>> 0;
 }
 
+export function opcodeBX(Rm: number) {
+  return (0b010001110 << 7) | Rm << 3;
+}
+
 export function opcodeLDMIA(Rn: number, registers: number) {
   return (0b11001 << 11) | ((Rn & 0x7) << 8) | (registers & 0xff);
 }

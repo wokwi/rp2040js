@@ -2,6 +2,7 @@ import {
   opcodeADCS,
   opcodeADDS2,
   opcodeBL,
+  opcodeBX,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLSRS,
@@ -56,4 +57,9 @@ describe('assembler', () => {
   it('should correctly encode an `uxtb r3, r3` instruction', () => {
     expect(opcodeUXTB(r3, r3)).toEqual(0xb2db);
   });
+
+  it('should correctly encode an `bx lr` instruction', () => {
+    expect(opcodeBX(14)).toEqual(0x4770);
+  });
+
 });

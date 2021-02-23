@@ -3,6 +3,7 @@ import {
   opcodeADCS,
   opcodeADDS2,
   opcodeBL,
+  opcodeBX,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLSRS,
@@ -19,6 +20,7 @@ const r4 = 4;
 const r5 = 5;
 const r6 = 6;
 const r7 = 7;
+const lr = 14;
 
 describe('RP2040', () => {
   it(`should initialize PC and SP according to bootrom's vector table`, () => {
@@ -118,6 +120,16 @@ describe('RP2040', () => {
       rp2040.flash16[9] = 0xd1fc; // bne.n .-6
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x1000000e);
+    });
+
+    it('should execute `bx lr` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.LR = 0x00000000;
+      rp2040.flashView.setUint32(0, opcodeBX(lr), true);
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x00000000);
+      expect(rp2040.LR).toEqual(0x10000002);
     });
 
     it('should execute an `cmp r5, #66` instruction', () => {

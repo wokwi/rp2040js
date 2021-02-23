@@ -231,6 +231,15 @@ export class RP2040 {
       this.LR = this.PC + 2;
       this.PC += 2 + imm32;
     }
+    // BX register
+    else if (opcode >> 7 === 0b010001110) {
+      const Rm = (opcode >> 3) & 0x7;
+      const temp = this.registers[Rm];
+      this.PC = this.registers[Rm];
+      this.LR = opcodePC + 2;  // LR to point to next instruction
+      console.log('BX to', this.PC.toString(16));
+      console.log('from', this.LR.toString(16));
+    }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
       const Rn = (opcode >> 8) & 0x7;
