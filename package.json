@@ -18,9 +18,17 @@
   "devDependencies": {
     "@types/jest": "^26.0.20",
     "@types/node": "^14.14.22",
+    "husky": "^5.1.1",
     "jest": "^26.6.3",
+    "prettier": "^2.2.1",
+    "pretty-quick": "^3.1.0",
     "ts-jest": "^26.4.4",
     "ts-node": "^9.1.1",
     "typescript": "^4.1.3"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
   }
 }
