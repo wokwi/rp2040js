@@ -15,6 +15,9 @@ const SSI_SR_OFFSET = 0x00000028;
 const SSI_DR0_OFFSET = 0x00000060;
 const SSI_SR_BUSY_BITS = 0x00000001;
 const SSI_SR_TFE_BITS = 0x00000004;
+const CLOCKS_BASE = 0x40008000;
+const CLK_REF_SELECTED = 0x38;
+const CLK_SYS_SELECTED = 0x44;
 
 // export const APSR_N = 0x80000000;
 // export const APSR_Z = 0x40000000;
@@ -31,6 +34,8 @@ function signExtend8(value: number) {
 function signExtend16(value: number) {
   return value & 0x8000 ? 0x80000000 + (value & 0x7fff) : value;
 }
+
+const pcRegister = 15;
 
 export class RP2040 {
   readonly sram = new Uint8Array(264 * 1024);
@@ -71,6 +76,9 @@ export class RP2040 {
     this.readHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, () => {
       return dr0;
     });
+
+    this.readHooks.set(CLOCKS_BASE + CLK_REF_SELECTED, () => 1);
+    this.readHooks.set(CLOCKS_BASE + CLK_SYS_SELECTED, () => 1);
 
     loadHex(hex, this.flash);
   }
@@ -133,7 +141,7 @@ export class RP2040 {
 
   /** We assume the address is 32-bit aligned */
   readUint32(address: number) {
-    if (address < bootrom.length) {
+    if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
       return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
@@ -208,6 +216,24 @@ export class RP2040 {
         ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
         ((leftValue | 0) <= 0 && (rightValue | 0) <= 0 && (result | 0) > 0);
     }
+    // ADD (SP plus immediate)
+    else if (opcode >> 7 === 0b101100000) {
+      const imm32 = (opcode & 0x7f) << 2;
+      this.SP += imm32;
+    }
+    // ADDS (Encoding T1)
+    else if (opcode >> 9 === 0b0001110) {
+      const imm3 = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const leftValue = this.registers[Rn];
+      const result = leftValue + imm3;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = result >= 0xffffffff;
+      this.V = (leftValue | 0) > 0 && imm3 < 0x80 && (result | 0) < 0;
+    }
     // ADDS (Encoding T2)
     else if (opcode >> 11 === 0b00110) {
       const imm8 = opcode & 0xff;
@@ -220,11 +246,34 @@ export class RP2040 {
       this.C = result >= 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm8 < 0x80 && (result | 0) < 0;
     }
+    // ADDS (register)
+    else if (opcode >> 9 === 0b0001100) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const leftValue = this.registers[Rn];
+      const rightValue = this.registers[Rm];
+      const result = leftValue + rightValue;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = result >= 0xffffffff;
+      this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+    }
     // ADR
     else if (opcode >> 11 === 0b10100) {
       const imm8 = opcode & 0xff;
       const Rd = (opcode >> 8) & 0x7;
       this.registers[Rd] = (opcodePC & 0xfffffffc) + 4 + (imm8 << 2);
+    }
+    // ANDS (Encoding T2)
+    else if (opcode >> 6 === 0b0100000000) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const result = this.registers[Rdn] & this.registers[Rm];
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
     }
     // B (with cond)
     else if (opcode >> 12 === 0b1101) {
@@ -259,7 +308,7 @@ export class RP2040 {
       const J2 = (opcode2 >> 11) & 0x1;
       const J1 = (opcode2 >> 13) & 0x1;
       const imm10 = opcode & 0x3ff;
-      const S = (opcode2 >> 10) & 0x1;
+      const S = (opcode >> 10) & 0x1;
       const I1 = 1 - (S ^ J1);
       const I2 = 1 - (S ^ J2);
       const imm32 =
@@ -350,7 +399,7 @@ export class RP2040 {
       const imm5 = (opcode >> 6) & 0x1f;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const addr = this.registers[Rn] + imm5;
+      const addr = this.registers[Rn] + (imm5 << 1);
       this.registers[Rt] = this.readUint16(addr);
     }
     // LDRSH
@@ -385,6 +434,12 @@ export class RP2040 {
       this.Z = result === 0;
       this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
     }
+    // MOV
+    else if (opcode >> 8 === 0b01000110) {
+      const Rm = (opcode >> 3) & 0xf;
+      const Rd = ((opcode >> 4) & 0x8) | (opcode & 0x7);
+      this.registers[Rd] = Rm === pcRegister ? this.PC + 2 : this.registers[Rm];
+    }
     // MOVS
     else if (opcode >> 11 === 0b00100) {
       const value = opcode & 0xff;
@@ -392,6 +447,15 @@ export class RP2040 {
       this.registers[Rd] = value;
       this.N = !!(value & 0x80000000);
       this.Z = value === 0;
+    }
+    // ORRS (Encoding T2)
+    else if (opcode >> 6 === 0b0100001100) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const result = this.registers[Rdn] | this.registers[Rm];
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
     }
     // POP
     else if (opcode >> 9 === 0b1011110) {
@@ -440,6 +504,19 @@ export class RP2040 {
       this.C = value === -1;
       this.V = value === 0x7fffffff;
     }
+    // SBCS (Encoding T2)
+    else if (opcode >> 6 === 0b0100000110) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rdn = opcode & 0x7;
+      const operand1 = this.registers[Rdn];
+      const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
+      const result = (operand1 - operand2) | 0;
+      this.registers[Rdn] = result;
+      this.N = operand1 < operand2;
+      this.Z = operand1 === operand2;
+      this.C = operand1 >= operand2;
+      this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
+    }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
       const Rn = (opcode >> 8) & 0x7;
@@ -464,17 +541,49 @@ export class RP2040 {
       const address = this.registers[Rn] + imm5;
       this.writeUint32(address, this.registers[Rt]);
     }
+    // SUB (SP minus immediate)
+    else if (opcode >> 7 === 0b101100001) {
+      const imm32 = (opcode & 0x7f) << 2;
+      this.SP -= imm32;
+    }
+    // SUBS (Encoding T1)
+    else if (opcode >> 9 === 0b0001111) {
+      const imm3 = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const value = this.registers[Rn];
+      const result = (value - imm3) | 0;
+      this.registers[Rd] = result;
+      this.N = value < imm3;
+      this.Z = value === imm3;
+      this.C = value >= imm3;
+      this.V = (value | 0) < 0 && imm3 > 0 && result > 0;
+    }
     // SUBS (Encoding T2)
     else if (opcode >> 11 === 0b00111) {
-      let imm8 = opcode & 0xff;
-      let Rdn = (opcode >> 8) & 0x7;
-      let value = this.registers[Rdn];
+      const imm8 = opcode & 0xff;
+      const Rdn = (opcode >> 8) & 0x7;
+      const value = this.registers[Rdn];
       const result = (value - imm8) | 0;
       this.registers[Rdn] = result;
       this.N = value < imm8;
       this.Z = value === imm8;
       this.C = value >= imm8;
       this.V = (value | 0) < 0 && imm8 > 0 && result > 0;
+    }
+    // SUBS (register)
+    else if (opcode >> 9 === 0b0001101) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const leftValue = this.registers[Rn];
+      const rightValue = this.registers[Rm];
+      const result = (leftValue - rightValue) | 0;
+      this.registers[Rd] = result;
+      this.N = leftValue < rightValue;
+      this.Z = leftValue === rightValue;
+      this.C = leftValue >= rightValue;
+      this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
     }
     // TST
     else if (opcode >> 6 == 0b0100001000) {
