@@ -19,6 +19,9 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
+const SYSTEM_CONTROL_BLOCK = 0xe000ed00;
+const OFFSET_VTOR = 0x8;
+
 // export const APSR_N = 0x80000000;
 // export const APSR_Z = 0x40000000;
 // export const APSR_C = 0x20000000;
@@ -80,6 +83,16 @@ export class RP2040 {
     this.readHooks.set(CLOCKS_BASE + CLK_REF_SELECTED, () => 1);
     this.readHooks.set(CLOCKS_BASE + CLK_SYS_SELECTED, () => 1);
 
+    let VTOR = 0;
+    this.writeHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, (newValue) => {
+      console.log('we write to VicTOR');
+      VTOR = newValue;
+    });
+    this.readHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, () => {
+      console.log('we read from VicTOR');
+      return VTOR;
+    });
+
     loadHex(hex, this.flash);
   }
 
@@ -139,8 +152,11 @@ export class RP2040 {
     return cond & 0b1 && cond != 0b1111 ? !result : result;
   }
 
-  /** We assume the address is 32-bit aligned */
   readUint32(address: number) {
+    if (address & 0x3) {
+      throw new Error(`read from address ${address.toString(16)}, which is not 32 bit aligned`);
+    }
+    address = address >>> 0; // round to 32-bits, unsigned
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
@@ -193,6 +209,26 @@ export class RP2040 {
         hook(address, value);
       }
     }
+  }
+
+  writeUint8(address: number, value: number) {
+    const alignedAddress = address & 0xfffffffc;
+    const offset = address & 0x3;
+    const originalValue = this.readUint32(alignedAddress);
+    const newValue = new Uint32Array([originalValue]);
+    new DataView(newValue.buffer).setUint8(offset, value);
+    this.writeUint32(alignedAddress, newValue[0]);
+  }
+
+  writeUint16(address: number, value: number) {
+    // we assume that addess is 16-bit aligned.
+    // Ideally we should generate a fault if not!
+    const alignedAddress = address & 0xfffffffc;
+    const offset = address & 0x3;
+    const originalValue = this.readUint32(alignedAddress);
+    const newValue = new Uint32Array([originalValue]);
+    new DataView(newValue.buffer).setUint16(offset, value, true);
+    this.writeUint32(alignedAddress, newValue[0]);
   }
 
   executeInstruction() {
@@ -259,6 +295,23 @@ export class RP2040 {
       this.Z = (result & 0xffffffff) === 0;
       this.C = result >= 0xffffffff;
       this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+    }
+    // ADD (register)
+    else if (opcode >> 8 === 0b01000100) {
+      const regSP = 13;
+      const regPC = 15;
+      const Rm = (opcode >> 3) & 0xf;
+      const Rdn = ((opcode & 0x80) >> 4) | (opcode & 0x7);
+      const leftValue = Rdn === regPC ? this.PC + 2 : this.registers[Rdn];
+      const rightValue = this.registers[Rm];
+      const result = leftValue + rightValue;
+      this.registers[Rdn] = Rdn === regPC ? result & ~0x1 : result;
+      if (Rdn !== regSP && Rdn !== regPC) {
+        this.N = !!(result & 0x80000000);
+        this.Z = (result & 0xffffffff) === 0;
+        this.C = result >= 0xffffffff;
+        this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+      }
     }
     // ADR
     else if (opcode >> 11 === 0b10100) {
@@ -352,6 +405,10 @@ export class RP2040 {
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
     }
+    // DMB SY
+    else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
+      this.PC += 2;
+    }
     // LDMIA
     else if (opcode >> 11 === 0b11001) {
       const Rn = (opcode >> 8) & 0x7;
@@ -386,12 +443,30 @@ export class RP2040 {
       console.log('value: ', this.readUint32(addr).toString(16));
       this.registers[Rt] = this.readUint32(addr);
     }
+    // LDR (register)
+    else if (opcode >> 9 === 0b0101100) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rm] + this.registers[Rn];
+      console.log('reading from', addr.toString(16));
+      console.log('value: ', this.readUint32(addr).toString(16));
+      this.registers[Rt] = this.readUint32(addr);
+    }
     // LDRB (immediate)
     else if (opcode >> 11 === 0b01111) {
       const imm5 = (opcode >> 6) & 0x1f;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + imm5;
+      this.registers[Rt] = this.readUint8(addr);
+    }
+    // LDRB (register)
+    else if (opcode >> 9 === 0b0101110) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rm] + this.registers[Rn];
       this.registers[Rt] = this.readUint8(addr);
     }
     // LDRH (immediate)
@@ -402,6 +477,22 @@ export class RP2040 {
       const addr = this.registers[Rn] + (imm5 << 1);
       this.registers[Rt] = this.readUint16(addr);
     }
+    // LDRH (register)
+    else if (opcode >> 9 === 0b0101101) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rm] + this.registers[Rn];
+      this.registers[Rt] = this.readUint16(addr);
+    }
+    // LDRSB
+    else if (opcode >> 9 === 0b0101011) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addr = this.registers[Rm] + this.registers[Rn];
+      this.registers[Rt] = signExtend8(this.readUint8(addr));
+    }
     // LDRSH
     else if (opcode >> 9 === 0b0101111) {
       const Rm = (opcode >> 6) & 0x7;
@@ -410,7 +501,7 @@ export class RP2040 {
       const addr = this.registers[Rm] + this.registers[Rn];
       this.registers[Rt] = signExtend16(this.readUint16(addr));
     }
-    // LSLS
+    // LSLS (immediate)
     else if (opcode >> 11 === 0b00000) {
       const imm5 = (opcode >> 6) & 0x1f;
       const Rm = (opcode >> 3) & 0x7;
@@ -421,6 +512,18 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
       this.C = imm5 ? !!(input & (1 << (32 - imm5))) : this.C;
+    }
+    // LSLS (register)
+    else if (opcode >> 6 === 0b0100000010) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const input = this.registers[Rdn];
+      const shiftCount = this.registers[Rm] & 0xff;
+      const result = input << shiftCount;
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = shiftCount ? !!(input & (1 << (32 - shiftCount))) : this.C;
     }
     // LSLR (immediate)
     else if (opcode >> 11 === 0b00001) {
@@ -447,6 +550,16 @@ export class RP2040 {
       this.registers[Rd] = value;
       this.N = !!(value & 0x80000000);
       this.Z = value === 0;
+    }
+    // MRS
+    else if (opcode === 0b1111001111101111 && opcode2 >> 12 == 0b1000) {
+      this.PC += 2;
+      console.log('MRS!');
+    }
+    // MSR
+    else if (opcode >> 4 === 0b111100111000 && opcode2 >> 8 == 0b10001000) {
+      this.PC += 2;
+      console.log('MSR!');
     }
     // ORRS (Encoding T2)
     else if (opcode >> 6 === 0b0100001100) {
@@ -541,6 +654,46 @@ export class RP2040 {
       const address = this.registers[Rn] + imm5;
       this.writeUint32(address, this.registers[Rt]);
     }
+    // STR (register)
+    else if (opcode >> 9 === 0b0101000) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addres = this.registers[Rm] + this.registers[Rn];
+      this.writeUint32(addres, this.registers[Rt]);
+    }
+    // STRB (immediate)
+    else if (opcode >> 11 === 0b01110) {
+      const imm5 = (opcode >> 6) & 0x1f;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const address = this.registers[Rn] + imm5;
+      this.writeUint8(address, this.registers[Rt]);
+    }
+    // STRB (register)
+    else if (opcode >> 9 === 0b0101010) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addres = this.registers[Rm] + this.registers[Rn];
+      this.writeUint8(addres, this.registers[Rt]);
+    }
+    // STRH (immediate)
+    else if (opcode >> 11 === 0b10000) {
+      const imm5 = ((opcode >> 6) & 0x1f) << 1;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const address = this.registers[Rn] + imm5;
+      this.writeUint16(address, this.registers[Rt]);
+    }
+    // STRH (register)
+    else if (opcode >> 9 === 0b0101001) {
+      const Rm = (opcode >> 6) & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rt = opcode & 0x7;
+      const addres = this.registers[Rm] + this.registers[Rn];
+      this.writeUint16(addres, this.registers[Rt]);
+    }
     // SUB (SP minus immediate)
     else if (opcode >> 7 === 0b101100001) {
       const imm32 = (opcode & 0x7f) << 2;
@@ -600,6 +753,7 @@ export class RP2040 {
       this.registers[Rd] = this.registers[Rm] & 0xff;
     } else {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
+      console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }
   }
 }
