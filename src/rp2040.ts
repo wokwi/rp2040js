@@ -252,6 +252,12 @@ export class RP2040 {
         ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
         ((leftValue | 0) <= 0 && (rightValue | 0) <= 0 && (result | 0) > 0);
     }
+    // ADD (register = SP plus immediate)
+    else if (opcode >> 11 === 0b10101) {
+      const imm8 = opcode & 0xff;
+      const Rd = (opcode >> 8) & 0x7;
+      this.registers[Rd] = this.SP + (imm8 << 2);
+    }
     // ADD (SP plus immediate)
     else if (opcode >> 7 === 0b101100000) {
       const imm32 = (opcode & 0x7f) << 2;
@@ -355,6 +361,11 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
     }
+    // BKPT
+    else if (opcode >> 8 === 0b10111110) {
+      const imm8 = opcode & 0xff;
+      console.error('Breakpoint!', imm8);
+    }
     // BL
     else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11 && ((opcode2 >> 12) & 0x1) == 1) {
       const imm11 = opcode2 & 0x7ff;
@@ -404,6 +415,10 @@ export class RP2040 {
       this.V =
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
+    } else if (opcode === 0xb672) {
+      console.log('ignoring cpsid i');
+    } else if (opcode === 0xb662) {
+      console.log('ignoring cpsie i');
     }
     // DMB SY
     else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
@@ -431,6 +446,13 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + imm5;
+      this.registers[Rt] = this.readUint32(addr);
+    }
+    // LDR (sp + immediate)
+    else if (opcode >> 11 === 0b10011) {
+      const Rt = (opcode >> 8) & 0x7;
+      const imm8 = opcode & 0xff;
+      const addr = this.SP + (imm8 << 2);
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDR (literal)
@@ -525,7 +547,7 @@ export class RP2040 {
       this.Z = result === 0;
       this.C = shiftCount ? !!(input & (1 << (32 - shiftCount))) : this.C;
     }
-    // LSLR (immediate)
+    // LSRS (immediate)
     else if (opcode >> 11 === 0b00001) {
       const imm5 = (opcode >> 6) & 0x1f;
       const Rm = (opcode >> 3) & 0x7;
@@ -536,6 +558,18 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
       this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
+    }
+    // LSRS (register)
+    else if (opcode >> 6 === 0b0100000011) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const shiftAmount = this.registers[Rm] & 0xff;
+      const input = this.registers[Rdn];
+      const result = input >>> shiftAmount;
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = !!((input >>> (shiftAmount - 1)) & 0x1);
     }
     // MOV
     else if (opcode >> 8 === 0b01000110) {
@@ -560,6 +594,15 @@ export class RP2040 {
     else if (opcode >> 4 === 0b111100111000 && opcode2 >> 8 == 0b10001000) {
       this.PC += 2;
       console.log('MSR!');
+    }
+    // MVNS
+    else if (opcode >> 6 === 0b0100001111) {
+      const Rm = (opcode >> 3) & 7;
+      const Rd = opcode & 7;
+      const result = ~this.registers[Rm];
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
     }
     // ORRS (Encoding T2)
     else if (opcode >> 6 === 0b0100001100) {
@@ -630,6 +673,10 @@ export class RP2040 {
       this.C = operand1 >= operand2;
       this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
     }
+    // SEV
+    else if (opcode === 0b1011111101000000) {
+      console.log('SEV');
+    }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
       const Rn = (opcode >> 8) & 0x7;
@@ -652,6 +699,13 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
+      this.writeUint32(address, this.registers[Rt]);
+    }
+    // STR (sp + immediate)
+    else if (opcode >> 11 === 0b10010) {
+      const Rt = (opcode >> 8) & 0x7;
+      const imm8 = opcode & 0xff;
+      const address = this.SP + (imm8 << 2);
       this.writeUint32(address, this.registers[Rt]);
     }
     // STR (register)

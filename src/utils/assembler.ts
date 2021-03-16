@@ -10,6 +10,10 @@ export function opcodeADDS2(Rdn: number, imm8: number) {
   return (0b00110 << 11) | ((Rdn & 7) << 8) | (imm8 & 0xff);
 }
 
+export function opcodeADDspPlusImm(Rd: number, imm8: number) {
+  return (0b10101 << 11) | ((Rd & 7) << 8) | ((imm8 >> 2) & 0xff);
+}
+
 export function opcodeADDsp2(imm: number) {
   return (0b101100000 << 7) | ((imm >> 2) & 0x7f);
 }
@@ -65,6 +69,10 @@ export function opcodeLDRB(Rt: number, Rn: number, imm5: number) {
   return (0b01111 << 11) | ((imm5 & 0x1f) << 6) | ((Rn & 0x7) << 3) | (Rt & 0x7);
 }
 
+export function opcodeLDRsp(Rt: number, imm8: number) {
+  return (0b10011 << 11) | ((Rt & 7) << 8) | ((imm8 >> 2) & 0xff);
+}
+
 export function opcodeLDRBreg(Rt: number, Rn: number, Rm: number) {
   return (0b0101110 << 9) | ((Rm & 0x7) << 6) | ((Rn & 0x7) << 3) | (Rt & 0x7);
 }
@@ -93,6 +101,10 @@ export function opcodeLSRS(Rd: number, Rm: number, imm5: number) {
   return (0b00001 << 11) | ((imm5 & 0x1f) << 6) | ((Rm & 0x7) << 3) | (Rd & 0x7);
 }
 
+export function opcodeLSRSreg(Rdn: number, Rm: number) {
+  return (0b0100000011 << 6) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
+}
+
 export function opcodeMOV(Rd: number, Rm: number) {
   return (0b01000110 << 8) | ((Rd & 0x8 ? 1 : 0) << 7) | (Rm << 3) | (Rd & 0x7);
 }
@@ -105,6 +117,10 @@ export function opcodeMRS(Rd: number, specReg: number) {
 
 export function opcodeMSR(specReg: number, Rn: number) {
   return ((0b10001000 << 24) | ((specReg & 0xff) << 16) | (0b111100111000 << 4) | (Rn & 0xf)) >>> 0;
+}
+
+export function opcodeMVNS(Rd: number, Rm: number) {
+  return (0b0100001111 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
 
 export function opcodeORRS(Rn: number, Rm: number) {
@@ -129,6 +145,10 @@ export function opcodeSTMIA(Rn: number, registers: number) {
 
 export function opcodeSTR(Rt: number, Rm: number, imm5: number) {
   return (0b01100 << 11) | (((imm5 >> 2) & 0x1f) << 6) | ((Rm & 0x7) << 3) | (Rt & 0x7);
+}
+
+export function opcodeSTRsp(Rt: number, imm8: number) {
+  return (0b10010 << 11) | ((Rt & 7) << 8) | ((imm8 >> 2) & 0xff);
 }
 
 export function opcodeSTRreg(Rt: number, Rn: number, Rm: number) {

@@ -5,6 +5,7 @@ import {
   opcodeADDS1,
   opcodeADDS2,
   opcodeADDsp2,
+  opcodeADDspPlusImm,
   opcodeADDSreg,
   opcodeADR,
   opcodeANDS,
@@ -20,9 +21,12 @@ import {
   opcodeLDRreg,
   opcodeLDRSB,
   opcodeLDRSH,
+  opcodeLDRsp,
   opcodeLSLSreg,
   opcodeLSRS,
+  opcodeLSRSreg,
   opcodeMOV,
+  opcodeMVNS,
   opcodeORRS,
   opcodePOP,
   opcodeRSBS,
@@ -34,6 +38,7 @@ import {
   opcodeSTRH,
   opcodeSTRHreg,
   opcodeSTRreg,
+  opcodeSTRsp,
   opcodeSUBS1,
   opcodeSUBS2,
   opcodeSUBsp,
@@ -100,6 +105,17 @@ describe('RP2040', () => {
       rp2040.flash16[0] = opcodeADDsp2(0x10);
       rp2040.executeInstruction();
       expect(rp2040.SP).toEqual(0x10000050);
+    });
+
+    it('should execute a `add r1, sp, #4` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.SP = 0x55;
+      rp2040.flash16[0] = opcodeADDspPlusImm(r1, 0x10);
+      rp2040.registers[1] = 0;
+      rp2040.executeInstruction();
+      expect(rp2040.SP).toEqual(0x55);
+      expect(rp2040.registers[1]).toEqual(0x65);
     });
 
     it('should execute `adds r1, r2, #3` instruction', () => {
@@ -327,6 +343,17 @@ describe('RP2040', () => {
       expect(rp2040.registers[r3]).toEqual(0x10000004);
     });
 
+    it('should execute a `mvns r4, r3` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeMVNS(r4, r3);
+      rp2040.registers[r3] = 0x11115555;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r4]).toEqual(0xeeeeaaaa);
+      expect(rp2040.Z).toBe(false);
+      expect(rp2040.N).toBe(true);
+    });
+
     it('should execute `orrs r5, r0` instruction', () => {
       const rp2040 = new RP2040('');
       rp2040.PC = 0x10000000;
@@ -426,6 +453,16 @@ describe('RP2040', () => {
       rp2040.flash16[0] = 0x6993; // ldr r3, [r2, #24]
       rp2040.registers[r2] = 0x20000000;
       rp2040.sram[24] = 0x55;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0x55);
+    });
+
+    it('should execute an `ldr r3, [sp, #12]` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.SP = 0x20000000;
+      rp2040.flash16[0] = opcodeLDRsp(r3, 12);
+      rp2040.sram[12] = 0x55;
       rp2040.executeInstruction();
       expect(rp2040.registers[r3]).toEqual(0x55);
     });
@@ -565,6 +602,18 @@ describe('RP2040', () => {
       expect(rp2040.C).toEqual(true);
     });
 
+    it('should execute a `lsrs r5, r0` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeLSRSreg(r5, r0);
+      rp2040.registers[r5] = 0xff00000f;
+      rp2040.registers[r0] = 0xff003302; // Shift amount: 02
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r5]).toEqual(0x3fc00003);
+      expect(rp2040.PC).toEqual(0x10000002);
+      expect(rp2040.C).toEqual(true);
+    });
+
     it('should execute a `lsrs r1, r1, #1` instruction', () => {
       const rp2040 = new RP2040('');
       rp2040.PC = 0x10000000;
@@ -660,6 +709,17 @@ describe('RP2040', () => {
       rp2040.executeInstruction();
       expect(rp2040.sramView.getUint32(0x20 + 20, true)).toEqual(0xf00d);
       expect(rp2040.PC).toEqual(0x10000002);
+    });
+
+    it('should execute an `str r3, [sp, #12]` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.SP = 0x20000000;
+      rp2040.flash16[0] = opcodeSTRsp(r3, 12);
+      rp2040.registers[r3] = 0xaa55;
+      rp2040.executeInstruction();
+      expect(rp2040.sram[12]).toEqual(0x55);
+      expect(rp2040.sram[13]).toEqual(0xaa);
     });
 
     it('should execute a `strb r6, [r4, #20]` instruction', () => {

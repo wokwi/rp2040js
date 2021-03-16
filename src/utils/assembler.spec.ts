@@ -4,6 +4,7 @@ import {
   opcodeADDS1,
   opcodeADDS2,
   opcodeADDsp2,
+  opcodeADDspPlusImm,
   opcodeADDSreg,
   opcodeADR,
   opcodeANDS,
@@ -21,9 +22,11 @@ import {
   opcodeLDRSH,
   opcodeLSLSreg,
   opcodeLSRS,
+  opcodeLSRSreg,
   opcodeMOV,
   opcodeMRS,
   opcodeMSR,
+  opcodeMVNS,
   opcodeORRS,
   opcodePOP,
   opcodeRSBS,
@@ -35,6 +38,7 @@ import {
   opcodeSTRH,
   opcodeSTRHreg,
   opcodeSTRreg,
+  opcodeSTRsp,
   opcodeSUBS1,
   opcodeSUBS2,
   opcodeSUBsp,
@@ -60,6 +64,10 @@ const PRIMASK = 16;
 describe('assembler', () => {
   it('should correctly encode an `adc r3, r0` instruction', () => {
     expect(opcodeADCS(r3, r0)).toEqual(0x4143);
+  });
+
+  it('should correctly encode an `add r1, sp, #4`', () => {
+    expect(opcodeADDspPlusImm(r1, 4)).toEqual(0xa901);
   });
 
   it('should correctly encode an `add sp, #12` instruction', () => {
@@ -126,6 +134,10 @@ describe('assembler', () => {
     expect(opcodeLSRS(r1, r1, 1)).toEqual(0x0849);
   });
 
+  it('should correctly encode an `lsrs r0, r4` instruction', () => {
+    expect(opcodeLSRSreg(r0, r4)).toEqual(0x40e0);
+  });
+
   it('should correctly encode an `ldr r3, [r3, r4]', () => {
     expect(opcodeLDRreg(r3, r3, r4)).toEqual(0x591b);
   });
@@ -166,6 +178,10 @@ describe('assembler', () => {
     expect(opcodeMSR(PRIMASK, r6)).toEqual(0x8810f386);
   });
 
+  it('should correctly encode an `mvns r3, r3` instruction', () => {
+    expect(opcodeMVNS(r3, r3)).toEqual(0x43db);
+  });
+
   it('should correctly encode an `prrs r3, r0` instruction', () => {
     expect(opcodeORRS(r3, r0)).toEqual(0x4303);
   });
@@ -188,6 +204,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `str r6, [r4, #20]` instruction', () => {
     expect(opcodeSTR(r6, r4, 20)).toEqual(0x6166);
+  });
+
+  it('should correctly encode an `str r1, [sp, #4]` instruction', () => {
+    expect(opcodeSTRsp(r1, 4)).toEqual(0x9101);
   });
 
   it('should correctly encode an `str r2, [r1, r4]` instruction', () => {
