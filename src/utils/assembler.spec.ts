@@ -8,10 +8,12 @@ import {
   opcodeADDSreg,
   opcodeADR,
   opcodeANDS,
+  opcodeASRS,
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
   opcodeBX,
+  opcodeEORS,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLDRBreg,
@@ -43,6 +45,7 @@ import {
   opcodeSUBS2,
   opcodeSUBsp,
   opcodeSUBSreg,
+  opcodeSXTB,
   opcodeUXTB,
 } from './assembler';
 
@@ -98,6 +101,10 @@ describe('assembler', () => {
     expect(opcodeADR(r4, 52)).toEqual(0xa40d);
   });
 
+  it('should correctly encode an `asrs r3, r2, #31` instruction', () => {
+    expect(opcodeASRS(r3, r2, 31)).toEqual(0x17d3);
+  });
+
   it('should correctly encode an `bics r0, r3` instruction', () => {
     expect(opcodeBICS(r0, r3)).toEqual(0x4398);
   });
@@ -120,6 +127,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `bx lr` instruction', () => {
     expect(opcodeBX(lr)).toEqual(0x4770);
+  });
+
+  it('should correctly encode an `eors r1, r3` instruction', () => {
+    expect(opcodeEORS(r1, r3)).toEqual(0x4059);
   });
 
   it('should correctly encode an `ldmia r0!, {r1, r2}` instruction', () => {
@@ -244,6 +255,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `subs r3, #13` instruction', () => {
     expect(opcodeSUBS2(r3, 13)).toEqual(0x3b0d);
+  });
+
+  it('should correctly encode an `sxtb r2, r2` instruction', () => {
+    expect(opcodeSXTB(r2, r2)).toEqual(0xb252);
   });
 
   it('should correctly encode an `uxtb r3, r3` instruction', () => {

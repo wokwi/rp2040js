@@ -34,6 +34,10 @@ export function opcodeANDS(Rn: number, Rm: number) {
   return (0b0100000000 << 6) | ((Rm & 7) << 3) | (Rn & 0x7);
 }
 
+export function opcodeASRS(Rd: number, Rm: number, imm5: number) {
+  return (0b00010 << 11) | ((imm5 & 0x1f) << 6) | ((Rm & 0x7) << 3) | (Rd & 0x7);
+}
+
 export function opcodeBICS(Rdn: number, Rm: number) {
   return (0b0100001110 << 6) | ((Rm & 7) << 3) | (Rdn & 7);
 }
@@ -55,6 +59,10 @@ export function opcodeBLX(Rm: number) {
 
 export function opcodeBX(Rm: number) {
   return (0b010001110 << 7) | (Rm << 3);
+}
+
+export function opcodeEORS(Rdn: number, Rm: number) {
+  return (0b0100000001 << 6) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
 }
 
 export function opcodeLDMIA(Rn: number, registers: number) {
@@ -185,6 +193,10 @@ export function opcodeSUBSreg(Rd: number, Rn: number, Rm: number) {
 
 export function opcodeSUBsp(imm: number) {
   return (0b101100001 << 7) | ((imm >> 2) & 0x7f);
+}
+
+export function opcodeSXTB(Rd: number, Rm: number) {
+  return (0b1011001001 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
 
 export function opcodeUXTB(Rd: number, Rm: number) {

@@ -9,10 +9,12 @@ import {
   opcodeADDSreg,
   opcodeADR,
   opcodeANDS,
+  opcodeASRS,
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
   opcodeBX,
+  opcodeEORS,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLDRBreg,
@@ -43,6 +45,7 @@ import {
   opcodeSUBS2,
   opcodeSUBsp,
   opcodeSUBSreg,
+  opcodeSXTB,
   opcodeUXTB,
 } from './utils/assembler';
 
@@ -213,6 +216,19 @@ describe('RP2040', () => {
       expect(rp2040.Z).toEqual(false);
     });
 
+    it('should execute an `asrs r3, r2, #31` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeASRS(r3, r2, 31);
+      rp2040.registers[r2] = 0x80000000;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0xffffffff);
+      expect(rp2040.PC).toEqual(0x10000002);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(false);
+    });
+
     it('should execute `bics r0, r3` correctly', () => {
       const rp2040 = new RP2040('');
       rp2040.PC = 0x10000000;
@@ -324,6 +340,18 @@ describe('RP2040', () => {
       expect(rp2040.Z).toEqual(false);
       expect(rp2040.C).toEqual(true);
       expect(rp2040.V).toEqual(false);
+    });
+
+    it('should execute an `eors r1, r3` instruction', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeEORS(r1, r3);
+      rp2040.registers[r1] = 0xf0f0f0f0;
+      rp2040.registers[r3] = 0x08ff3007;      
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r1]).toEqual(0xf80fc0f7);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
     });
 
     it('should execute a `mov r3, r8` instruction', () => {
@@ -823,6 +851,24 @@ describe('RP2040', () => {
       expect(rp2040.Z).toEqual(false);
       expect(rp2040.C).toEqual(true);
       expect(rp2040.V).toEqual(false);
+    });
+
+    it('should execute a `sxtb r2, r2` instruction with sign bit 1', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeSXTB(r2, r2);
+      rp2040.registers[r2] = 0x22446688;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(0xffffff88);
+    });
+
+    it('should execute a `sxtb r2, r2` instruction with sign bit 0', () => {
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeSXTB(r2, r2);
+      rp2040.registers[r2] = 0x12345678;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(0x78);
     });
 
     it('should execute an `tst r1, r3` instruction when the result is negative', () => {

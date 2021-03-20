@@ -334,6 +334,18 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
     }
+    // ASRS (immediate)
+    else if (opcode >> 11 === 0b00010) {
+      const imm5 = (opcode >> 6) & 0x1f;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      const result = imm5 ? this.registers[Rm] >> imm5 : 0;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
+    }
     // B (with cond)
     else if (opcode >> 12 === 0b1101) {
       let imm8 = (opcode & 0xff) << 1;
@@ -423,6 +435,15 @@ export class RP2040 {
     // DMB SY
     else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
       this.PC += 2;
+    }
+    // EORS
+    else if (opcode >> 6 === 0b0100000001) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const result = this.registers[Rm] ^ this.registers[Rdn];
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
     }
     // LDMIA
     else if (opcode >> 11 === 0b11001) {
@@ -791,6 +812,12 @@ export class RP2040 {
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
+    }
+    // SXTB
+    else if (opcode >> 6 === 0b1011001001) {
+        const Rm = (opcode >> 3) & 0x7;
+        const Rd = opcode & 0x7;
+        this.registers[Rd] = ((this.registers[Rm] & 0xff) << 24) >> 24;
     }
     // TST
     else if (opcode >> 6 == 0b0100001000) {
