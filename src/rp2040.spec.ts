@@ -582,7 +582,7 @@ describe('RP2040', () => {
       rp2040.registers[r5] = 6;
       rp2040.sram[6] = 0x85;
       rp2040.executeInstruction();
-      expect(rp2040.registers[r5]).toEqual(0x80000005);
+      expect(rp2040.registers[r5]).toEqual(0xffffff85);
     });
 
     it('should execute an `ldrsh r5, [r3, r5]` instruction', () => {
@@ -594,7 +594,7 @@ describe('RP2040', () => {
       rp2040.sram[6] = 0x55;
       rp2040.sram[7] = 0xf0;
       rp2040.executeInstruction();
-      expect(rp2040.registers[r5]).toEqual(0x80007055);
+      expect(rp2040.registers[r5]).toEqual(0xfffff055);
     });
 
     it('should execute a `lsls r5, r5, #18` instruction', () => {

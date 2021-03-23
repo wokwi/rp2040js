@@ -31,11 +31,11 @@ export type CPUWriteCallback = (address: number, value: number) => void;
 export type CPUReadCallback = (address: number) => number;
 
 function signExtend8(value: number) {
-  return value & 0x80 ? 0x80000000 + (value & 0x7f) : value;
+  return (value << 24) >> 24;
 }
 
 function signExtend16(value: number) {
-  return value & 0x8000 ? 0x80000000 + (value & 0x7fff) : value;
+  return (value << 16) >> 16;
 }
 
 const pcRegister = 15;
@@ -815,9 +815,9 @@ export class RP2040 {
     }
     // SXTB
     else if (opcode >> 6 === 0b1011001001) {
-        const Rm = (opcode >> 3) & 0x7;
-        const Rd = opcode & 0x7;
-        this.registers[Rd] = ((this.registers[Rm] & 0xff) << 24) >> 24;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      this.registers[Rd] = signExtend8(this.registers[Rm]);
     }
     // TST
     else if (opcode >> 6 == 0b0100001000) {
