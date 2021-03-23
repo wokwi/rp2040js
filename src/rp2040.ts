@@ -51,11 +51,20 @@ export class RP2040 {
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
 
+  private stopped = false;
+
   // APSR fields
   public N: boolean = false;
   public C: boolean = false;
   public Z: boolean = false;
   public V: boolean = false;
+
+  // Debugging
+  public onBreak = (code: number) => {
+    // TODO: raise HardFault exception
+    console.error('Breakpoint!', code);
+    this.stopped = true;
+  };
 
   constructor(hex: string) {
     this.SP = bootrom[0];
@@ -185,7 +194,11 @@ export class RP2040 {
   }
 
   writeUint32(address: number, value: number) {
-    if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+    if (address < bootrom.length * 4) {
+      bootrom[address / 4] = value;
+    } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+      this.flashView.setUint32(address - FLASH_START_ADDRESS, value, true);
+    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       const sioAddress = address - SIO_START_ADDRESS;
@@ -207,6 +220,8 @@ export class RP2040 {
       const hook = this.writeHooks.get(address);
       if (hook) {
         hook(address, value);
+      } else {
+        console.error(`Write to undefined address: ${address.toString(16)}`);
       }
     }
   }
@@ -347,7 +362,7 @@ export class RP2040 {
       this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
     }
     // B (with cond)
-    else if (opcode >> 12 === 0b1101) {
+    else if (opcode >> 12 === 0b1101 && ((opcode >> 9) & 0x7) !== 0b111) {
       let imm8 = (opcode & 0xff) << 1;
       const cond = (opcode >> 8) & 0xf;
       if (imm8 & (1 << 8)) {
@@ -376,7 +391,7 @@ export class RP2040 {
     // BKPT
     else if (opcode >> 8 === 0b10111110) {
       const imm8 = opcode & 0xff;
-      console.error('Breakpoint!', imm8);
+      this.onBreak(imm8);
     }
     // BL
     else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11 && ((opcode2 >> 12) & 0x1) == 1) {
@@ -827,6 +842,11 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
     }
+    // UDF
+    else if (opcode >> 8 == 0b11011110) {
+      const imm8 = opcode & 0xff;
+      this.onBreak(imm8);
+    }
     // UXTB
     else if (opcode >> 6 == 0b1011001011) {
       const Rm = (opcode >> 3) & 0x7;
@@ -836,5 +856,16 @@ export class RP2040 {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }
+  }
+
+  execute() {
+    this.stopped = false;
+    while (!this.stopped) {
+      this.executeInstruction();
+    }
+  }
+
+  stop() {
+    this.stopped = true;
   }
 }

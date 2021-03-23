@@ -597,6 +597,17 @@ describe('RP2040', () => {
       expect(rp2040.registers[r5]).toEqual(0xfffff055);
     });
 
+    it('should execute a `udf 1` instruction', () => {
+      const breakMock = jest.fn();
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = 0xde01; // udf 1
+      rp2040.onBreak = breakMock;
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x10000002);
+      expect(breakMock).toHaveBeenCalledWith(1);
+    });
+
     it('should execute a `lsls r5, r5, #18` instruction', () => {
       const rp2040 = new RP2040('');
       rp2040.PC = 0x10000000;
