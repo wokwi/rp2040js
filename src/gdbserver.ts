@@ -11,12 +11,22 @@ import * as fs from 'fs';
 const GDB_PORT = 3333;
 const DEBUG = true;
 
+const STOP_REPLY_TRAP = 'S05';
+
 function encodeHexByte(value: number) {
   return (value >> 4).toString(16) + (value & 0xf).toString(16);
 }
 
 function encodeHexBuf(buf: Uint8Array) {
   return Array.from(buf).map(encodeHexByte).join('');
+}
+
+function decodeHexBuf(encoded: string) {
+  const result = new Uint8Array(encoded.length / 2);
+  for (let i = 0; i < result.length; i++) {
+    result[i] = parseInt(encoded.substr(i * 2, 2), 16);
+  }
+  return result;
 }
 
 function gdbChecksum(text: string) {
@@ -34,10 +44,7 @@ function gdbResponse(value: string) {
 
 const hex = fs.readFileSync('src/hello_uart.hex', 'utf-8');
 const rp2040 = new RP2040(hex);
-rp2040.PC = 0x10000000;
-for (let i = 0; i < 20000; i++) {
-  rp2040.executeInstruction();
-}
+rp2040.PC = 0x10000001;
 
 function processGDBMessage(cmd: string) {
   if (cmd === 'Hg0') {
@@ -46,24 +53,45 @@ function processGDBMessage(cmd: string) {
 
   switch (cmd[0]) {
     case '?':
-      return gdbResponse('S05');
+      return gdbResponse(STOP_REPLY_TRAP);
 
     case 'q':
+      // Query things
       if (cmd.startsWith('qSupported:')) {
-        return gdbResponse('PacketSize=4000');
+        return gdbResponse('PacketSize=4000;vContSupported+');
       }
       if (cmd === 'qAttached') {
         return gdbResponse('1');
       }
       return gdbResponse('');
 
-    case 'g':
+    case 'v':
+      if (cmd === 'vCont?') {
+        return gdbResponse('vCont;c;C;s;S');
+      }
+      if (cmd.startsWith('vCont;c')) {
+        rp2040.execute();
+      }
+      if (cmd.startsWith('vCont;s')) {
+        rp2040.executeInstruction();
+        return gdbResponse(STOP_REPLY_TRAP);
+      }
+      break;
+
+    case 'c':
+      rp2040.execute();
+      break;
+
+    case 'g': {
+      // Read registers
       const buf = new Uint32Array(17);
-      buf[16] = 0; // TODO XPSR, which is APSR+EPSR+IPSR
+      buf[16] = 0; // TODO XPSR, which is APSR+EPSR+IPSR - Figure B1-1 in the Armv6-m manual ;)
       buf.set(rp2040.registers);
       return gdbResponse(encodeHexBuf(new Uint8Array(buf.buffer)));
+    }
 
-    case 'm':
+    case 'm': {
+      // Read memory
       const params = cmd.substr(1).split(',');
       const address = parseInt(params[0], 16);
       const length = parseInt(params[1], 16);
@@ -73,10 +101,23 @@ function processGDBMessage(cmd: string) {
         result += encodeHexByte(rp2040.readUint8(address + i));
       }
       return gdbResponse(result);
+    }
 
-    default:
-      return gdbResponse('');
+    case 'M': {
+      // Write memory
+      const params = cmd.substr(1).split(/[,:]/);
+      const address = parseInt(params[0], 16);
+      const length = parseInt(params[1], 16);
+      const data = decodeHexBuf(params[2].substr(0, length * 2));
+      for (let i = 0; i < data.length; i++) {
+        console.log('write', data[i].toString(16), 'to', (address + i).toString(16));
+        rp2040.writeUint8(address + i, data[i]);
+      }
+      return gdbResponse('OK');
+    }
   }
+
+  return gdbResponse('');
 }
 
 const gdbserver = createServer();
@@ -86,6 +127,12 @@ console.log(`RP2040 GDB Server ready! Listening on port ${GDB_PORT}`);
 
 gdbserver.on('connection', (socket) => {
   console.log('GDB connected\n');
+
+  rp2040.onBreak = () => {
+    rp2040.stop();
+    rp2040.PC -= 2;
+    socket.write(gdbResponse(STOP_REPLY_TRAP));
+  };
 
   let buf = '';
   socket.on('data', (data) => {
