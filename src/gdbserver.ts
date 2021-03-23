@@ -90,6 +90,19 @@ function processGDBMessage(cmd: string) {
       return gdbResponse(encodeHexBuf(new Uint8Array(buf.buffer)));
     }
 
+    case 'P': {
+      // Write register
+      const params = cmd.substr(1).split('=');
+      const registerIndex = parseInt(params[0], 16);
+      const registerValue = params[1].trim();
+      if (registerIndex < 0 || registerIndex > 15 || registerValue.length !== 8) {
+        return gdbResponse('E00');
+      }
+      const valueBuffer = new Uint8Array(decodeHexBuf(registerValue)).buffer;
+      rp2040.registers[registerIndex] = new DataView(valueBuffer).getUint32(0, true);
+      return gdbResponse('OK');
+    }
+
     case 'm': {
       // Read memory
       const params = cmd.substr(1).split(',');
