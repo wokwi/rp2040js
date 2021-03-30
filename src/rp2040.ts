@@ -61,6 +61,8 @@ export class RP2040 {
 
   public IPSR: number = 0;
 
+  private executeTimer: NodeJS.Timeout | null = null;
+
   // Debugging
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
@@ -887,12 +889,17 @@ export class RP2040 {
 
   execute() {
     this.stopped = false;
-    while (!this.stopped) {
+    for (let i = 0; i < 1000 && !this.stopped; i++) {
       this.executeInstruction();
     }
+    this.executeTimer = setTimeout(() => this.execute(), 0);
   }
 
   stop() {
     this.stopped = true;
+    if (this.executeTimer != null) {
+      clearTimeout(this.executeTimer);
+      this.executeTimer = null;
+    }
   }
 }

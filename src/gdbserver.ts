@@ -11,6 +11,7 @@ import * as fs from 'fs';
 const GDB_PORT = 3333;
 const DEBUG = false;
 
+const STOP_REPLY_SIGINT = 'S02';
 const STOP_REPLY_TRAP = 'S05';
 
 function encodeHexByte(value: number) {
@@ -71,6 +72,7 @@ function processGDBMessage(cmd: string) {
       }
       if (cmd.startsWith('vCont;c')) {
         rp2040.execute();
+        return;
       }
       if (cmd.startsWith('vCont;s')) {
         rp2040.executeInstruction();
@@ -156,6 +158,8 @@ gdbserver.on('connection', (socket) => {
   socket.on('data', (data) => {
     if (data[0] === 3) {
       console.log('BREAK');
+      rp2040.stop();
+      socket.write(gdbResponse(STOP_REPLY_SIGINT));
       data = data.slice(1);
     }
 
