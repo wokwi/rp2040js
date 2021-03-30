@@ -1,7 +1,8 @@
 // Run blink!
 
-import { loadHex } from './intelhex';
 import { bootrom } from './bootrom';
+import { loadHex } from './intelhex';
+import { RPUART, UART0_BASE, UART1_BASE } from './uart';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -52,6 +53,8 @@ export class RP2040 {
 
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
+
+  readonly uart = [new RPUART(this, UART0_BASE), new RPUART(this, UART1_BASE)];
 
   private stopped = false;
 

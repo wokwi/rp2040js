@@ -46,6 +46,9 @@ function gdbResponse(value: string) {
 const hex = fs.readFileSync('src/hello_uart.hex', 'utf-8');
 const rp2040 = new RP2040(hex);
 rp2040.PC = 0x10000001;
+rp2040.uart[0].onByte = (value) => {
+  console.log('UART sent: ', String.fromCharCode(value));
+};
 
 function processGDBMessage(cmd: string) {
   if (cmd === 'Hg0') {
