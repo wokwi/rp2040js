@@ -888,11 +888,14 @@ export class RP2040 {
   }
 
   execute() {
+    this.executeTimer = null;
     this.stopped = false;
     for (let i = 0; i < 1000 && !this.stopped; i++) {
       this.executeInstruction();
     }
-    this.executeTimer = setTimeout(() => this.execute(), 0);
+    if (!this.stopped) {
+      this.executeTimer = setTimeout(() => this.execute(), 0);
+    }
   }
 
   stop() {

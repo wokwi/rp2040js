@@ -115,7 +115,6 @@ function processGDBMessage(cmd: string) {
       const params = cmd.substr(1).split(',');
       const address = parseInt(params[0], 16);
       const length = parseInt(params[1], 16);
-      console.log('Reading from', address, 'count', length);
       let result = '';
       for (let i = 0; i < length; i++) {
         result += encodeHexByte(rp2040.readUint8(address + i));
