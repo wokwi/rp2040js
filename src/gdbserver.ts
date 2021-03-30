@@ -9,7 +9,7 @@ import { RP2040 } from './rp2040';
 import * as fs from 'fs';
 
 const GDB_PORT = 3333;
-const DEBUG = true;
+const DEBUG = false;
 
 const STOP_REPLY_TRAP = 'S05';
 
@@ -85,8 +85,8 @@ function processGDBMessage(cmd: string) {
     case 'g': {
       // Read registers
       const buf = new Uint32Array(17);
-      buf[16] = 0; // TODO XPSR, which is APSR+EPSR+IPSR - Figure B1-1 in the Armv6-m manual ;)
       buf.set(rp2040.registers);
+      buf[16] = rp2040.xPSR;
       return gdbResponse(encodeHexBuf(new Uint8Array(buf.buffer)));
     }
 
@@ -95,11 +95,16 @@ function processGDBMessage(cmd: string) {
       const params = cmd.substr(1).split('=');
       const registerIndex = parseInt(params[0], 16);
       const registerValue = params[1].trim();
-      if (registerIndex < 0 || registerIndex > 15 || registerValue.length !== 8) {
+      if (registerIndex < 0 || registerIndex > 16 || registerValue.length !== 8) {
         return gdbResponse('E00');
       }
       const valueBuffer = new Uint8Array(decodeHexBuf(registerValue)).buffer;
-      rp2040.registers[registerIndex] = new DataView(valueBuffer).getUint32(0, true);
+      const value = new DataView(valueBuffer).getUint32(0, true);
+      if (registerIndex === 16) {
+        rp2040.xPSR = value;
+      } else {
+        rp2040.registers[registerIndex] = value;
+      }
       return gdbResponse('OK');
     }
 

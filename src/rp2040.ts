@@ -59,6 +59,8 @@ export class RP2040 {
   public Z: boolean = false;
   public V: boolean = false;
 
+  public IPSR: number = 0;
+
   // Debugging
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
@@ -127,6 +129,31 @@ export class RP2040 {
 
   set PC(value: number) {
     this.registers[15] = value;
+  }
+
+  get APSR() {
+    return (
+      (this.N ? 0x8000000 : 0) |
+      (this.Z ? 0x4000000 : 0) |
+      (this.C ? 0x2000000 : 0) |
+      (this.V ? 0x1000000 : 0)
+    );
+  }
+
+  set APSR(value: number) {
+    this.N = !!(value & 0x8000000);
+    this.Z = !!(value & 0x4000000);
+    this.C = !!(value & 0x2000000);
+    this.V = !!(value & 0x1000000);
+  }
+
+  get xPSR() {
+    return this.APSR | this.IPSR | (1 << 24);
+  }
+
+  set xPSR(value: number) {
+    this.APSR = value;
+    this.IPSR = value & 0x3f;
   }
 
   checkCondition(cond: number) {
