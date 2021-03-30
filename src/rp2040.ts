@@ -10,8 +10,6 @@ export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 const SIO_CPUID_OFFSET = 0;
-const SIO_SPINLOCK0 = 0x100;
-const SIO_SPINLOCK_COUNT = 32;
 
 const XIP_SSI_BASE = 0x18000000;
 const SSI_SR_OFFSET = 0x00000028;
@@ -109,11 +107,6 @@ export class RP2040 {
     this.readHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, () => {
       return VTOR;
     });
-    for (let spinlockIndex = 0; spinlockIndex < SIO_SPINLOCK_COUNT; spinlockIndex++) {
-      this.readHooks.set(SIO_START_ADDRESS + SIO_SPINLOCK0 + 4 * spinlockIndex, () => {
-        return 0; // TODO implement spinlock mechanism
-      });
-    }
 
     loadHex(hex, this.flash);
   }
@@ -723,7 +716,7 @@ export class RP2040 {
       }
       this.SP -= 4 * bitCount;
     }
-    // NEGS
+    // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
       let Rn = (opcode >> 3) & 0x7;
       let Rd = opcode & 0x7;
@@ -731,7 +724,7 @@ export class RP2040 {
       this.registers[Rd] = -value;
       this.N = value > 0;
       this.Z = value === 0;
-      this.C = value === -1;
+      this.C = value === 0;
       this.V = value === 0x7fffffff;
     }
     // SBCS (Encoding T2)

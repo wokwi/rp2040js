@@ -698,6 +698,20 @@ describe('RP2040', () => {
       expect(rp2040.V).toEqual(false);
     });
 
+    it('should execute a `rsbs r0, r3` instruction', () => {
+      // This instruction is also called `negs`
+      const rp2040 = new RP2040('');
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeRSBS(r0, r3);
+      rp2040.registers[r3] = 0;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r0] | 0).toEqual(0);
+      expect(rp2040.N).toEqual(false);
+      expect(rp2040.Z).toEqual(true);
+      expect(rp2040.C).toEqual(true);
+      expect(rp2040.V).toEqual(false);
+    });
+
     it('should execute a `sbcs r0, r3` instruction', () => {
       const rp2040 = new RP2040('');
       rp2040.PC = 0x10000000;
