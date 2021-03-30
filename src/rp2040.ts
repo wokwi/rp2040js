@@ -85,6 +85,7 @@ export class RP2040 {
     });
 
     let dr0 = 0;
+    // TODO: there is probably a nasty bug hiding below!
     this.writeHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, (value) => {
       const CMD_READ_STATUS = 0x05;
       if (value === CMD_READ_STATUS) {
@@ -99,12 +100,10 @@ export class RP2040 {
     this.readHooks.set(CLOCKS_BASE + CLK_SYS_SELECTED, () => 1);
 
     let VTOR = 0;
-    this.writeHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, (newValue) => {
-      console.log('we write to VicTOR');
+    this.writeHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, (address, newValue) => {
       VTOR = newValue;
     });
     this.readHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, () => {
-      console.log('we read from VicTOR');
       return VTOR;
     });
     for (let spinlockIndex = 0; spinlockIndex < SIO_SPINLOCK_COUNT; spinlockIndex++) {
