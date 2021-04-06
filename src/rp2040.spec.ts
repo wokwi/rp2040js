@@ -257,7 +257,6 @@ describe('RP2040', () => {
     it('should execute `bl 0x34` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
-      console.log(opcodeBL(0x34).toString(16));
       rp2040.flashView.setUint32(0, opcodeBL(0x34), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000038);

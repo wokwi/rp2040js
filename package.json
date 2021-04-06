@@ -8,10 +8,19 @@
     "raspberry pi pico",
     "emulator"
   ],
+  "files": [
+    "dist"
+  ],
   "author": "Uri Shaked <uri@wokwi.com>",
   "license": "MIT",
-  "main": "index.js",
+  "main": "./dist/cjs/index.js",
+  "exports": {
+    ".": "./dist/esm/index.js"
+  },
+  "typings": "./dist/esm/index.d.ts",
   "scripts": {
+    "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json",
+    "prepublish": "npm build",
     "start": "ts-node demo/emulator-run.ts",
     "start:gdb": "ts-node-dev src/gdbserver.ts",
     "test": "jest"
@@ -23,6 +32,7 @@
     "jest": "^26.6.3",
     "prettier": "^2.2.1",
     "pretty-quick": "^3.1.0",
+    "rimraf": "^3.0.2",
     "ts-jest": "^26.4.4",
     "ts-node": "^9.1.1",
     "ts-node-dev": "^1.1.6",
