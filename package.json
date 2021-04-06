@@ -20,7 +20,7 @@
   "typings": "./dist/esm/index.d.ts",
   "scripts": {
     "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json",
-    "prepublish": "npm build",
+    "prepublish": "npm run build",
     "start": "ts-node demo/emulator-run.ts",
     "start:gdb": "ts-node-dev src/gdbserver.ts",
     "test": "jest"
