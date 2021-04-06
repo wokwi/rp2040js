@@ -1,7 +1,4 @@
 // Run blink!
-
-import { bootrom } from './bootrom';
-import { loadHex } from './intelhex';
 import { RPUART, UART0_BASE, UART1_BASE } from './uart';
 
 export const FLASH_START_ADDRESS = 0x10000000;
@@ -23,11 +20,6 @@ const CLK_SYS_SELECTED = 0x44;
 const SYSTEM_CONTROL_BLOCK = 0xe000ed00;
 const OFFSET_VTOR = 0x8;
 
-// export const APSR_N = 0x80000000;
-// export const APSR_Z = 0x40000000;
-// export const APSR_C = 0x20000000;
-// export const APSR_V = 0x10000000;
-
 export type CPUWriteCallback = (address: number, value: number) => void;
 export type CPUReadCallback = (address: number) => number;
 
@@ -42,6 +34,7 @@ function signExtend16(value: number) {
 const pcRegister = 15;
 
 export class RP2040 {
+  readonly bootrom = new Uint32Array(4 * 1024);
   readonly sram = new Uint8Array(264 * 1024);
   readonly sramView = new DataView(this.sram.buffer);
   readonly flash = new Uint8Array(16 * 1024 * 1024);
@@ -69,14 +62,11 @@ export class RP2040 {
   // Debugging
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
-    console.error('Breakpoint!', code);
+    // console.error('Breakpoint!', code);
     this.stopped = true;
   };
 
-  constructor(hex: string) {
-    this.SP = bootrom[0];
-    this.PC = bootrom[1] & 0xfffffffe;
-    this.flash.fill(0xff);
+  constructor() {
     this.readHooks.set(SIO_START_ADDRESS + SIO_CPUID_OFFSET, () => {
       // Returns the current CPU core id (always 0 for now)
       return 0;
@@ -107,8 +97,17 @@ export class RP2040 {
     this.readHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, () => {
       return VTOR;
     });
+  }
 
-    loadHex(hex, this.flash);
+  loadBootrom(bootromData: Uint32Array) {
+    this.bootrom.set(bootromData);
+    this.reset();
+  }
+
+  reset() {
+    this.SP = this.bootrom[0];
+    this.PC = this.bootrom[1] & 0xfffffffe;
+    this.flash.fill(0xff);
   }
 
   get SP() {
@@ -193,6 +192,7 @@ export class RP2040 {
   }
 
   readUint32(address: number) {
+    const { bootrom } = this;
     if (address & 0x3) {
       throw new Error(`read from address ${address.toString(16)}, which is not 32 bit aligned`);
     }
@@ -225,6 +225,7 @@ export class RP2040 {
   }
 
   writeUint32(address: number, value: number) {
+    const { bootrom } = this;
     if (address < bootrom.length * 4) {
       bootrom[address / 4] = value;
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
@@ -244,8 +245,6 @@ export class RP2040 {
         console.log(`GPIO pins ${pinList} set to HIGH`);
       } else if (sioAddress === 24) {
         console.log(`GPIO pins ${pinList} set to LOW`);
-      } else {
-        console.log('Someone wrote', value.toString(16), 'to', sioAddress);
       }
     } else {
       const hook = this.writeHooks.get(address);
@@ -474,9 +473,9 @@ export class RP2040 {
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
     } else if (opcode === 0xb672) {
-      console.log('ignoring cpsid i');
+      console.warn('ignoring cpsid i');
     } else if (opcode === 0xb662) {
-      console.log('ignoring cpsie i');
+      console.warn('ignoring cpsie i');
     }
     // DMB SY
     else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
@@ -528,8 +527,6 @@ export class RP2040 {
       const Rt = (opcode >> 8) & 7;
       const nextPC = this.PC + 2;
       const addr = (nextPC & 0xfffffffc) + imm8;
-      console.log('reading from', addr.toString(16));
-      console.log('value: ', this.readUint32(addr).toString(16));
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDR (register)
@@ -538,8 +535,6 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      console.log('reading from', addr.toString(16));
-      console.log('value: ', this.readUint32(addr).toString(16));
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDRB (immediate)

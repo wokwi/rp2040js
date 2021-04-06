@@ -1,7 +1,7 @@
 // RP2040 bootrom binary, built from https://github.com/raspberrypi/pico-bootrom
 // revision: B1 (00a4a19114195e20fb817bdfbca1165e157eef37)
 
-export const bootrom = new Uint32Array([
+export const bootromB1 = new Uint32Array([
   0x20041f00,
   0x000000ef,
   0x00000035,
