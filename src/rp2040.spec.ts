@@ -71,6 +71,32 @@ describe('RP2040', () => {
     expect(rp2040.PC).toEqual(0xee);
   });
 
+describe('IO Register Writes', () => {
+    it('should replicate 8-bit values four times', () => {
+      const rp2040 = new RP2040();
+      const writeUint32 = jest.fn();
+      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
+      rp2040.writeUint8(0x10123, 0x534);
+      expect(writeUint32).toHaveBeenCalledWith(0x120, 0x34343434);
+    });
+
+    it('should replicate 16-bit values twice', () => {
+      const rp2040 = new RP2040();
+      const writeUint32 = jest.fn();
+      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
+      rp2040.writeUint16(0x10123, 0x12345678);
+      expect(writeUint32).toHaveBeenCalledWith(0x120, 0x56785678);
+    });
+    
+    it('should support atomic I/O register write addresses', () => {
+      const rp2040 = new RP2040();
+      const writeUint32 = jest.fn();
+      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
+      rp2040.writeUint32(0x11120, 0x123);
+      expect(writeUint32).toHaveBeenCalledWith(0x1120, 0x123);
+    });
+  });
+
   describe('executeInstruction', () => {
     it('should execute `adcs r5, r4` instruction', () => {
       const rp2040 = new RP2040();

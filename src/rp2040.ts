@@ -1,5 +1,6 @@
 // Run blink!
-import { RPUART, UART0_BASE, UART1_BASE } from './uart';
+import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
+import { RPUART } from './peripherals/uart';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -45,7 +46,7 @@ export class RP2040 {
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
 
-  readonly uart = [new RPUART(this, UART0_BASE), new RPUART(this, UART1_BASE)];
+  readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
 
   private stopped = false;
 
@@ -58,6 +59,36 @@ export class RP2040 {
   public IPSR: number = 0;
 
   private executeTimer: NodeJS.Timeout | null = null;
+
+  readonly peripherals: { [index: number]: Peripheral } = {
+    0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
+    0x40004: new UnimplementedPeripheral(this, 'SYSCFG_BASE'),
+    0x40008: new UnimplementedPeripheral(this, 'CLOCKS_BASE'),
+    0x4000c: new UnimplementedPeripheral(this, 'RESETS_BASE'),
+    0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
+    0x40014: new UnimplementedPeripheral(this, 'IO_BANK0_BASE'),
+    0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
+    0x4001c: new UnimplementedPeripheral(this, 'PADS_BANK0_BASE'),
+    0x40020: new UnimplementedPeripheral(this, 'PADS_QSPI_BASE'),
+    0x40024: new UnimplementedPeripheral(this, 'XOSC_BASE'),
+    0x40028: new UnimplementedPeripheral(this, 'PLL_SYS_BASE'),
+    0x4002c: new UnimplementedPeripheral(this, 'PLL_USB_BASE'),
+    0x40030: new UnimplementedPeripheral(this, 'BUSCTRL_BASE'),
+    0x40034: this.uart[0],
+    0x40038: this.uart[1],
+    0x4003c: new UnimplementedPeripheral(this, 'SPI0_BASE'),
+    0x40040: new UnimplementedPeripheral(this, 'SPI1_BASE'),
+    0x40044: new UnimplementedPeripheral(this, 'I2C0_BASE'),
+    0x40048: new UnimplementedPeripheral(this, 'I2C1_BASE'),
+    0x4004c: new UnimplementedPeripheral(this, 'ADC_BASE'),
+    0x40050: new UnimplementedPeripheral(this, 'PWM_BASE'),
+    0x40054: new UnimplementedPeripheral(this, 'TIMER_BASE'),
+    0x40058: new UnimplementedPeripheral(this, 'WATCHDOG_BASE'),
+    0x4005c: new UnimplementedPeripheral(this, 'RTC_BASE'),
+    0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
+    0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
+    0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
+  };
 
   // Debugging
   public onBreak = (code: number) => {
@@ -197,6 +228,10 @@ export class RP2040 {
       throw new Error(`read from address ${address.toString(16)}, which is not 32 bit aligned`);
     }
     address = address >>> 0; // round to 32-bits, unsigned
+    const peripheral = this.findPeripheral(address);
+    if (peripheral) {
+      return peripheral.readUint32(address & 0x3fff);
+    }
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
@@ -213,6 +248,10 @@ export class RP2040 {
     return 0xffffffff;
   }
 
+  findPeripheral(address: number) {
+    return this.peripherals[address >>> 14 << 2]; 
+  }
+
   /** We assume the address is 16-bit aligned */
   readUint16(address: number) {
     const value = this.readUint32(address & 0xfffffffc);
@@ -226,7 +265,10 @@ export class RP2040 {
 
   writeUint32(address: number, value: number) {
     const { bootrom } = this;
-    if (address < bootrom.length * 4) {
+    const peripheral = this.findPeripheral(address);
+    if (peripheral) {
+      peripheral.writeUint32(address & 0x3fff, value);
+    } else if (address < bootrom.length * 4) {
       bootrom[address / 4] = value;
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
       this.flashView.setUint32(address - FLASH_START_ADDRESS, value, true);
@@ -259,6 +301,14 @@ export class RP2040 {
   writeUint8(address: number, value: number) {
     const alignedAddress = address & 0xfffffffc;
     const offset = address & 0x3;
+    const peripheral = this.findPeripheral(address);
+    if (peripheral) {
+      peripheral.writeUint32(
+        alignedAddress & 0x3fff,
+        (value & 0xff) | ((value & 0xff) << 8) | ((value & 0xff) << 16) | ((value & 0xff) << 24)
+      );
+      return;
+    }
     const originalValue = this.readUint32(alignedAddress);
     const newValue = new Uint32Array([originalValue]);
     new DataView(newValue.buffer).setUint8(offset, value);
@@ -270,6 +320,11 @@ export class RP2040 {
     // Ideally we should generate a fault if not!
     const alignedAddress = address & 0xfffffffc;
     const offset = address & 0x3;
+    const peripheral = this.findPeripheral(address);
+    if (peripheral) {
+      peripheral.writeUint32(alignedAddress & 0x3fff, (value & 0xffff) | ((value & 0xffff) << 16));
+      return;
+    }
     const originalValue = this.readUint32(alignedAddress);
     const newValue = new Uint32Array([originalValue]);
     new DataView(newValue.buffer).setUint16(offset, value, true);
