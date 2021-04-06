@@ -14,10 +14,7 @@
   "author": "Uri Shaked <uri@wokwi.com>",
   "license": "MIT",
   "main": "./dist/cjs/index.js",
-  "exports": {
-    ".": "./dist/esm/index.js"
-  },
-  "typings": "./dist/esm/index.d.ts",
+  "typings": "./dist/cjs/index.d.ts",
   "scripts": {
     "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json",
     "prepublish": "npm run build",
