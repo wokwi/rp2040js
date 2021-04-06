@@ -528,6 +528,19 @@ export class RP2040 {
       this.V =
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
+      // CMP (register) encoding T2
+    } else if (opcode >> 8 === 0b01000101) {
+      const Rm = (opcode >> 3) & 0xf;
+      const Rn = ((opcode >> 4) & 0x8) | (opcode & 0x7);
+      const leftValue = this.registers[Rn] | 0;
+      const rightValue = this.registers[Rm] | 0;
+      const result = (leftValue - rightValue) | 0;
+      this.N = leftValue < rightValue;
+      this.Z = leftValue === rightValue;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (leftValue > 0 && rightValue < 0 && result < 0) ||
+        (leftValue < 0 && rightValue > 0 && result > 0);
     } else if (opcode === 0xb672) {
       console.warn('ignoring cpsid i');
     } else if (opcode === 0xb662) {

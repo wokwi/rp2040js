@@ -368,6 +368,19 @@ describe('IO Register Writes', () => {
       expect(rp2040.V).toEqual(false);
     });
 
+    it('should execute an `cmp ip, r6` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = 0x45b4; // cmp ip (r12), r6
+      rp2040.registers[ip] = 60;
+      rp2040.registers[r6] = 56;
+      rp2040.executeInstruction();
+      expect(rp2040.N).toEqual(false);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(true);
+      expect(rp2040.V).toEqual(false);
+    });
+
     it('should execute an `eors r1, r3` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
