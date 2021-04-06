@@ -1,4 +1,3 @@
-import { RP2040 } from '../rp2040';
 import { LoggingPeripheral, Peripheral } from './peripheral';
 
 const UARTDR = 0x0;

@@ -18,10 +18,10 @@ export class LoggingPeripheral implements Peripheral {
 
   writeUint32(offset: number, value: number) {
     console.warn(
-      `Unimplemented peripheral  ${this.name}  write to ${offset.toString(16)}: ${value}`
+      `Unimplemented peripheral ${this.name} write to ${offset.toString(16)}: ${value}`
     );
     if (offset > 0x1000) {
-      console.warn('Unimplemented atomic-write to peripheral');
+      console.warn(`Unimplemented atomic-write to peripheral ${this.name}`);
     }
   }
 }
