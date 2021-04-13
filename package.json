@@ -1,6 +1,6 @@
 {
   "name": "rp2040js",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Raspberry Pi Pico (RP2040) Emulator",
   "repository": "https://github.com/wokwi/rp2040js",
   "keywords": [
@@ -17,8 +17,8 @@
   "typings": "./dist/cjs/index.d.ts",
   "exports": {
     ".": {
-        "import": "./dist/mjs/index.js",
-        "require": "./dist/cjs/index.js"
+      "import": "./dist/mjs/index.js",
+      "require": "./dist/cjs/index.js"
     }
   },
   "scripts": {
