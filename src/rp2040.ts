@@ -22,6 +22,9 @@ const CLK_SYS_SELECTED = 0x44;
 const SYSTEM_CONTROL_BLOCK = 0xe000ed00;
 const OFFSET_VTOR = 0x8;
 
+const SYSM_APSR = 0;
+const SYSM_IPSR = 5;
+
 export type CPUWriteCallback = (address: number, value: number) => void;
 export type CPUReadCallback = (address: number) => number;
 
@@ -718,6 +721,20 @@ export class RP2040 {
     }
     // MRS
     else if (opcode === 0b1111001111101111 && opcode2 >> 12 == 0b1000) {
+      const SYSm = opcode2 & 0xff;
+      const Rd = (opcode2 >> 8) & 0xf;
+      switch (SYSm) {
+        case SYSM_APSR:
+          this.registers[Rd] = this.APSR;
+          break;
+
+        case SYSM_IPSR:
+          this.registers[Rd] = this.IPSR;
+          break;
+
+        default:
+          console.warn('MRS with unimplemented SYSm value: ', SYSm);
+      }
       this.PC += 2;
       console.log('MRS!');
     }
@@ -725,6 +742,15 @@ export class RP2040 {
     else if (opcode >> 4 === 0b111100111000 && opcode2 >> 8 == 0b10001000) {
       this.PC += 2;
       console.log('MSR!');
+    }
+    // MULS
+    else if (opcode >> 6 === 0b0100001101) {
+      const Rn = (opcode >> 3) & 0x7;
+      const Rdm = opcode & 0x7;
+      const result = this.registers[Rn] * this.registers[Rdm];
+      this.registers[Rdm] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
     }
     // MVNS
     else if (opcode >> 6 === 0b0100001111) {
@@ -779,6 +805,17 @@ export class RP2040 {
         this.writeUint32(address, this.registers[14]);
       }
       this.SP -= 4 * bitCount;
+    }
+    // REV
+    else if (opcode >> 6 === 0b1011101000) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      this.registers[Rd] =
+        ((input & 0xff) << 24) |
+        (((input >> 8) & 0xff) << 16) |
+        (((input >> 16) & 0xff) << 8) |
+        ((input >> 24) & 0xff);
     }
     // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
@@ -947,6 +984,16 @@ export class RP2040 {
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
       this.registers[Rd] = this.registers[Rm] & 0xff;
+    }
+    // UXTH
+    else if (opcode >> 6 == 0b1011001010) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      this.registers[Rd] = this.registers[Rm] & 0xffff;
+    }
+    // WFE
+    else if (opcode === 0b1011111100100000) {
+      // do nothing for now. Wait for event!
     } else {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);

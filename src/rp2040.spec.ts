@@ -28,9 +28,12 @@ import {
   opcodeLSRS,
   opcodeLSRSreg,
   opcodeMOV,
+  opcodeMRS,
+  opcodeMULS,
   opcodeMVNS,
   opcodeORRS,
   opcodePOP,
+  opcodeREV,
   opcodeRSBS,
   opcodeSBCS,
   opcodeSTMIA,
@@ -47,6 +50,7 @@ import {
   opcodeSUBSreg,
   opcodeSXTB,
   opcodeUXTB,
+  opcodeUXTH,
 } from './utils/assembler';
 
 const r0 = 0;
@@ -71,7 +75,7 @@ describe('RP2040', () => {
     expect(rp2040.PC).toEqual(0xee);
   });
 
-describe('IO Register Writes', () => {
+  describe('IO Register Writes', () => {
     it('should replicate 8-bit values four times', () => {
       const rp2040 = new RP2040();
       const writeUint32 = jest.fn();
@@ -87,7 +91,7 @@ describe('IO Register Writes', () => {
       rp2040.writeUint16(0x10123, 0x12345678);
       expect(writeUint32).toHaveBeenCalledWith(0x120, 0x56785678);
     });
-    
+
     it('should support atomic I/O register write addresses', () => {
       const rp2040 = new RP2040();
       const writeUint32 = jest.fn();
@@ -410,6 +414,42 @@ describe('IO Register Writes', () => {
       expect(rp2040.registers[r3]).toEqual(0x10000004);
     });
 
+    it('should execute a `muls r0, r2` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeMULS(r0, r2);
+      rp2040.registers[r0] = 5;
+      rp2040.registers[r2] = 1000000;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(5000000);
+      expect(rp2040.N).toEqual(false);
+      expect(rp2040.Z).toEqual(false);
+    });
+
+    it('should execute a `muls r0, r2` instruction and set the Z flag when the result is zero', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeMULS(r0, r2);
+      rp2040.registers[r0] = 0;
+      rp2040.registers[r2] = 1000000;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(0);
+      expect(rp2040.N).toEqual(false);
+      expect(rp2040.Z).toEqual(true);
+    });
+
+    it('should execute a `muls r0, r2` instruction and set the N flag when the result is negative', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeMULS(r0, r2);
+      rp2040.registers[r0] = -1;
+      rp2040.registers[r2] = 1000000;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(-1000000 >>> 0);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+    });
+
     it('should execute a `mvns r4, r3` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
@@ -467,6 +507,16 @@ describe('IO Register Writes', () => {
       expect(rp2040.sram[0xf4]).toEqual(0x50);
       expect(rp2040.sram[0xf8]).toEqual(0x60);
       expect(rp2040.sram[0xfc]).toEqual(0x42);
+    });
+
+    it('should execute a `mrs r0, ipsr` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flashView.setUint32(0, opcodeMRS(r0, 5), true); // 5 === ipsr
+      rp2040.registers[r0] = 55;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r0]).toEqual(0);
+      expect(rp2040.PC).toEqual(0x10000004);
     });
 
     it('should execute a `movs r5, #128` instruction', () => {
@@ -737,6 +787,15 @@ describe('IO Register Writes', () => {
       expect(rp2040.V).toEqual(false);
     });
 
+    it('should execute a `rev r3, r1` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeREV(r2, r3);
+      rp2040.registers[r3] = 0x11223344;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(0x44332211);
+    });
+
     it('should execute a `rsbs r0, r3` instruction', () => {
       // This instruction is also called `negs`
       const rp2040 = new RP2040();
@@ -946,7 +1005,7 @@ describe('IO Register Writes', () => {
       expect(rp2040.N).toEqual(true);
     });
 
-    it('should execute an `tst r1, r3` instruction the registers are equal', () => {
+    it('should execute an `tst r1, r3` instruction when the registers are equal', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = 0x4219; // tst r1, r3
@@ -957,13 +1016,22 @@ describe('IO Register Writes', () => {
       expect(rp2040.Z).toEqual(true);
     });
 
-    it('should execute an `uxtb r5, r3` instruction the registers are equal', () => {
+    it('should execute an `uxtb r5, r3` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeUXTB(r5, r3);
       rp2040.registers[r3] = 0x12345678;
       rp2040.executeInstruction();
       expect(rp2040.registers[r5]).toEqual(0x78);
+    });
+
+    it('should execute an `uxth r3, r1` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeUXTH(r3, r1);
+      rp2040.registers[r1] = 0x12345678;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0x5678);
     });
   });
 });

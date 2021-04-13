@@ -127,6 +127,10 @@ export function opcodeMSR(specReg: number, Rn: number) {
   return ((0b10001000 << 24) | ((specReg & 0xff) << 16) | (0b111100111000 << 4) | (Rn & 0xf)) >>> 0;
 }
 
+export function opcodeMULS(Rn: number, Rdm: number) {
+  return (0b0100001101 << 6) | ((Rn & 7) << 3) | (Rdm & 7);
+}
+
 export function opcodeMVNS(Rd: number, Rm: number) {
   return (0b0100001111 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
@@ -137,6 +141,10 @@ export function opcodeORRS(Rn: number, Rm: number) {
 
 export function opcodePOP(P: boolean, registerList: number) {
   return (0b1011110 << 9) | ((P ? 1 : 0) << 8) | registerList;
+}
+
+export function opcodeREV(Rd: number, Rn: number) {
+  return (0b1011101000 << 6) | ((Rn & 0x7) << 3) | (Rd & 0x7);
 }
 
 export function opcodeRSBS(Rd: number, Rn: number) {
@@ -201,4 +209,8 @@ export function opcodeSXTB(Rd: number, Rm: number) {
 
 export function opcodeUXTB(Rd: number, Rm: number) {
   return (0b1011001011 << 6) | ((Rm & 7) << 3) | (Rd & 7);
+}
+
+export function opcodeUXTH(Rd: number, Rm: number) {
+  return (0b1011001010 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }

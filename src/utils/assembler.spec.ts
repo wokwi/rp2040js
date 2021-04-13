@@ -28,9 +28,11 @@ import {
   opcodeMOV,
   opcodeMRS,
   opcodeMSR,
+  opcodeMULS,
   opcodeMVNS,
   opcodeORRS,
   opcodePOP,
+  opcodeREV,
   opcodeRSBS,
   opcodeSBCS,
   opcodeSTMIA,
@@ -47,6 +49,7 @@ import {
   opcodeSUBSreg,
   opcodeSXTB,
   opcodeUXTB,
+  opcodeUXTH,
 } from './assembler';
 
 const r0 = 0;
@@ -189,6 +192,10 @@ describe('assembler', () => {
     expect(opcodeMSR(PRIMASK, r6)).toEqual(0x8810f386);
   });
 
+  it('should correctly encode an `muls r2, r0` instruction', () => {
+    expect(opcodeMULS(r2, r0)).toEqual(0x4350);
+  });
+
   it('should correctly encode an `mvns r3, r3` instruction', () => {
     expect(opcodeMVNS(r3, r3)).toEqual(0x43db);
   });
@@ -199,6 +206,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `pop {r0, r1, pc}` instruction', () => {
     expect(opcodePOP(true, (1 << r0) | (1 << r1))).toEqual(0xbd03);
+  });
+
+  it('should correctly encode an `rev r3, r1` instruction', () => {
+    expect(opcodeREV(r3, r1)).toEqual(0xba0b);
   });
 
   it('should correctly encode an `rsbs r0, r3` instruction', () => {
@@ -263,5 +274,9 @@ describe('assembler', () => {
 
   it('should correctly encode an `uxtb r3, r3` instruction', () => {
     expect(opcodeUXTB(r3, r3)).toEqual(0xb2db);
+  });
+
+  it('should correctly encode `uxth r3, r0', () => {
+    expect(opcodeUXTH(r3, r0)).toEqual(0xb283);
   });
 });
