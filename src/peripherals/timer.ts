@@ -1,4 +1,4 @@
-import { getCurrentMicroseconds } from '../util/time';
+import { getCurrentMicroseconds } from '../utils/time';
 import { LoggingPeripheral, Peripheral } from './peripheral';
 
 const TIMEHR = 0x08;
