@@ -15,8 +15,14 @@
   "license": "MIT",
   "main": "./dist/cjs/index.js",
   "typings": "./dist/cjs/index.d.ts",
+  "exports": {
+    ".": {
+        "import": "./dist/mjs/index.js",
+        "require": "./dist/cjs/index.js"
+    }
+  },
   "scripts": {
-    "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json",
+    "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json && node build-scripts/dist-package-json",
     "prepublish": "npm run build",
     "start": "ts-node demo/emulator-run.ts",
     "start:gdb": "ts-node-dev src/gdbserver.ts",
