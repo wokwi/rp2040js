@@ -1034,4 +1034,69 @@ describe('RP2040', () => {
       expect(rp2040.registers[r3]).toEqual(0x5678);
     });
   });
+
+  describe('NVIC registers', () => {
+    it('writing to NVIC_ISPR should set the corresponding pending interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.pendingInterrupts = 0x1;
+      rp2040.writeUint32(0xe000e200, 0x10);
+      expect(rp2040.pendingInterrupts).toBe(0x11);
+    });
+
+    it('writing to NVIC_ICPR should clear corresponding pending interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.pendingInterrupts = 0xff;
+      rp2040.writeUint32(0xe000e280, 0x10);
+      expect(rp2040.pendingInterrupts).toBe(0xef);
+    });
+
+    it('writing to NVIC_ISER should set the corresponding enabled interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.enabledInterrupts = 0x1;
+      rp2040.writeUint32(0xe000e100, 0x10);
+      expect(rp2040.enabledInterrupts).toBe(0x11);
+    });
+
+    it('writing to NVIC_ICER should clear corresponding enabled interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.enabledInterrupts = 0xff;
+      rp2040.writeUint32(0xe000e180, 0x10);
+      expect(rp2040.enabledInterrupts).toBe(0xef);
+    });
+
+    it('reading from NVIC_ISER/NVIC_ICER should return the current enabled interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.enabledInterrupts = 0x1;
+      expect(rp2040.readUint32(0xe000e100)).toEqual(0x1);
+      expect(rp2040.readUint32(0xe000e180)).toEqual(0x1);
+    });
+
+    it('reading from NVIC_ISPR/NVIC_ICPR should return the current enabled interrupt bits', () => {
+      const rp2040 = new RP2040();
+      rp2040.pendingInterrupts = 0x2;
+      expect(rp2040.readUint32(0xe000e200)).toEqual(0x2);
+      expect(rp2040.readUint32(0xe000e280)).toEqual(0x2);
+    });
+
+    it('should update the interrupt levels correctly when writing to NVIC_IPR3', () => {
+      const rp2040 = new RP2040();
+      // Set the priority of interrupt number 14 to 2
+      rp2040.writeUint32(0xe000e40c, 0x00800000);
+      expect(rp2040.interruptPriorities[0] | 0).toEqual(~(1 << 14));
+      expect(rp2040.interruptPriorities[1]).toEqual(0);
+      expect(rp2040.interruptPriorities[2]).toEqual(1 << 14);
+      expect(rp2040.interruptPriorities[3]).toEqual(0);
+      expect(rp2040.readUint32(0xe000e40c)).toEqual(0x00800000);
+    });
+
+    it('should return the correct interrupt priorities when reading from NVIC_IPR5', () => {
+      const rp2040 = new RP2040();
+      rp2040.interruptPriorities[0] = 0;
+      rp2040.interruptPriorities[1] = 0x001fffff; // interrupts 0 ... 20
+      rp2040.interruptPriorities[2] = 0x00200000; // interrupt 21
+      rp2040.interruptPriorities[3] = 0xffc00000; // interrupt 22 ... 31
+      // Set the priority of interrupt number 14 to 2
+      expect(rp2040.readUint32(0xe000e414)).toEqual(0xc0c08040 | 0);
+    });
+  });
 });

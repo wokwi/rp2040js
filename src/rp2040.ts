@@ -1,5 +1,6 @@
 // Run blink!
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
+import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 
@@ -19,11 +20,22 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
-const SYSTEM_CONTROL_BLOCK = 0xe000ed00;
-const OFFSET_VTOR = 0x8;
+const PPB_BASE = 0xe0000000;
+const OFFSET_NVIC_ISER = 0xe100; // Interrupt Set-Enable Register
+const OFFSET_NVIC_ICER = 0xe180; // Interrupt Clear-Enable Register
+const OFFSET_NVIC_ISPR = 0xe200; // Interrupt Set-Pending Register
+const OFFSET_NVIC_ICPR = 0xe280; // Interrupt Clear-Pending Register
+// Interrupt priority registers
+const OFFSET_NVIC_IPRn = [0xe400, 0xe404, 0xe408, 0xe40c, 0xe410, 0xe414, 0xe418, 0xe41c];
+const OFFSET_VTOR = 0xed08;
 
 const SYSM_APSR = 0;
 const SYSM_IPSR = 5;
+
+enum ExecutionMode {
+  Mode_Thread,
+  Mode_Handler,
+}
 
 export type CPUWriteCallback = (address: number, value: number) => void;
 export type CPUReadCallback = (address: number) => number;
@@ -60,13 +72,19 @@ export class RP2040 {
   public Z: boolean = false;
   public V: boolean = false;
 
+  currentMode: ExecutionMode = ExecutionMode.Mode_Thread;
   public IPSR: number = 0;
+  public interruptNMIMask = 0;
+  pendingInterrupts: number = 0;
+  enabledInterrupts: number = 0;
+  interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
+  interruptsUpdated = false;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
   readonly peripherals: { [index: number]: Peripheral } = {
     0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
-    0x40004: new UnimplementedPeripheral(this, 'SYSCFG_BASE'),
+    0x40004: new RP2040SysCfg(this, 'SYSCFG'),
     0x40008: new UnimplementedPeripheral(this, 'CLOCKS_BASE'),
     0x4000c: new UnimplementedPeripheral(this, 'RESETS_BASE'),
     0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
@@ -111,11 +129,10 @@ export class RP2040 {
     });
 
     let dr0 = 0;
-    // TODO: there is probably a nasty bug hiding below!
     this.writeHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, (value) => {
       const CMD_READ_STATUS = 0x05;
       if (value === CMD_READ_STATUS) {
-        dr0 = 1; // tell stage2 that we completed a write
+        dr0 = 0; // tell stage2 that we completed a write
       }
     });
     this.readHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, () => {
@@ -126,12 +143,59 @@ export class RP2040 {
     this.readHooks.set(CLOCKS_BASE + CLK_SYS_SELECTED, () => 1);
 
     let VTOR = 0;
-    this.writeHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, (address, newValue) => {
+    this.writeHooks.set(PPB_BASE + OFFSET_VTOR, (newValue) => {
       VTOR = newValue;
     });
-    this.readHooks.set(SYSTEM_CONTROL_BLOCK + OFFSET_VTOR, () => {
+    this.readHooks.set(PPB_BASE + OFFSET_VTOR, () => {
       return VTOR;
     });
+
+    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, (newValue) => {
+      this.pendingInterrupts |= newValue;
+      this.interruptsUpdated = true;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, (newValue) => {
+      this.pendingInterrupts &= ~newValue;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ISER, (newValue) => {
+      this.enabledInterrupts |= newValue;
+      this.interruptsUpdated = true;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ICER, (newValue) => {
+      this.enabledInterrupts &= ~newValue;
+    });
+
+    /* NVIC */
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, () => this.pendingInterrupts);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, () => this.pendingInterrupts);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISER, () => this.enabledInterrupts);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICER, () => this.enabledInterrupts);
+    for (let regIndex = 0; regIndex < 8; regIndex++) {
+      this.writeHooks.set(PPB_BASE + OFFSET_NVIC_IPRn[regIndex], (newValue) => {
+        for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
+          const interruptNumber = regIndex * 4 + byteIndex;
+          const newPriority = (newValue >> (8 * byteIndex + 6)) & 0x3;
+          console.log(interruptNumber + '=' + newPriority);
+          for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
+            this.interruptPriorities[priority] &= ~(1 << interruptNumber);
+          }
+          this.interruptPriorities[newPriority] |= 1 << interruptNumber;
+        }
+        this.interruptsUpdated = true;
+      });
+      this.readHooks.set(PPB_BASE + OFFSET_NVIC_IPRn[regIndex], () => {
+        let result = 0;
+        for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
+          const interruptNumber = regIndex * 4 + byteIndex;
+          for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
+            if (this.interruptPriorities[priority] & (1 << interruptNumber)) {
+              result |= priority << (8 * byteIndex + 6);
+            }
+          }
+        }
+        return result;
+      });
+    }
   }
 
   loadBootrom(bootromData: Uint32Array) {
@@ -295,7 +359,7 @@ export class RP2040 {
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
-        hook(address, value);
+        hook(value, address);
       } else {
         console.error(`Write to undefined address: ${address.toString(16)}`);
       }
@@ -335,7 +399,73 @@ export class RP2040 {
     this.writeUint32(alignedAddress, newValue[0]);
   }
 
+  raiseException(exceptionNumber: number) {
+    // PushStack()
+    let frameptr = 0;
+    let frameptralign = 0;
+    if (CONTROL.SPSEL == '1' && this.currentMode === ExecutionMode.Mode_Thread) {
+      frameptralign = SP_process & 0b100 ? 1 : 0;
+      SP_process = (SP_process - 0x20) & ~0b100;
+      frameptr = SP_process;
+    } else {
+      frameptralign = SP_main & 0b100 ? 1 : 0;
+      SP_main = (SP_main - 0x20) & ~0b100;
+      frameptr = SP_main;
+    }
+    /* only the stack locations, not the store order, are architected */
+    this.writeUint32(frameptr, this.registers[0]);
+    this.writeUint32(frameptr + 0x4, this.registers[1]);
+    this.writeUint32(frameptr + 0x8, this.registers[2]);
+    this.writeUint32(frameptr + 0xc, this.registers[3]);
+    this.writeUint32(frameptr + 0x10, this.registers[12]);
+    this.writeUint32(frameptr + 0x14, this.LR);
+    this.writeUint32(frameptr + 0x18, this.PC); // ReturnAddress(ExceptionType);
+    this.writeUint32(frameptr + 0x1c, (this.xPSR & ~(1 << 9)) | (frameptralign << 9));
+    if (this.currentMode == ExecutionMode.Mode_Handler) {
+      this.LR = 0xfffffff1;
+    } else {
+      if (CONTROL.SPSEL == '0') {
+        this.LR = 0xfffffff9;
+      } else {
+        this.LR = 0xfffffffd;
+      }
+    }
+    // ExceptionTaken()
+    ///
+    this.currentMode = ExecutionMode.Mode_Handler; // Enter Handler Mode, now Privileged
+    this.IPSR = exceptionNumber;
+    // CONTROL.SPSEL = '0'; // Current stack is now SP main
+    // SetEventRegister(); // See WFE instruction for details
+    const vectorTable = this.readUint32(PPB_BASE + OFFSET_VTOR);
+    this.PC = this.readUint32(vectorTable + 4 * exceptionNumber);
+  }
+
+  checkForInterrupts() {
+    // TODO: when we implement the rest of the exceptions:
+    //  if n == Reset then result = -3;
+    //  elsif n == NMI then result = -2;
+    //  elsif n == HardFault then result = -1;
+    //  elsif n == SVCall then result = UInt(SHPR2.PRI_11);
+    //  elsif n == PendSV then result = UInt(SHPR3.PRI_14);
+    //  elsif n == SysTick then result = UInt(SHPR3.PRI_15);
+    const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
+    for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
+      const levelInterrupts = interruptSet & this.interruptPriorities[priority];
+      if (levelInterrupts) {
+        for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
+          if (levelInterrupts & (1 << interruptNumber)) {
+            this.raiseException(16 + interruptNumber);
+            return;
+          }
+        }
+      }
+    }
+  }
+
   executeInstruction() {
+    if (this.interruptsUpdated) {
+      this.checkForInterrupts();
+    }
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcode = this.readUint16(this.PC);
     const opcode2 = this.readUint16(this.PC + 2);
