@@ -28,7 +28,9 @@ import {
   opcodeLSRS,
   opcodeLSRSreg,
   opcodeMOV,
+  opcodeMOVS,
   opcodeMRS,
+  opcodeMSR,
   opcodeMULS,
   opcodeMVNS,
   opcodeORRS,
@@ -66,6 +68,8 @@ const ip = 12;
 const sp = 13;
 const lr = 14;
 const pc = 15;
+
+const VTOR = 0xe000ed08;
 
 describe('RP2040', () => {
   it(`should initialize PC and SP according to bootrom's vector table`, () => {
@@ -519,10 +523,20 @@ describe('RP2040', () => {
       expect(rp2040.PC).toEqual(0x10000004);
     });
 
+    it('should execute a `msr ipsr, r0` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flashView.setUint32(0, opcodeMSR(8, r0), true); // 5 === ipsr
+      rp2040.registers[r0] = 0x1234;
+      rp2040.executeInstruction();
+      expect(rp2040.SP).toEqual(0x1234);
+      expect(rp2040.PC).toEqual(0x10000004);
+    });
+
     it('should execute a `movs r5, #128` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
-      rp2040.flash16[0] = 0x2580; // movs r5, #128
+      rp2040.flash16[0] = opcodeMOVS(r5, 128);
       rp2040.executeInstruction();
       expect(rp2040.registers[r5]).toEqual(128);
       expect(rp2040.PC).toEqual(0x10000002);
@@ -1032,6 +1046,35 @@ describe('RP2040', () => {
       rp2040.registers[r1] = 0x12345678;
       rp2040.executeInstruction();
       expect(rp2040.registers[r3]).toEqual(0x5678);
+    });
+  });
+
+  describe('exceptionEntry and exceptionReturn', () => {
+    it('should execute an exception handler and return from it correctly', () => {
+      const INT1 = 1 << 1;
+      const INT1_HANDLER = 0x10000100;
+      const EXC_INT1 = 16 + 1;
+      const rp2040 = new RP2040();
+      rp2040.SP = 0x20004000;
+      rp2040.PC = 0x10004000;
+      rp2040.registers[r0] = 0x44;
+      rp2040.pendingInterrupts = INT1;
+      rp2040.enabledInterrupts = INT1;
+      rp2040.interruptsUpdated = true;
+      rp2040.writeUint32(VTOR, 0x10000000);
+      rp2040.writeUint32(0x10000000 + EXC_INT1 * 4, INT1_HANDLER);
+      rp2040.writeUint16(INT1_HANDLER, opcodeMOVS(r0, 0x55));
+      rp2040.writeUint16(INT1_HANDLER + 2, opcodeBX(lr));
+      // Exception handler should start at this point.
+      rp2040.executeInstruction(); // MOVS r0, 0x55
+      expect(rp2040.IPSR).toEqual(EXC_INT1);
+      expect(rp2040.PC).toEqual(INT1_HANDLER + 2);
+      expect(rp2040.registers[r0]).toEqual(0x55);
+      rp2040.executeInstruction(); // BX lr
+      // Exception handler should return at this point.
+      expect(rp2040.PC).toEqual(0x10004000);
+      expect(rp2040.registers[r0]).toEqual(0x44);
+      expect(rp2040.IPSR).toEqual(0);
     });
   });
 

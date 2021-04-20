@@ -117,6 +117,10 @@ export function opcodeMOV(Rd: number, Rm: number) {
   return (0b01000110 << 8) | ((Rd & 0x8 ? 1 : 0) << 7) | (Rm << 3) | (Rd & 0x7);
 }
 
+export function opcodeMOVS(Rd: number, imm8: number) {
+  return (0b00100 << 11) | ((Rd & 0x7) << 8) | (imm8 & 0xff);
+}
+
 export function opcodeMRS(Rd: number, specReg: number) {
   return (
     ((0b1000 << 28) | ((Rd & 0xf) << 24) | ((specReg & 0xff) << 16) | 0b1111001111101111) >>> 0

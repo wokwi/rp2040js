@@ -1,4 +1,3 @@
-// Run blink!
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
@@ -28,9 +27,30 @@ const OFFSET_NVIC_ICPR = 0xe280; // Interrupt Clear-Pending Register
 // Interrupt priority registers
 const OFFSET_NVIC_IPRn = [0xe400, 0xe404, 0xe408, 0xe40c, 0xe410, 0xe414, 0xe418, 0xe41c];
 const OFFSET_VTOR = 0xed08;
+const OFFSET_SHPR2 = 0xed1c;
+const OFFSET_SHPR3 = 0xed20;
+
+const EXC_RESET = 1;
+const EXC_NMI = 2;
+const EXC_HARDFAULT = 3;
+const EXC_SVCALL = 11;
+const EXC_PENDSV = 14;
+const EXC_SYSTICK = 15;
 
 const SYSM_APSR = 0;
+const SYSM_IAPSR = 1;
+const SYSM_EAPSR = 2;
+const SYSM_XPSR = 3;
 const SYSM_IPSR = 5;
+const SYSM_EPSR = 6;
+const SYSM_IEPSR = 7;
+const SYSM_MSP = 8;
+const SYSM_PSP = 9;
+const SYSM_PRIMASK = 16;
+const SYSM_CONTROL = 20;
+
+// Lowest possible exception priority
+const LOWEST_PRIORITY = 4;
 
 enum ExecutionMode {
   Mode_Thread,
@@ -50,6 +70,11 @@ function signExtend16(value: number) {
 
 const pcRegister = 15;
 
+enum StackPointerBank {
+  SPmain,
+  SPprocess,
+}
+
 export class RP2040 {
   readonly bootrom = new Uint32Array(4 * 1024);
   readonly sram = new Uint8Array(264 * 1024);
@@ -58,6 +83,7 @@ export class RP2040 {
   readonly flash16 = new Uint16Array(this.flash.buffer);
   readonly flashView = new DataView(this.flash.buffer);
   readonly registers = new Uint32Array(16);
+  bankedSP: number = 0;
 
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
@@ -71,6 +97,13 @@ export class RP2040 {
   public C: boolean = false;
   public Z: boolean = false;
   public V: boolean = false;
+
+  // PRIMASK fields
+  public PM: boolean = false;
+
+  // CONTROL fields
+  public SPSEL: StackPointerBank = StackPointerBank.SPmain;
+  public nPRIV: boolean = false;
 
   currentMode: ExecutionMode = ExecutionMode.Mode_Thread;
   public IPSR: number = 0;
@@ -175,7 +208,6 @@ export class RP2040 {
         for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
           const interruptNumber = regIndex * 4 + byteIndex;
           const newPriority = (newValue >> (8 * byteIndex + 6)) & 0x3;
-          console.log(interruptNumber + '=' + newPriority);
           for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
             this.interruptPriorities[priority] &= ~(1 << interruptNumber);
           }
@@ -399,66 +431,240 @@ export class RP2040 {
     this.writeUint32(alignedAddress, newValue[0]);
   }
 
-  raiseException(exceptionNumber: number) {
-    // PushStack()
-    let frameptr = 0;
-    let frameptralign = 0;
-    if (CONTROL.SPSEL == '1' && this.currentMode === ExecutionMode.Mode_Thread) {
-      frameptralign = SP_process & 0b100 ? 1 : 0;
-      SP_process = (SP_process - 0x20) & ~0b100;
-      frameptr = SP_process;
+  switchStack(stack: StackPointerBank) {
+    if (this.SPSEL !== stack) {
+      const temp = this.SP;
+      this.SP = this.bankedSP;
+      this.bankedSP = temp;
+      this.SPSEL = stack;
+    }
+  }
+
+  get SPprocess() {
+    return this.SPSEL === StackPointerBank.SPprocess ? this.SP : this.bankedSP;
+  }
+
+  set SPprocess(value: number) {
+    if (this.SPSEL === StackPointerBank.SPprocess) {
+      this.SP = value;
     } else {
-      frameptralign = SP_main & 0b100 ? 1 : 0;
-      SP_main = (SP_main - 0x20) & ~0b100;
-      frameptr = SP_main;
+      this.bankedSP = value >>> 0;
+    }
+  }
+
+  get SPmain() {
+    return this.SPSEL === StackPointerBank.SPmain ? this.SP : this.bankedSP;
+  }
+
+  set SPmain(value: number) {
+    if (this.SPSEL === StackPointerBank.SPmain) {
+      this.SP = value;
+    } else {
+      this.bankedSP = value >>> 0;
+    }
+  }
+
+  exceptionEntry(exceptionNumber: number) {
+    // PushStack:
+    let framePtr = 0;
+    let framePtrAlign = 0;
+    if (this.SPSEL && this.currentMode === ExecutionMode.Mode_Thread) {
+      framePtrAlign = this.SPprocess & 0b100 ? 1 : 0;
+      this.SPprocess = (this.SPprocess - 0x20) & ~0b100;
+      framePtr = this.SPprocess;
+    } else {
+      framePtrAlign = this.SPmain & 0b100 ? 1 : 0;
+      this.SPmain = (this.SPmain - 0x20) & ~0b100;
+      framePtr = this.SPmain;
     }
     /* only the stack locations, not the store order, are architected */
-    this.writeUint32(frameptr, this.registers[0]);
-    this.writeUint32(frameptr + 0x4, this.registers[1]);
-    this.writeUint32(frameptr + 0x8, this.registers[2]);
-    this.writeUint32(frameptr + 0xc, this.registers[3]);
-    this.writeUint32(frameptr + 0x10, this.registers[12]);
-    this.writeUint32(frameptr + 0x14, this.LR);
-    this.writeUint32(frameptr + 0x18, this.PC); // ReturnAddress(ExceptionType);
-    this.writeUint32(frameptr + 0x1c, (this.xPSR & ~(1 << 9)) | (frameptralign << 9));
+    this.writeUint32(framePtr, this.registers[0]);
+    this.writeUint32(framePtr + 0x4, this.registers[1]);
+    this.writeUint32(framePtr + 0x8, this.registers[2]);
+    this.writeUint32(framePtr + 0xc, this.registers[3]);
+    this.writeUint32(framePtr + 0x10, this.registers[12]);
+    this.writeUint32(framePtr + 0x14, this.LR);
+    this.writeUint32(framePtr + 0x18, this.PC); // ReturnAddress(ExceptionType);
+    this.writeUint32(framePtr + 0x1c, (this.xPSR & ~(1 << 9)) | (framePtrAlign << 9));
     if (this.currentMode == ExecutionMode.Mode_Handler) {
       this.LR = 0xfffffff1;
     } else {
-      if (CONTROL.SPSEL == '0') {
+      if (!this.SPSEL) {
         this.LR = 0xfffffff9;
       } else {
         this.LR = 0xfffffffd;
       }
     }
-    // ExceptionTaken()
-    ///
+    // ExceptionTaken:
     this.currentMode = ExecutionMode.Mode_Handler; // Enter Handler Mode, now Privileged
     this.IPSR = exceptionNumber;
-    // CONTROL.SPSEL = '0'; // Current stack is now SP main
+    this.switchStack(StackPointerBank.SPmain);
     // SetEventRegister(); // See WFE instruction for details
     const vectorTable = this.readUint32(PPB_BASE + OFFSET_VTOR);
     this.PC = this.readUint32(vectorTable + 4 * exceptionNumber);
   }
 
+  exceptionReturn(excReturn: number) {
+    let framePtr = this.SPmain;
+    switch (excReturn & 0xf) {
+      case 0b0001: // Return to Handler
+        this.currentMode = ExecutionMode.Mode_Handler;
+        this.switchStack(StackPointerBank.SPmain);
+        break;
+      case 0b1001: // Return to Thread using Main stack
+        this.currentMode = ExecutionMode.Mode_Thread;
+        this.switchStack(StackPointerBank.SPmain);
+        break;
+      case 0b1101: // Return to Thread using Process stack
+        framePtr = this.SPprocess;
+        this.currentMode = ExecutionMode.Mode_Thread;
+        this.switchStack(StackPointerBank.SPprocess);
+        break;
+      // Assigning CurrentMode to Mode_Thread causes a drop in privilege
+      // if CONTROL.nPRIV is set to 1
+    }
+
+    // PopStack:
+    this.registers[0] = this.readUint32(framePtr); // Stack accesses are performed as Unprivileged accesses if
+    this.registers[1] = this.readUint32(framePtr + 0x4); // CONTROL<0>=='1' && EXC_RETURN<3>=='1' Privileged otherwise
+    this.registers[2] = this.readUint32(framePtr + 0x8);
+    this.registers[3] = this.readUint32(framePtr + 0xc);
+    this.registers[12] = this.readUint32(framePtr + 0x10);
+    this.LR = this.readUint32(framePtr + 0x14);
+    this.PC = this.readUint32(framePtr + 0x18);
+    const psr = this.readUint32(framePtr + 0x1c);
+
+    const framePtrAlign = psr & (1 << 9) ? 0b100 : 0;
+
+    switch (excReturn & 0xf) {
+      case 0b0001: // Returning to Handler mode
+        this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+      case 0b1001: // Returning to Thread mode using Main stack
+        this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+      case 0b1101: // Returning to Thread mode using Process stack
+        this.SPprocess = (this.SPprocess + 0x20) | framePtrAlign;
+    }
+
+    this.APSR = psr & 0xf0000000;
+    const forceThread = this.currentMode == ExecutionMode.Mode_Thread && this.nPRIV;
+    this.IPSR = forceThread ? 0 : psr & 0x3f;
+    // Thumb bit should always be one! EPSR<24> = psr<24>; // Load valid EPSR bits from memory
+    // SetEventRegister(); // See WFE instruction for more details
+    // if CurrentMode == Mode_Thread && SCR.SLEEPONEXIT == '1' then
+    // SleepOnExit(); // IMPLEMENTATION DEFINED
+  }
+
+  exceptionPriority(n: number) {
+    switch (n) {
+      case EXC_RESET:
+        return -3;
+      case EXC_NMI:
+        return -2;
+      case EXC_HARDFAULT:
+        return -1;
+      case EXC_SVCALL:
+        return this.readUint32(PPB_BASE + OFFSET_SHPR2) >> 30;
+      case EXC_PENDSV:
+        return (this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 22) & 0x3;
+      case EXC_SYSTICK:
+        return this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 30;
+      default:
+        if (n < 16) {
+          return LOWEST_PRIORITY;
+        }
+        const intNum = n - 16;
+        for (let priority = 0; priority < 4; priority++) {
+          if (this.interruptPriorities[priority] & (1 << intNum)) {
+            return priority;
+          }
+        }
+        return LOWEST_PRIORITY;
+    }
+  }
+
   checkForInterrupts() {
-    // TODO: when we implement the rest of the exceptions:
-    //  if n == Reset then result = -3;
-    //  elsif n == NMI then result = -2;
-    //  elsif n == HardFault then result = -1;
-    //  elsif n == SVCall then result = UInt(SHPR2.PRI_11);
-    //  elsif n == PendSV then result = UInt(SHPR3.PRI_14);
-    //  elsif n == SysTick then result = UInt(SHPR3.PRI_15);
+    const currentPriority = Math.min(
+      this.exceptionPriority(this.IPSR),
+      this.PM ? 0 : LOWEST_PRIORITY
+    );
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
-    for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
+    for (let priority = 0; priority < currentPriority; priority++) {
       const levelInterrupts = interruptSet & this.interruptPriorities[priority];
       if (levelInterrupts) {
         for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
           if (levelInterrupts & (1 << interruptNumber)) {
-            this.raiseException(16 + interruptNumber);
+            this.exceptionEntry(16 + interruptNumber);
             return;
           }
         }
       }
+    }
+    this.interruptsUpdated = false;
+  }
+
+  readSpecialRegister(sysm: number) {
+    switch (sysm) {
+      case SYSM_APSR:
+        return this.APSR;
+
+      case SYSM_IPSR:
+        return this.IPSR;
+
+      case SYSM_PRIMASK:
+        return this.PM ? 1 : 0;
+
+      case SYSM_MSP:
+        return this.SPmain;
+
+      case SYSM_PSP:
+        return this.SPprocess;
+
+      case SYSM_CONTROL:
+        return (this.SPSEL === StackPointerBank.SPprocess ? 2 : 0) | (this.nPRIV ? 1 : 0);
+
+      default:
+        console.warn('MRS with unimplemented SYSm value: ', sysm);
+        return 0;
+    }
+  }
+
+  writeSpecialRegister(sysm: number, value: number) {
+    switch (sysm) {
+      case SYSM_APSR:
+        this.APSR = value;
+        break;
+
+      case SYSM_IPSR:
+        this.IPSR = value;
+        break;
+
+      case SYSM_PRIMASK:
+        this.PM = !!(value & 1);
+
+      case SYSM_MSP:
+        this.SPmain = value;
+        break;
+
+      case SYSM_PSP:
+        this.SPprocess = value;
+        break;
+
+      case SYSM_CONTROL:
+        this.nPRIV = !!(value & 1);
+        this.switchStack(value & 2 ? StackPointerBank.SPprocess : StackPointerBank.SPmain);
+        break;
+
+      default:
+        console.warn('MSR with unimplemented SYSm value: ', sysm);
+        return 0;
+    }
+  }
+
+  BXWritePC(address: number) {
+    if (this.currentMode == ExecutionMode.Mode_Handler && address >>> 28 == 0b1111) {
+      this.exceptionReturn(address & 0x0fffffff);
+    } else {
+      this.PC = address & ~1;
     }
   }
 
@@ -635,7 +841,7 @@ export class RP2040 {
     // BX
     else if (opcode >> 7 === 0b010001110 && (opcode & 0x7) === 0) {
       const Rm = (opcode >> 3) & 0xf;
-      this.PC = this.registers[Rm] & ~1;
+      this.BXWritePC(this.registers[Rm]);
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
@@ -674,10 +880,14 @@ export class RP2040 {
       this.V =
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
-    } else if (opcode === 0xb672) {
-      console.warn('ignoring cpsid i');
-    } else if (opcode === 0xb662) {
-      console.warn('ignoring cpsie i');
+    }
+    // CPSID i
+    else if (opcode === 0xb672) {
+      this.PM = true;
+    }
+    // CPSIE i
+    else if (opcode === 0xb662) {
+      this.PM = false;
     }
     // DMB SY
     else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
@@ -853,25 +1063,15 @@ export class RP2040 {
     else if (opcode === 0b1111001111101111 && opcode2 >> 12 == 0b1000) {
       const SYSm = opcode2 & 0xff;
       const Rd = (opcode2 >> 8) & 0xf;
-      switch (SYSm) {
-        case SYSM_APSR:
-          this.registers[Rd] = this.APSR;
-          break;
-
-        case SYSM_IPSR:
-          this.registers[Rd] = this.IPSR;
-          break;
-
-        default:
-          console.warn('MRS with unimplemented SYSm value: ', SYSm);
-      }
+      this.registers[Rd] = this.readSpecialRegister(SYSm);
       this.PC += 2;
-      console.log('MRS!');
     }
     // MSR
     else if (opcode >> 4 === 0b111100111000 && opcode2 >> 8 == 0b10001000) {
+      const SYSm = opcode2 & 0xff;
+      const Rn = opcode & 0xf;
+      this.writeSpecialRegister(SYSm, this.registers[Rn]);
       this.PC += 2;
-      console.log('MSR!');
     }
     // MULS
     else if (opcode >> 6 === 0b0100001101) {
@@ -902,6 +1102,7 @@ export class RP2040 {
     }
     // POP
     else if (opcode >> 9 === 0b1011110) {
+      const P = (opcode >> 8) & 1;
       let address = this.SP;
       for (let i = 0; i <= 7; i++) {
         if (opcode & (1 << i)) {
@@ -909,9 +1110,8 @@ export class RP2040 {
           address += 4;
         }
       }
-      if ((opcode >> 8) & 1) {
-        this.PC = this.readUint32(address);
-        this.writeUint32(address, this.registers[14]);
+      if (P) {
+        this.BXWritePC(this.readUint32(address));
         address += 4;
       }
       this.SP = address;
