@@ -144,6 +144,7 @@ export class GDBTCPServer {
 
   handleConnection(socket: Socket) {
     console.log('GDB connected\n');
+    socket.setNoDelay(true);
     const { rp2040 } = this;
 
     rp2040.onBreak = () => {
