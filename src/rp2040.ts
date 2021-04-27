@@ -664,7 +664,9 @@ export class RP2040 {
 
       case SYSM_CONTROL:
         this.nPRIV = !!(value & 1);
-        this.switchStack(value & 2 ? StackPointerBank.SPprocess : StackPointerBank.SPmain);
+        if (this.currentMode === ExecutionMode.Mode_Thread) {
+          this.switchStack(value & 2 ? StackPointerBank.SPprocess : StackPointerBank.SPmain);
+        }
         break;
 
       default:
