@@ -1077,7 +1077,7 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001101) {
       const Rn = (opcode >> 3) & 0x7;
       const Rdm = opcode & 0x7;
-      const result = this.registers[Rn] * this.registers[Rdm];
+      const result = Math.imul(this.registers[Rn], this.registers[Rdm]);
       this.registers[Rdm] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;

@@ -430,6 +430,16 @@ describe('RP2040', () => {
       expect(rp2040.Z).toEqual(false);
     });
 
+    it('should execute a muls instruction with large 32-bit numbers and produce the correct result', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeMULS(r0, r2);
+      rp2040.registers[r0] = 2654435769;
+      rp2040.registers[r2] = 340573321;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(1);
+    });
+
     it('should execute a `muls r0, r2` instruction and set the Z flag when the result is zero', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
