@@ -905,7 +905,7 @@ export class RP2040 {
       this.PM = false;
     }
     // DMB SY
-    else if (opcode === 0xf3bf && opcode2 === 0x8f5f) {
+    else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f50) {
       this.PC += 2;
     }
     // EORS
