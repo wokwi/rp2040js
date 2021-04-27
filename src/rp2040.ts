@@ -44,10 +44,10 @@ const SYSM_XPSR = 3;
 const SYSM_IPSR = 5;
 const SYSM_EPSR = 6;
 const SYSM_IEPSR = 7;
-const SYSM_MSP = 8;
-const SYSM_PSP = 9;
-const SYSM_PRIMASK = 16;
-const SYSM_CONTROL = 20;
+export const SYSM_MSP = 8;
+export const SYSM_PSP = 9;
+export const SYSM_PRIMASK = 16;
+export const SYSM_CONTROL = 20;
 
 // Lowest possible exception priority
 const LOWEST_PRIORITY = 4;
@@ -154,6 +154,8 @@ export class RP2040 {
   };
 
   constructor() {
+    this.SP = 0xfffffffc;
+    this.bankedSP = 0xfffffffc;
     this.readHooks.set(SIO_START_ADDRESS + SIO_CPUID_OFFSET, () => {
       // Returns the current CPU core id (always 0 for now)
       return 0;

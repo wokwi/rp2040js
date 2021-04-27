@@ -5,12 +5,45 @@
  */
 
 import { createServer, Socket } from 'net';
-import { RP2040 } from './rp2040';
+import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from './rp2040';
 
 const DEBUG = false;
 
 const STOP_REPLY_SIGINT = 'S02';
 const STOP_REPLY_TRAP = 'S05';
+
+const targetXML = `<?xml version="1.0"?>
+<!DOCTYPE target SYSTEM "gdb-target.dtd">
+<target version="1.0">
+<architecture>arm</architecture>
+<feature name="org.gnu.gdb.arm.m-profile">
+<reg name="r0" bitsize="32" regnum="0" save-restore="yes" type="int" group="general"/>
+<reg name="r1" bitsize="32" regnum="1" save-restore="yes" type="int" group="general"/>
+<reg name="r2" bitsize="32" regnum="2" save-restore="yes" type="int" group="general"/>
+<reg name="r3" bitsize="32" regnum="3" save-restore="yes" type="int" group="general"/>
+<reg name="r4" bitsize="32" regnum="4" save-restore="yes" type="int" group="general"/>
+<reg name="r5" bitsize="32" regnum="5" save-restore="yes" type="int" group="general"/>
+<reg name="r6" bitsize="32" regnum="6" save-restore="yes" type="int" group="general"/>
+<reg name="r7" bitsize="32" regnum="7" save-restore="yes" type="int" group="general"/>
+<reg name="r8" bitsize="32" regnum="8" save-restore="yes" type="int" group="general"/>
+<reg name="r9" bitsize="32" regnum="9" save-restore="yes" type="int" group="general"/>
+<reg name="r10" bitsize="32" regnum="10" save-restore="yes" type="int" group="general"/>
+<reg name="r11" bitsize="32" regnum="11" save-restore="yes" type="int" group="general"/>
+<reg name="r12" bitsize="32" regnum="12" save-restore="yes" type="int" group="general"/>
+<reg name="sp" bitsize="32" regnum="13" save-restore="yes" type="data_ptr" group="general"/>
+<reg name="lr" bitsize="32" regnum="14" save-restore="yes" type="int" group="general"/>
+<reg name="pc" bitsize="32" regnum="15" save-restore="yes" type="code_ptr" group="general"/>
+<reg name="xPSR" bitsize="32" regnum="16" save-restore="yes" type="int" group="general"/>
+</feature>
+<feature name="org.gnu.gdb.arm.m-system">
+<reg name="msp" bitsize="32" regnum="17" save-restore="yes" type="data_ptr" group="system"/>
+<reg name="psp" bitsize="32" regnum="18" save-restore="yes" type="data_ptr" group="system"/>
+<reg name="primask" bitsize="1" regnum="19" save-restore="yes" type="int8" group="system"/>
+<reg name="basepri" bitsize="8" regnum="20" save-restore="yes" type="int8" group="system"/>
+<reg name="faultmask" bitsize="1" regnum="21" save-restore="yes" type="int8" group="system"/>
+<reg name="control" bitsize="2" regnum="22" save-restore="yes" type="int8" group="system"/>
+</feature>
+</target>`;
 
 function encodeHexByte(value: number) {
   return (value >> 4).toString(16) + (value & 0xf).toString(16);
@@ -18,6 +51,11 @@ function encodeHexByte(value: number) {
 
 function encodeHexBuf(buf: Uint8Array) {
   return Array.from(buf).map(encodeHexByte).join('');
+}
+
+function encodeHexUint32(value: number) {
+  const buf = new Uint32Array([value]);
+  return encodeHexBuf(new Uint8Array(buf.buffer));
 }
 
 function decodeHexBuf(encoded: string) {
@@ -62,10 +100,13 @@ export class GDBTCPServer {
       case 'q':
         // Query things
         if (cmd.startsWith('qSupported:')) {
-          return gdbResponse('PacketSize=4000;vContSupported+');
+          return gdbResponse('PacketSize=4000;vContSupported+;qXfer:features:read+');
         }
         if (cmd === 'qAttached') {
           return gdbResponse('1');
+        }
+        if (cmd.startsWith('qXfer:features:read:target.xml')) {
+          return gdbResponse('l' + targetXML);
         }
         return gdbResponse('');
 
@@ -95,20 +136,65 @@ export class GDBTCPServer {
         return gdbResponse(encodeHexBuf(new Uint8Array(buf.buffer)));
       }
 
+      case 'p': {
+        // Read register
+        const registerIndex = parseInt(cmd.substr(1), 16);
+        if (registerIndex >= 0 && registerIndex <= 15) {
+          return gdbResponse(encodeHexUint32(rp2040.registers[registerIndex]));
+        }
+        const specialRegister = (sysm: number) =>
+          gdbResponse(encodeHexUint32(rp2040.readSpecialRegister(sysm)));
+        switch (registerIndex) {
+          case 0x10:
+            return gdbResponse(encodeHexUint32(rp2040.xPSR));
+          case 0x11:
+            return specialRegister(SYSM_MSP);
+          case 0x12:
+            return specialRegister(SYSM_PSP);
+          case 0x13:
+            return specialRegister(SYSM_PRIMASK);
+          case 0x14:
+            return gdbResponse(encodeHexUint32(0)); // TODO BASEPRI
+          case 0x15:
+            return gdbResponse(encodeHexUint32(0)); // TODO faultmask
+          case 0x16:
+            return specialRegister(SYSM_CONTROL);
+        }
+      }
+
       case 'P': {
         // Write register
         const params = cmd.substr(1).split('=');
         const registerIndex = parseInt(params[0], 16);
         const registerValue = params[1].trim();
-        if (registerIndex < 0 || registerIndex > 16 || registerValue.length !== 8) {
+        if (registerIndex < 0 || registerIndex > 0x16 || registerValue.length !== 8) {
           return gdbResponse('E00');
         }
         const valueBuffer = new Uint8Array(decodeHexBuf(registerValue)).buffer;
         const value = new DataView(valueBuffer).getUint32(0, true);
-        if (registerIndex === 16) {
-          rp2040.xPSR = value;
-        } else {
-          rp2040.registers[registerIndex] = value;
+        switch (registerIndex) {
+          case 0x10:
+            rp2040.xPSR = value;
+            break;
+          case 0x11:
+            rp2040.writeSpecialRegister(SYSM_MSP, value);
+            break;
+          case 0x12:
+            rp2040.writeSpecialRegister(SYSM_PSP, value);
+            break;
+          case 0x13:
+            rp2040.writeSpecialRegister(SYSM_PRIMASK, value);
+            break;
+          case 0x14:
+            break; // TODO BASEPRI
+          case 0x15:
+            break; // TODO faultmask
+          case 0x16:
+            rp2040.writeSpecialRegister(SYSM_CONTROL, value);
+            break;
+          default:
+            rp2040.registers[registerIndex] = value;
+            break;
         }
         return gdbResponse('OK');
       }
