@@ -50,6 +50,7 @@ import {
   opcodeSUBS2,
   opcodeSUBsp,
   opcodeSUBSreg,
+  opcodeSVC,
   opcodeSXTB,
   opcodeUXTB,
   opcodeUXTH,
@@ -70,6 +71,7 @@ const lr = 14;
 const pc = 15;
 
 const VTOR = 0xe000ed08;
+const EXC_SVCALL = 11;
 
 describe('RP2040', () => {
   it(`should initialize PC and SP according to bootrom's vector table`, () => {
@@ -998,6 +1000,26 @@ describe('RP2040', () => {
       expect(rp2040.Z).toEqual(false);
       expect(rp2040.C).toEqual(true);
       expect(rp2040.V).toEqual(false);
+    });
+
+    it('should raise an SVCALL exception when `svc` instruction runs', () => {
+      const SVCALL_HANDLER = 0x10002000;
+      const rp2040 = new RP2040();
+      rp2040.SP = 0x20004000;
+      rp2040.PC = 0x10004000;
+      rp2040.writeUint16(0x10004000, opcodeSVC(10));
+      rp2040.registers[r0] = 0x44;
+      rp2040.writeUint32(VTOR, 0x10040000);
+      rp2040.writeUint32(0x10040000 + EXC_SVCALL * 4, SVCALL_HANDLER);
+      rp2040.writeUint16(SVCALL_HANDLER, opcodeMOVS(r0, 0x55));
+
+      rp2040.executeInstruction();
+      expect(rp2040.pendingSVCall).toEqual(true);
+
+      rp2040.executeInstruction(); // SVCall handler should run here
+      expect(rp2040.pendingSVCall).toEqual(false);
+      expect(rp2040.PC).toEqual(SVCALL_HANDLER + 2);
+      expect(rp2040.registers[r0]).toEqual(0x55);
     });
 
     it('should execute a `sxtb r2, r2` instruction with sign bit 1', () => {

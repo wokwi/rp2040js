@@ -207,6 +207,10 @@ export function opcodeSUBsp(imm: number) {
   return (0b101100001 << 7) | ((imm >> 2) & 0x7f);
 }
 
+export function opcodeSVC(imm8: number) {
+  return (0b11011111 << 8) | (imm8 & 0xff);
+}
+
 export function opcodeSXTB(Rd: number, Rm: number) {
   return (0b1011001001 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }

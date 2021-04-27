@@ -111,6 +111,7 @@ export class RP2040 {
   pendingInterrupts: number = 0;
   enabledInterrupts: number = 0;
   interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
+  pendingSVCall: boolean = false;
   interruptsUpdated = false;
 
   private executeTimer: NodeJS.Timeout | null = null;
@@ -554,6 +555,10 @@ export class RP2040 {
     // SleepOnExit(); // IMPLEMENTATION DEFINED
   }
 
+  get svCallPriority() {
+    return this.readUint32(PPB_BASE + OFFSET_SHPR2) >>> 30;
+  }
+
   exceptionPriority(n: number) {
     switch (n) {
       case EXC_RESET:
@@ -563,11 +568,11 @@ export class RP2040 {
       case EXC_HARDFAULT:
         return -1;
       case EXC_SVCALL:
-        return this.readUint32(PPB_BASE + OFFSET_SHPR2) >> 30;
+        return this.svCallPriority;
       case EXC_PENDSV:
         return (this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 22) & 0x3;
       case EXC_SYSTICK:
-        return this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 30;
+        return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
       default:
         if (n < 16) {
           return LOWEST_PRIORITY;
@@ -588,8 +593,14 @@ export class RP2040 {
       this.PM ? 0 : LOWEST_PRIORITY
     );
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
+    const { svCallPriority } = this;
     for (let priority = 0; priority < currentPriority; priority++) {
       const levelInterrupts = interruptSet & this.interruptPriorities[priority];
+      if (this.pendingSVCall && priority === svCallPriority) {
+        this.pendingSVCall = false;
+        this.exceptionEntry(EXC_SVCALL);
+        return;
+      }
       if (levelInterrupts) {
         for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
           if (levelInterrupts & (1 << interruptNumber)) {
@@ -1289,6 +1300,11 @@ export class RP2040 {
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
+    }
+    // SVC
+    else if (opcode >> 8 === 0b11011111) {
+      this.pendingSVCall = true;
+      this.interruptsUpdated = true;
     }
     // SXTB
     else if (opcode >> 6 === 0b1011001001) {

@@ -47,6 +47,7 @@ import {
   opcodeSUBS2,
   opcodeSUBsp,
   opcodeSUBSreg,
+  opcodeSVC,
   opcodeSXTB,
   opcodeUXTB,
   opcodeUXTH,
@@ -266,6 +267,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `subs r3, #13` instruction', () => {
     expect(opcodeSUBS2(r3, 13)).toEqual(0x3b0d);
+  });
+
+  it('should correctly encode an `svc 0` instruction', () => {
+    expect(opcodeSVC(0)).toEqual(0xdf00);
   });
 
   it('should correctly encode an `sxtb r2, r2` instruction', () => {
