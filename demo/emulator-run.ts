@@ -9,7 +9,7 @@ import { GDBTCPServer } from '../src';
 const hex = fs.readFileSync('hello_uart.hex', 'utf-8');
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
-loadHex(hex, mcu.flash);
+loadHex(hex, mcu.flash, 0x10000000);
 
 const gdbServer = new GDBTCPServer(mcu, 3333);
 console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
