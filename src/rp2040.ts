@@ -653,6 +653,7 @@ export class RP2040 {
 
       case SYSM_PRIMASK:
         this.PM = !!(value & 1);
+        break;
 
       case SYSM_MSP:
         this.SPmain = value;
