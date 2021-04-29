@@ -487,7 +487,7 @@ export class RP2040 {
     this.writeUint32(framePtr + 0xc, this.registers[3]);
     this.writeUint32(framePtr + 0x10, this.registers[12]);
     this.writeUint32(framePtr + 0x14, this.LR);
-    this.writeUint32(framePtr + 0x18, this.PC); // ReturnAddress(ExceptionType);
+    this.writeUint32(framePtr + 0x18, this.PC & ~1); // ReturnAddress(ExceptionType);
     this.writeUint32(framePtr + 0x1c, (this.xPSR & ~(1 << 9)) | (framePtrAlign << 9));
     if (this.currentMode == ExecutionMode.Mode_Handler) {
       this.LR = 0xfffffff1;
