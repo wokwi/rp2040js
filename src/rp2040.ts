@@ -845,13 +845,13 @@ export class RP2040 {
       const I2 = 1 - (S ^ J2);
       const imm32 =
         ((S ? 0b11111111 : 0) << 24) | ((I1 << 23) | (I2 << 22) | (imm10 << 12) | (imm11 << 1));
-      this.LR = this.PC + 2;
+      this.LR = (this.PC + 2) | 0x1;
       this.PC += 2 + imm32;
     }
     // BLX
     else if (opcode >> 7 === 0b010001111 && (opcode & 0x7) === 0) {
       const Rm = (opcode >> 3) & 0xf;
-      this.LR = this.PC;
+      this.LR = this.PC | 0x1;
       this.PC = this.registers[Rm] & ~1;
     }
     // BX
