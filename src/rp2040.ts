@@ -1,3 +1,4 @@
+import { Clock, ClockTimer } from './clock';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
@@ -22,6 +23,10 @@ const CLK_SYS_SELECTED = 0x44;
 const USBCTRL_BASE = 0x50100000;
 
 const PPB_BASE = 0xe0000000;
+const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
+const OFFSET_SYST_RVR = 0xe014; // SysTick Reload Value Register
+const OFFSET_SYST_CVR = 0xe018; // SysTick Current Value Register
+const OFFSET_SYST_CALIB = 0xe01c; // SysTick Calibration Value Register
 const OFFSET_NVIC_ISER = 0xe100; // Interrupt Set-Enable Register
 const OFFSET_NVIC_ICER = 0xe180; // Interrupt Clear-Enable Register
 const OFFSET_NVIC_ISPR = 0xe200; // Interrupt Set-Pending Register
@@ -59,7 +64,7 @@ enum ExecutionMode {
   Mode_Handler,
 }
 
-export type CPUWriteCallback = (address: number, value: number) => void;
+export type CPUWriteCallback = (value: number, address: number) => void;
 export type CPUReadCallback = (address: number) => number;
 
 function signExtend8(value: number) {
@@ -90,6 +95,8 @@ export class RP2040 {
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
 
+  readonly clock = new Clock();
+
   readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
 
   private stopped = false;
@@ -114,11 +121,19 @@ export class RP2040 {
   enabledInterrupts: number = 0;
   interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
   pendingSVCall: boolean = false;
+  pendingSystick: boolean = false;
   interruptsUpdated = false;
 
   // M0Plus built-in registers
   SHPR2 = 0;
   SHPR3 = 0;
+
+  // Systick
+  systickCountFlag = false;
+  systickControl = 0;
+  systickLastZero = 0;
+  systickReload = 0;
+  systickTimer: ClockTimer | null = null;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
@@ -240,11 +255,53 @@ export class RP2040 {
 
     this.readHooks.set(PPB_BASE + OFFSET_SHPR2, () => this.SHPR2);
     this.readHooks.set(PPB_BASE + OFFSET_SHPR3, () => this.SHPR3);
-    this.writeHooks.set(PPB_BASE + OFFSET_SHPR2, (address, value) => {
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR2, (value) => {
       this.SHPR2 = value;
     });
-    this.writeHooks.set(PPB_BASE + OFFSET_SHPR3, (address, value) => {
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR3, (value) => {
       this.SHPR3 = value;
+    });
+
+    // SysTick
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CSR, () => {
+      const countFlagValue = this.systickCountFlag ? 1 << 16 : 0;
+      this.systickCountFlag = false;
+      return countFlagValue | (this.systickControl & 0x7);
+    });
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CVR, () => {
+      const delta = (this.clock.micros - this.systickLastZero) % (this.systickReload + 1);
+      if (!delta) {
+        return 0;
+      }
+      return this.systickReload - (delta - 1);
+    });
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_RVR, () => this.systickReload);
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CALIB, () => 0x0000270f);
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CSR, (value) => {
+      const prevInterrupt = this.systickControl === 0x7;
+      const interrupt = value === 0x7;
+      if (interrupt && !prevInterrupt) {
+        // TODO: adjust the timer based on the current systick value
+        const systickCallback = () => {
+          this.pendingSystick = true;
+          this.interruptsUpdated = true;
+          this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
+        };
+        this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
+      }
+      if (prevInterrupt && interrupt) {
+        if (this.systickTimer) {
+          this.clock.deleteTimer(this.systickTimer);
+        }
+        this.systickTimer = null;
+      }
+      this.systickControl = value & 0x7;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CVR, (value) => {
+      console.log('SYSTICK CVR: not implemented yet, value=', value);
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_RVR, (value) => {
+      this.systickReload = value;
     });
   }
 
@@ -568,6 +625,7 @@ export class RP2040 {
     this.APSR = psr & 0xf0000000;
     const forceThread = this.currentMode == ExecutionMode.Mode_Thread && this.nPRIV;
     this.IPSR = forceThread ? 0 : psr & 0x3f;
+    this.interruptsUpdated = true;
     // Thumb bit should always be one! EPSR<24> = psr<24>; // Load valid EPSR bits from memory
     // SetEventRegister(); // See WFE instruction for more details
     // if CurrentMode == Mode_Thread && SCR.SLEEPONEXIT == '1' then
@@ -576,6 +634,10 @@ export class RP2040 {
 
   get svCallPriority() {
     return this.readUint32(PPB_BASE + OFFSET_SHPR2) >>> 30;
+  }
+
+  get systickPriority() {
+    return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
   }
 
   exceptionPriority(n: number) {
@@ -612,12 +674,17 @@ export class RP2040 {
       this.PM ? 0 : LOWEST_PRIORITY
     );
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
-    const { svCallPriority } = this;
+    const { svCallPriority, systickPriority } = this;
     for (let priority = 0; priority < currentPriority; priority++) {
       const levelInterrupts = interruptSet & this.interruptPriorities[priority];
       if (this.pendingSVCall && priority === svCallPriority) {
         this.pendingSVCall = false;
         this.exceptionEntry(EXC_SVCALL);
+        return;
+      }
+      if (this.pendingSystick && priority === systickPriority) {
+        this.pendingSystick = false;
+        this.exceptionEntry(EXC_SYSTICK);
         return;
       }
       if (levelInterrupts) {
@@ -677,6 +744,7 @@ export class RP2040 {
 
       case SYSM_PRIMASK:
         this.PM = !!(value & 1);
+        this.interruptsUpdated = true;
         break;
 
       case SYSM_MSP:
@@ -942,6 +1010,7 @@ export class RP2040 {
     // CPSIE i
     else if (opcode === 0xb662) {
       this.PM = false;
+      this.interruptsUpdated = true;
     }
     // DMB SY
     else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f50) {
@@ -1390,6 +1459,7 @@ export class RP2040 {
   }
 
   execute() {
+    this.clock.resume();
     this.executeTimer = null;
     this.stopped = false;
     for (let i = 0; i < 1000 && !this.stopped; i++) {
@@ -1406,5 +1476,6 @@ export class RP2040 {
       clearTimeout(this.executeTimer);
       this.executeTimer = null;
     }
+    this.clock.pause();
   }
 }
