@@ -296,7 +296,7 @@ describe('RP2040', () => {
       rp2040.flashView.setUint32(0, opcodeBL(0x34), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000038);
-      expect(rp2040.LR).toEqual(0x10000004);
+      expect(rp2040.LR).toEqual(0x10000005);
     });
 
     it('should execute `bl -0x10` instruction', () => {
@@ -305,7 +305,7 @@ describe('RP2040', () => {
       rp2040.flashView.setUint32(0, opcodeBL(-0x10), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000004 - 0x10);
-      expect(rp2040.LR).toEqual(0x10000004);
+      expect(rp2040.LR).toEqual(0x10000005);
     });
 
     it('should execute `bl -3242` instruction', () => {
@@ -314,7 +314,7 @@ describe('RP2040', () => {
       rp2040.flashView.setUint32(0, opcodeBL(-3242), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000004 - 3242);
-      expect(rp2040.LR).toEqual(0x10000004);
+      expect(rp2040.LR).toEqual(0x10000005);
     });
 
     it('should execute `blx r3` instruction', () => {
@@ -324,7 +324,7 @@ describe('RP2040', () => {
       rp2040.flashView.setUint32(0, opcodeBLX(r3), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000200);
-      expect(rp2040.LR).toEqual(0x10000002);
+      expect(rp2040.LR).toEqual(0x10000003);
     });
 
     it('should execute a `b.n .-20` instruction', () => {
