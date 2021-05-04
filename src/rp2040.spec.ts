@@ -10,6 +10,7 @@ import {
   opcodeADR,
   opcodeANDS,
   opcodeASRS,
+  opcodeASRSreg,
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
@@ -264,6 +265,20 @@ describe('RP2040', () => {
       expect(rp2040.N).toEqual(true);
       expect(rp2040.Z).toEqual(false);
       expect(rp2040.C).toEqual(false);
+    });
+
+    it('should execute an `asrs r3, r4` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeASRSreg(r3, r4);
+      rp2040.registers[r3] = 0x80000040;
+      rp2040.registers[r4] = 0xff500007;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0xff000000);
+      expect(rp2040.PC).toEqual(0x10000002);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(true);
     });
 
     it('should execute `bics r0, r3` correctly', () => {

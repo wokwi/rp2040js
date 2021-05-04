@@ -38,6 +38,10 @@ export function opcodeASRS(Rd: number, Rm: number, imm5: number) {
   return (0b00010 << 11) | ((imm5 & 0x1f) << 6) | ((Rm & 0x7) << 3) | (Rd & 0x7);
 }
 
+export function opcodeASRSreg(Rdn: number, Rm: number) {
+  return (0b0100000100 << 6) | ((Rm & 0x7) << 3) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
+}
+
 export function opcodeBICS(Rdn: number, Rm: number) {
   return (0b0100001110 << 6) | ((Rm & 7) << 3) | (Rdn & 7);
 }

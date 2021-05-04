@@ -9,6 +9,7 @@ import {
   opcodeADR,
   opcodeANDS,
   opcodeASRS,
+  opcodeASRSreg,
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
@@ -107,6 +108,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `asrs r3, r2, #31` instruction', () => {
     expect(opcodeASRS(r3, r2, 31)).toEqual(0x17d3);
+  });
+  
+  it('should correctly encode an `asrs r3, r4` instruction', () => {
+    expect(opcodeASRSreg(r3, r4)).toEqual(0x4123);
   });
 
   it('should correctly encode an `bics r0, r3` instruction', () => {
