@@ -19,6 +19,8 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
+const USBCTRL_BASE = 0x50100000;
+
 const PPB_BASE = 0xe0000000;
 const OFFSET_NVIC_ISER = 0xe100; // Interrupt Set-Enable Register
 const OFFSET_NVIC_ICER = 0xe180; // Interrupt Clear-Enable Register
@@ -113,6 +115,10 @@ export class RP2040 {
   interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
   pendingSVCall: boolean = false;
   interruptsUpdated = false;
+
+  // M0Plus built-in registers
+  SHPR2 = 0;
+  SHPR3 = 0;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
@@ -231,6 +237,15 @@ export class RP2040 {
         return result;
       });
     }
+
+    this.readHooks.set(PPB_BASE + OFFSET_SHPR2, () => this.SHPR2);
+    this.readHooks.set(PPB_BASE + OFFSET_SHPR3, () => this.SHPR3);
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR2, (address, value) => {
+      this.SHPR2 = value;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR3, (address, value) => {
+      this.SHPR3 = value;
+    });
   }
 
   loadBootrom(bootromData: Uint32Array) {
@@ -391,6 +406,8 @@ export class RP2040 {
       } else if (sioAddress === 24) {
         console.log(`GPIO pins ${pinList} set to LOW`);
       }
+    } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
+      // Ignore these USB writes for now
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
@@ -620,6 +637,9 @@ export class RP2040 {
       case SYSM_APSR:
         return this.APSR;
 
+      case SYSM_XPSR:
+        return this.xPSR;
+
       case SYSM_IPSR:
         return this.IPSR;
 
@@ -645,6 +665,10 @@ export class RP2040 {
     switch (sysm) {
       case SYSM_APSR:
         this.APSR = value;
+        break;
+
+      case SYSM_XPSR:
+        this.xPSR = value;
         break;
 
       case SYSM_IPSR:
