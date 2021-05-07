@@ -781,9 +781,9 @@ export class RP2040 {
       this.checkForInterrupts();
     }
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
-    const opcode = this.readUint16(this.PC);
-    const opcode2 = this.readUint16(this.PC + 2);
-    const opcodePC = this.PC;
+    const opcodePC = this.PC & ~1;  //ensure no LSB set PC are executed
+    const opcode = this.readUint16(opcodePC);
+    const opcode2 = this.readUint16(opcodePC + 2);
     this.PC += 2;
     // ADCS
     if (opcode >> 6 === 0b0100000101) {
