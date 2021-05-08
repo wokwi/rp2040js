@@ -53,6 +53,7 @@ import {
   opcodeSUBSreg,
   opcodeSVC,
   opcodeSXTB,
+  opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
 } from './utils/assembler';
@@ -736,6 +737,17 @@ describe('RP2040', () => {
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000002);
       expect(breakMock).toHaveBeenCalledWith(1);
+    });
+
+    it('should execute a `udf.w #0` (T2 encoding) instruction', () => {
+      const breakMock = jest.fn();
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flashView.setUint32(0, opcodeUDF2(0), true);
+      rp2040.onBreak = breakMock;
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x10000004);
+      expect(breakMock).toHaveBeenCalledWith(0);
     });
 
     it('should execute a `lsls r5, r5, #18` instruction', () => {

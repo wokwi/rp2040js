@@ -107,6 +107,9 @@ export class RP2040 {
   public Z: boolean = false;
   public V: boolean = false;
 
+  // How many bytes to rewind the last break instruction
+  public breakRewind = 0;
+
   // PRIMASK fields
   public PM: boolean = false;
 
@@ -781,7 +784,7 @@ export class RP2040 {
       this.checkForInterrupts();
     }
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
-    const opcodePC = this.PC & ~1;  //ensure no LSB set PC are executed
+    const opcodePC = this.PC & ~1; //ensure no LSB set PC are executed
     const opcode = this.readUint16(opcodePC);
     const opcode2 = this.readUint16(opcodePC + 2);
     this.PC += 2;
@@ -1435,7 +1438,16 @@ export class RP2040 {
     // UDF
     else if (opcode >> 8 == 0b11011110) {
       const imm8 = opcode & 0xff;
+      this.breakRewind = 2;
       this.onBreak(imm8);
+    }
+    // UDF (Encoding T2)
+    else if (opcode >> 4 === 0b111101111111 && opcode2 >> 12 === 0b1010) {
+      const imm4 = opcode & 0xf;
+      const imm12 = opcode2 & 0xfff;
+      this.breakRewind = 4;
+      this.onBreak((imm4 << 12) | imm12);
+      this.PC += 2;
     }
     // UXTB
     else if (opcode >> 6 == 0b1011001011) {

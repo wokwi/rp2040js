@@ -235,7 +235,7 @@ export class GDBTCPServer {
 
     rp2040.onBreak = () => {
       rp2040.stop();
-      rp2040.PC -= 2;
+      rp2040.PC -= rp2040.breakRewind;
       socket.write(gdbResponse(STOP_REPLY_TRAP));
     };
 

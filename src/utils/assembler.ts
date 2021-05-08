@@ -223,6 +223,12 @@ export function opcodeUXTB(Rd: number, Rm: number) {
   return (0b1011001011 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
 
+export function opcodeUDF2(imm16: number) {
+  const imm12 = imm16 & 0xfff;
+  const imm4 = (imm16 >> 12) & 0xf;
+  return ((0b111101111111 << 4) | imm4 | (0b1010 << 28) | (imm12 << 16)) >>> 0;
+}
+
 export function opcodeUXTH(Rd: number, Rm: number) {
   return (0b1011001010 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }

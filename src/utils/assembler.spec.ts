@@ -50,6 +50,7 @@ import {
   opcodeSUBSreg,
   opcodeSVC,
   opcodeSXTB,
+  opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
 } from './assembler';
@@ -109,7 +110,7 @@ describe('assembler', () => {
   it('should correctly encode an `asrs r3, r2, #31` instruction', () => {
     expect(opcodeASRS(r3, r2, 31)).toEqual(0x17d3);
   });
-  
+
   it('should correctly encode an `asrs r3, r4` instruction', () => {
     expect(opcodeASRSreg(r3, r4)).toEqual(0x4123);
   });
@@ -280,6 +281,10 @@ describe('assembler', () => {
 
   it('should correctly encode an `sxtb r2, r2` instruction', () => {
     expect(opcodeSXTB(r2, r2)).toEqual(0xb252);
+  });
+
+  it('should correctly encode an `udf.w #0` instruction', () => {
+    expect(opcodeUDF2(0)).toEqual(0xa000f7f0);
   });
 
   it('should correctly encode an `uxtb r3, r3` instruction', () => {
