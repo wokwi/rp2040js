@@ -1019,6 +1019,10 @@ export class RP2040 {
     else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f50) {
       this.PC += 2;
     }
+    // DSB SY
+    else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f40) {
+      this.PC += 2;
+    }
     // EORS
     else if (opcode >> 6 === 0b0100000001) {
       const Rm = (opcode >> 3) & 0x7;
@@ -1027,6 +1031,10 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
+    }
+    // ISB SY
+    else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f60) {
+      this.PC += 2;
     }
     // LDMIA
     else if (opcode >> 11 === 0b11001) {

@@ -407,6 +407,24 @@ describe('RP2040', () => {
       expect(rp2040.V).toEqual(false);
     });
 
+    it('should correctly decode a `dmb sy` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = 0xf3bf; // DMB SY
+      rp2040.flash16[1] = 0x8f50; // ...
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toBe(0x10000004);
+    });
+
+    it('should correctly decode a `dsb sy` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = 0xf3bf; // DSB SY
+      rp2040.flash16[1] = 0x8f4f; // ...
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toBe(0x10000004);
+    });
+
     it('should execute an `eors r1, r3` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
@@ -417,6 +435,15 @@ describe('RP2040', () => {
       expect(rp2040.registers[r1]).toEqual(0xf80fc0f7);
       expect(rp2040.N).toEqual(true);
       expect(rp2040.Z).toEqual(false);
+    });
+
+    it('should correctly decode a `isb sy` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = 0xf3bf; // ISB SY
+      rp2040.flash16[1] = 0x8f6f; // ...
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toBe(0x10000004);
     });
 
     it('should execute a `mov r3, r8` instruction', () => {
