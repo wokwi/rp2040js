@@ -798,7 +798,7 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V =
         ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
         ((leftValue | 0) <= 0 && (rightValue | 0) <= 0 && (result | 0) > 0);
@@ -824,7 +824,7 @@ export class RP2040 {
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm3 < 0x80 && (result | 0) < 0;
     }
     // ADDS (Encoding T2)
@@ -836,7 +836,7 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm8 < 0x80 && (result | 0) < 0;
     }
     // ADDS (register)
@@ -850,7 +850,7 @@ export class RP2040 {
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
     }
     // ADD (register)
@@ -866,7 +866,7 @@ export class RP2040 {
       if (Rdn !== regSP && Rdn !== regPC) {
         this.N = !!(result & 0x80000000);
         this.Z = (result & 0xffffffff) === 0;
-        this.C = result >= 0xffffffff;
+        this.C = result > 0xffffffff;
         this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
       }
     }
