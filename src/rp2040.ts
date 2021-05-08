@@ -895,7 +895,7 @@ export class RP2040 {
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
       const input = this.registers[Rm];
-      const result = imm5 ? this.registers[Rm] >> imm5 : 0;
+      const result = imm5 ? input >> imm5 : (input & 0x80000000) >> 31;
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
