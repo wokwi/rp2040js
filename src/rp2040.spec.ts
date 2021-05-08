@@ -117,11 +117,12 @@ describe('RP2040', () => {
     });
   });
 
-  describe('executeInstruction', () => {
+    describe('executeInstruction', () => {
     it('should execute `adcs r5, r4` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADCS(r5, r4);
+      //console.log(opcodeADCS(r5,r4).toString(16));
       rp2040.registers[r4] = 55;
       rp2040.registers[r5] = 66;
       rp2040.C = true;
@@ -137,6 +138,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADCS(r5, r4);
+      //console.log(opcodeADCS(r5,r4).toString(16));
       rp2040.registers[r4] = 0x7fffffff; // Max signed INT32
       rp2040.registers[r5] = 0;
       rp2040.C = true;
@@ -152,6 +154,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.SP = 0x10000040;
+      //console.log(opcodeADDsp2(0x10).toString(16));
       rp2040.flash16[0] = opcodeADDsp2(0x10);
       rp2040.executeInstruction();
       expect(rp2040.SP).toEqual(0x10000050);
@@ -161,17 +164,19 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.SP = 0x55;
+      //console.log(opcodeADDspPlusImm(r1, 0x10).toString(16));
       rp2040.flash16[0] = opcodeADDspPlusImm(r1, 0x10);
       rp2040.registers[1] = 0;
       rp2040.executeInstruction();
-      expect(rp2040.SP).toEqual(0x55);
-      expect(rp2040.registers[1]).toEqual(0x65);
+      expect(rp2040.SP).toEqual(0x54);
+      expect(rp2040.registers[1]).toEqual(0x64);
     });
 
     it('should execute `adds r1, r2, #3` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADDS1(r1, r2, 3);
+      //console.log(opcodeADDS1(r1, r2, 3).toString(16));
       rp2040.registers[r2] = 2;
       rp2040.executeInstruction();
       expect(rp2040.registers[r1]).toEqual(5);
@@ -185,6 +190,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADDS2(r1, 1);
+      //console.log(opcodeADDS2(r1, 1).toString(16));
       rp2040.registers[r1] = 0xffffffff;
       rp2040.executeInstruction();
       expect(rp2040.registers[r1]).toEqual(0);
@@ -198,6 +204,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADDSreg(r1, r2, r7);
+      //console.log(opcodeADDSreg(r1, r2, r7).toString(16));
       rp2040.registers[r2] = 2;
       rp2040.registers[r7] = 27;
       rp2040.executeInstruction();
@@ -212,6 +219,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeADDreg(r1, ip);
+      //console.log(opcodeADDreg(r1, ip).toString(16));
       rp2040.registers[r1] = 66;
       rp2040.registers[ip] = 44;
       rp2040.executeInstruction();
@@ -227,33 +235,37 @@ describe('RP2040', () => {
       rp2040.PC = 0x10000000;
       rp2040.SP = 0x20030000;
       rp2040.Z = true;
+      //console.log(opcodeADDreg(sp, r8).toString(16));
       rp2040.flash16[0] = opcodeADDreg(sp, r8);
       rp2040.registers[r8] = 0x11;
       rp2040.executeInstruction();
-      expect(rp2040.SP).toEqual(0x20030011);
+      expect(rp2040.SP).toEqual(0x20030010);
       expect(rp2040.Z).toEqual(true); // assert it didn't update the flags
     });
 
     it('should execute `add pc, r8` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
+      //console.log(opcodeADDreg(pc, r8).toString(16));
       rp2040.flash16[0] = opcodeADDreg(pc, r8);
       rp2040.registers[r8] = 0x11;
       rp2040.executeInstruction();
-      expect(rp2040.PC).toEqual(0x10000014);
+      expect(rp2040.PC).toEqual(0x20000014);
     });
 
     it('should execute `adr r4, #0x50` instruction and set the overflow flag correctly', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
+      //console.log(opcodeADR(r4, 0x50).toString(16));
       rp2040.flash16[0] = opcodeADR(r4, 0x50);
       rp2040.executeInstruction();
-      expect(rp2040.registers[r4]).toEqual(0x10000054);
+      expect(rp2040.registers[r4]).toEqual(0x20000054);
     });
 
     it('should execute `ands r5, r0` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
+      //console.log(opcodeANDS(r5, r0).toString(16));
       rp2040.flash16[0] = opcodeANDS(r5, r0);
       rp2040.registers[r5] = 0xffff0000;
       rp2040.registers[r0] = 0xf00fffff;
@@ -261,11 +273,14 @@ describe('RP2040', () => {
       expect(rp2040.registers[r5]).toEqual(0xf00f0000);
       expect(rp2040.N).toEqual(true);
       expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(false);
+      expect(rp2040.V).toEqual(false);
     });
 
     it('should execute an `asrs r3, r2, #31` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
+      //console.log(opcodeASRS(r3, r2, 31).toString(16));
       rp2040.flash16[0] = opcodeASRS(r3, r2, 31);
       rp2040.registers[r2] = 0x80000000;
       rp2040.executeInstruction();
@@ -279,6 +294,7 @@ describe('RP2040', () => {
     it('should execute an `asrs r3, r2, #0` instruction', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
+      //console.log(opcodeASRS(r3, r2, 0).toString(16));
       rp2040.flash16[0] = opcodeASRS(r3, r2, 0);
       rp2040.registers[r2] = 0x80000000;
       rp2040.executeInstruction();
@@ -293,6 +309,7 @@ describe('RP2040', () => {
       const rp2040 = new RP2040();
       rp2040.PC = 0x10000000;
       rp2040.flash16[0] = opcodeASRSreg(r3, r4);
+      //console.log(opcodeASRSreg(r3, r4).toString(16));
       rp2040.registers[r3] = 0x80000040;
       rp2040.registers[r4] = 0xff500007;
       rp2040.executeInstruction();
@@ -308,6 +325,7 @@ describe('RP2040', () => {
       rp2040.PC = 0x10000000;
       rp2040.registers[r0] = 0xff;
       rp2040.registers[r3] = 0x0f;
+      //console.log(opcodeBICS(r0, r3).toString(16));
       rp2040.flash16[0] = opcodeBICS(r0, r3);
       rp2040.executeInstruction();
       expect(rp2040.registers[r0]).toEqual(0xf0);
@@ -321,6 +339,7 @@ describe('RP2040', () => {
       rp2040.registers[r0] = 0xffffffff;
       rp2040.registers[r3] = 0x0000ffff;
       rp2040.flash16[0] = opcodeBICS(r0, r3);
+      //console.log(opcodeBICS(r0, r3).toString(16));
       rp2040.executeInstruction();
       expect(rp2040.registers[r0]).toEqual(0xffff0000);
       expect(rp2040.N).toEqual(true);
@@ -329,47 +348,52 @@ describe('RP2040', () => {
 
     it('should execute `bl 0x34` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
+      //console.log(opcodeBL(0x34).toString(16));
       rp2040.flashView.setUint32(0, opcodeBL(0x34), true);
       rp2040.executeInstruction();
-      expect(rp2040.PC).toEqual(0x10000038);
-      expect(rp2040.LR).toEqual(0x10000005);
+      expect(rp2040.PC).toEqual(0x20000038);
+      expect(rp2040.LR).toEqual(0x20000005);
     });
 
     it('should execute `bl -0x10` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
+      //console.log(opcodeBL(-0x10).toString(16));
       rp2040.flashView.setUint32(0, opcodeBL(-0x10), true);
       rp2040.executeInstruction();
-      expect(rp2040.PC).toEqual(0x10000004 - 0x10);
-      expect(rp2040.LR).toEqual(0x10000005);
+      expect(rp2040.PC).toEqual(0x1ffffff4);
+      expect(rp2040.LR).toEqual(0x20000005);
     });
 
     it('should execute `bl -3242` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
+      //console.log(opcodeBL(-3242).toString(16));
       rp2040.flashView.setUint32(0, opcodeBL(-3242), true);
       rp2040.executeInstruction();
-      expect(rp2040.PC).toEqual(0x10000004 - 3242);
-      expect(rp2040.LR).toEqual(0x10000005);
+      expect(rp2040.PC).toEqual(0x1ffff35a);
+      expect(rp2040.LR).toEqual(0x20000005);
     });
 
     it('should execute `blx r3` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000;
+      rp2040.PC = 0x20000000;
       rp2040.registers[3] = 0x10000201;
+      //console.log(opcodeBLX(r3).toString(16));
       rp2040.flashView.setUint32(0, opcodeBLX(r3), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000200);
-      expect(rp2040.LR).toEqual(0x10000003);
+      expect(rp2040.LR).toEqual(0x20000003);
     });
 
     it('should execute a `b.n .-20` instruction', () => {
       const rp2040 = new RP2040();
-      rp2040.PC = 0x10000000 + 9 * 2;
-      rp2040.flash16[9] = 0xe7f6; // b.n .-20
+      rp2040.PC = 0x20000000;
+      //console.log((0xe7f6).toString(16));
+      rp2040.flash16[0x20000000] = 0xe7f6; // b.n .-20
       rp2040.executeInstruction();
-      expect(rp2040.PC).toEqual(0x10000002);
+      expect(rp2040.PC).toEqual(0x1ffffff0);
     });
 
     it('should execute a `bne.n .-6` instruction', () => {
