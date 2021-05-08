@@ -65,6 +65,10 @@ export function opcodeBX(Rm: number) {
   return (0b010001110 << 7) | (Rm << 3);
 }
 
+export function opcodeCMN(Rn: number, Rm: number) {
+  return (0b0100001011 << 6) | ((Rm & 0x7) << 3) | (Rn & 0x7);
+}
+
 export function opcodeEORS(Rdn: number, Rm: number) {
   return (0b0100000001 << 6) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
 }
@@ -159,6 +163,18 @@ export function opcodeREV(Rd: number, Rn: number) {
   return (0b1011101000 << 6) | ((Rn & 0x7) << 3) | (Rd & 0x7);
 }
 
+export function opcodeREV16(Rd: number, Rn: number) {
+  return (0b1011101001 << 6) | ((Rn & 0x7) << 3) | (Rd & 0x7);
+}
+
+export function opcodeREVSH(Rd: number, Rn: number) {
+  return (0b1011101011 << 6) | ((Rn & 0x7) << 3) | (Rd & 0x7);
+}
+
+export function opcodeROR(Rdn: number, Rm: number) {
+  return (0b0100000111 << 6) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
+}
+
 export function opcodeRSBS(Rd: number, Rn: number) {
   return (0b0100001001 << 6) | ((Rn & 0x7) << 3) | (Rd & 0x7);
 }
@@ -221,6 +237,10 @@ export function opcodeSVC(imm8: number) {
 
 export function opcodeSXTB(Rd: number, Rm: number) {
   return (0b1011001001 << 6) | ((Rm & 7) << 3) | (Rd & 7);
+}
+
+export function opcodeSXTH(Rd: number, Rm: number) {
+  return (0b1011001000 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
 
 export function opcodeUXTB(Rd: number, Rm: number) {

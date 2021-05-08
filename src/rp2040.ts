@@ -968,6 +968,18 @@ export class RP2040 {
       const Rm = (opcode >> 3) & 0xf;
       this.BXWritePC(this.registers[Rm]);
     }
+    // CMN (register)
+    else if (opcode >> 6 === 0b0100001011) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rn = opcode & 0x7;
+      const leftValue = this.registers[Rn];
+      const rightValue = this.registers[Rm];
+      const result = leftValue + rightValue;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = result > 0xffffffff;
+      this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+    }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
       const Rn = (opcode >> 8) & 0x7;
@@ -1281,6 +1293,36 @@ export class RP2040 {
         (((input >> 16) & 0xff) << 8) |
         ((input >> 24) & 0xff);
     }
+    // REV16
+    else if (opcode >> 6 === 0b1011101001) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      this.registers[Rd] =
+        (((input >> 16) & 0xff) << 24) |
+        (((input >> 24) & 0xff) << 16) |
+        ((input & 0xff) << 8) |
+        ((input >> 8) & 0xff);
+    }
+    // REVSH
+    else if (opcode >> 6 === 0b1011101011) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      this.registers[Rd] = signExtend16(((input & 0xff) << 8) | ((input >> 8) & 0xff));
+    }
+    // ROR
+    else if (opcode >> 6 === 0b0100000111) {
+      let Rm = (opcode >> 3) & 0x7;
+      let Rdn = opcode & 0x7;
+      const input = this.registers[Rdn];
+      const shift = this.registers[Rm] & 0xff;
+      const result = (input >>> shift) | (input << (32 - shift));
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = !!(result & 0x80000000);
+    }
     // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
       let Rn = (opcode >> 3) & 0x7;
@@ -1438,6 +1480,12 @@ export class RP2040 {
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
       this.registers[Rd] = signExtend8(this.registers[Rm]);
+    }
+    // SXTH
+    else if (opcode >> 6 === 0b1011001000) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      this.registers[Rd] = signExtend16(this.registers[Rm]);
     }
     // TST
     else if (opcode >> 6 == 0b0100001000) {

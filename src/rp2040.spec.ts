@@ -15,6 +15,7 @@ import {
   opcodeBL,
   opcodeBLX,
   opcodeBX,
+  opcodeCMN,
   opcodeEORS,
   opcodeLDMIA,
   opcodeLDRB,
@@ -38,6 +39,9 @@ import {
   opcodeORRS,
   opcodePOP,
   opcodeREV,
+  opcodeREV16,
+  opcodeREVSH,
+  opcodeROR,
   opcodeRSBS,
   opcodeSBCS,
   opcodeSTMIA,
@@ -54,6 +58,7 @@ import {
   opcodeSUBSreg,
   opcodeSVC,
   opcodeSXTB,
+  opcodeSXTH,
   opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
@@ -370,6 +375,21 @@ describe('RP2040', () => {
       rp2040.flashView.setUint32(0, opcodeBX(lr), true);
       rp2040.executeInstruction();
       expect(rp2040.PC).toEqual(0x10000200);
+    });
+
+    it('should execute an `cmn r5, r2` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeCMN(r7, r2);
+      rp2040.registers[r2] = 1;
+      rp2040.registers[r7] = -2;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(1);
+      expect(rp2040.registers[r7]).toEqual(-2 >>> 0);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(false);
+      expect(rp2040.V).toEqual(false);
     });
 
     it('should execute an `cmp r5, #66` instruction', () => {
@@ -887,6 +907,38 @@ describe('RP2040', () => {
       expect(rp2040.registers[r2]).toEqual(0x44332211);
     });
 
+    it('should execute a `rev16 r0, r5` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeREV16(r0, r5);
+      rp2040.registers[r5] = 0x11223344;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r0]).toEqual(0x22114433);
+    });
+
+    it('should execute a `revsh r1, r2` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeREVSH(r1, r2);
+      rp2040.registers[r2] = 0xeeaa55f0;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r1]).toEqual(0xfffff055);
+    });
+
+    it('should execute a `ror r5, r3` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeROR(r5, r3);
+      rp2040.registers[r5] = 0x12345678;
+      rp2040.registers[r3] = 0x2004;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0x2004);
+      expect(rp2040.registers[r5]).toEqual(0x81234567);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(true);
+    });
+
     it('should execute a `rsbs r0, r3` instruction', () => {
       // This instruction is also called `negs`
       const rp2040 = new RP2040();
@@ -1103,6 +1155,15 @@ describe('RP2040', () => {
       rp2040.registers[r2] = 0x12345678;
       rp2040.executeInstruction();
       expect(rp2040.registers[r2]).toEqual(0x78);
+    });
+
+    it('should execute a `sxth r2, r5` instruction with sign bit 1', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeSXTH(r2, r5);
+      rp2040.registers[r5] = 0x22448765;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r2]).toEqual(0xffff8765);
     });
 
     it('should execute an `tst r1, r3` instruction when the result is negative', () => {
