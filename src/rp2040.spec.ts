@@ -1,4 +1,4 @@
-import { RP2040, RAM_START_ADDRESS } from './rp2040';
+import { RAM_START_ADDRESS, RP2040 } from './rp2040';
 import {
   opcodeADCS,
   opcodeADDreg,
@@ -34,6 +34,7 @@ import {
   opcodeMSR,
   opcodeMULS,
   opcodeMVNS,
+  opcodeNOP,
   opcodeORRS,
   opcodePOP,
   opcodeREV,
@@ -56,6 +57,8 @@ import {
   opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
+  opcodeWFI,
+  opcodeYIELD,
 } from './utils/assembler';
 
 const r0 = 0;
@@ -518,6 +521,14 @@ describe('RP2040', () => {
       expect(rp2040.registers[r4]).toEqual(0xeeeeaaaa);
       expect(rp2040.Z).toBe(false);
       expect(rp2040.N).toBe(true);
+    });
+
+    it('should execute a `nop` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeNOP();
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x10000002);
     });
 
     it('should execute `orrs r5, r0` instruction', () => {
@@ -1132,6 +1143,22 @@ describe('RP2040', () => {
       rp2040.registers[r1] = 0x12345678;
       rp2040.executeInstruction();
       expect(rp2040.registers[r3]).toEqual(0x5678);
+    });
+
+    it('should execute a `wfi` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeWFI();
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x10000002);
+    });
+
+    it('should execute a `yield` instruction', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeYIELD();
+      rp2040.executeInstruction();
+      expect(rp2040.PC).toEqual(0x10000002);
     });
   });
 

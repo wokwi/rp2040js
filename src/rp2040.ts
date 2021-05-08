@@ -1292,6 +1292,10 @@ export class RP2040 {
       this.C = value === 0;
       this.V = value === 0x7fffffff;
     }
+    // NOP
+    else if (opcode === 0b1011111100000000) {
+      // Do nothing!
+    }
     // SBCS (Encoding T2)
     else if (opcode >> 6 === 0b0100000110) {
       let Rm = (opcode >> 3) & 0x7;
@@ -1472,6 +1476,17 @@ export class RP2040 {
     // WFE
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
+      console.log('WFE');
+    }
+    // WFI
+    else if (opcode === 0b1011111100110000) {
+      // do nothing for now. Wait for event!
+      console.log('WFI');
+    }
+    // YIELD
+    else if (opcode === 0b1011111100010000) {
+      // do nothing for now. Wait for event!
+      console.log('Yield');
     } else {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);

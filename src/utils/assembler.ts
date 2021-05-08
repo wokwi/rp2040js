@@ -143,6 +143,10 @@ export function opcodeMVNS(Rd: number, Rm: number) {
   return (0b0100001111 << 6) | ((Rm & 7) << 3) | (Rd & 7);
 }
 
+export function opcodeNOP() {
+  return 0b1011111100000000;
+}
+
 export function opcodeORRS(Rn: number, Rm: number) {
   return (0b0100001100 << 6) | ((Rm & 0x7) << 3) | (Rn & 0x7);
 }
@@ -231,4 +235,12 @@ export function opcodeUDF2(imm16: number) {
 
 export function opcodeUXTH(Rd: number, Rm: number) {
   return (0b1011001010 << 6) | ((Rm & 7) << 3) | (Rd & 7);
+}
+
+export function opcodeWFI() {
+  return 0b1011111100110000;
+}
+
+export function opcodeYIELD() {
+  return 0b1011111100010000;
 }
