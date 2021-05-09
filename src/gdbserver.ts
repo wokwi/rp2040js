@@ -6,6 +6,14 @@
 
 import { createServer, Socket } from 'net';
 import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from './rp2040';
+import {
+  decodeHexBuf,
+  encodeHexBuf,
+  encodeHexByte,
+  encodeHexUint32,
+  gdbChecksum,
+  gdbMessage,
+} from './utils/gdb';
 
 const DEBUG = false;
 
@@ -45,40 +53,6 @@ const targetXML = `<?xml version="1.0"?>
 </feature>
 </target>`;
 
-function encodeHexByte(value: number) {
-  return (value >> 4).toString(16) + (value & 0xf).toString(16);
-}
-
-function encodeHexBuf(buf: Uint8Array) {
-  return Array.from(buf).map(encodeHexByte).join('');
-}
-
-function encodeHexUint32(value: number) {
-  const buf = new Uint32Array([value]);
-  return encodeHexBuf(new Uint8Array(buf.buffer));
-}
-
-function decodeHexBuf(encoded: string) {
-  const result = new Uint8Array(encoded.length / 2);
-  for (let i = 0; i < result.length; i++) {
-    result[i] = parseInt(encoded.substr(i * 2, 2), 16);
-  }
-  return result;
-}
-
-function gdbChecksum(text: string) {
-  const value =
-    text
-      .split('')
-      .map((c) => c.charCodeAt(0))
-      .reduce((a, b) => a + b, 0) & 0xff;
-  return encodeHexByte(value);
-}
-
-function gdbResponse(value: string) {
-  return `$${value}#${gdbChecksum(value)}`;
-}
-
 export class GDBTCPServer {
   private socketServer = createServer();
 
@@ -90,29 +64,29 @@ export class GDBTCPServer {
   processGDBMessage(cmd: string) {
     const { rp2040 } = this;
     if (cmd === 'Hg0') {
-      return gdbResponse('OK');
+      return gdbMessage('OK');
     }
 
     switch (cmd[0]) {
       case '?':
-        return gdbResponse(STOP_REPLY_TRAP);
+        return gdbMessage(STOP_REPLY_TRAP);
 
       case 'q':
         // Query things
         if (cmd.startsWith('qSupported:')) {
-          return gdbResponse('PacketSize=4000;vContSupported+;qXfer:features:read+');
+          return gdbMessage('PacketSize=4000;vContSupported+;qXfer:features:read+');
         }
         if (cmd === 'qAttached') {
-          return gdbResponse('1');
+          return gdbMessage('1');
         }
         if (cmd.startsWith('qXfer:features:read:target.xml')) {
-          return gdbResponse('l' + targetXML);
+          return gdbMessage('l' + targetXML);
         }
-        return gdbResponse('');
+        return gdbMessage('');
 
       case 'v':
         if (cmd === 'vCont?') {
-          return gdbResponse('vCont;c;C;s;S');
+          return gdbMessage('vCont;c;C;s;S');
         }
         if (cmd.startsWith('vCont;c')) {
           rp2040.execute();
@@ -120,7 +94,7 @@ export class GDBTCPServer {
         }
         if (cmd.startsWith('vCont;s')) {
           rp2040.executeInstruction();
-          return gdbResponse(STOP_REPLY_TRAP);
+          return gdbMessage(STOP_REPLY_TRAP);
         }
         break;
 
@@ -133,20 +107,20 @@ export class GDBTCPServer {
         const buf = new Uint32Array(17);
         buf.set(rp2040.registers);
         buf[16] = rp2040.xPSR;
-        return gdbResponse(encodeHexBuf(new Uint8Array(buf.buffer)));
+        return gdbMessage(encodeHexBuf(new Uint8Array(buf.buffer)));
       }
 
       case 'p': {
         // Read register
         const registerIndex = parseInt(cmd.substr(1), 16);
         if (registerIndex >= 0 && registerIndex <= 15) {
-          return gdbResponse(encodeHexUint32(rp2040.registers[registerIndex]));
+          return gdbMessage(encodeHexUint32(rp2040.registers[registerIndex]));
         }
         const specialRegister = (sysm: number) =>
-          gdbResponse(encodeHexUint32(rp2040.readSpecialRegister(sysm)));
+          gdbMessage(encodeHexUint32(rp2040.readSpecialRegister(sysm)));
         switch (registerIndex) {
           case 0x10:
-            return gdbResponse(encodeHexUint32(rp2040.xPSR));
+            return gdbMessage(encodeHexUint32(rp2040.xPSR));
           case 0x11:
             return specialRegister(SYSM_MSP);
           case 0x12:
@@ -154,9 +128,9 @@ export class GDBTCPServer {
           case 0x13:
             return specialRegister(SYSM_PRIMASK);
           case 0x14:
-            return gdbResponse(encodeHexUint32(0)); // TODO BASEPRI
+            return gdbMessage(encodeHexUint32(0)); // TODO BASEPRI
           case 0x15:
-            return gdbResponse(encodeHexUint32(0)); // TODO faultmask
+            return gdbMessage(encodeHexUint32(0)); // TODO faultmask
           case 0x16:
             return specialRegister(SYSM_CONTROL);
         }
@@ -169,7 +143,7 @@ export class GDBTCPServer {
         const registerIndex = parseInt(params[0], 16);
         const registerValue = params[1].trim();
         if (registerIndex < 0 || registerIndex > 0x16 || registerValue.length !== 8) {
-          return gdbResponse('E00');
+          return gdbMessage('E00');
         }
         const valueBuffer = new Uint8Array(decodeHexBuf(registerValue)).buffer;
         const value = new DataView(valueBuffer).getUint32(0, true);
@@ -197,7 +171,7 @@ export class GDBTCPServer {
             rp2040.registers[registerIndex] = value;
             break;
         }
-        return gdbResponse('OK');
+        return gdbMessage('OK');
       }
 
       case 'm': {
@@ -209,7 +183,7 @@ export class GDBTCPServer {
         for (let i = 0; i < length; i++) {
           result += encodeHexByte(rp2040.readUint8(address + i));
         }
-        return gdbResponse(result);
+        return gdbMessage(result);
       }
 
       case 'M': {
@@ -222,11 +196,11 @@ export class GDBTCPServer {
           console.log('write', data[i].toString(16), 'to', (address + i).toString(16));
           rp2040.writeUint8(address + i, data[i]);
         }
-        return gdbResponse('OK');
+        return gdbMessage('OK');
       }
     }
 
-    return gdbResponse('');
+    return gdbMessage('');
   }
 
   handleConnection(socket: Socket) {
@@ -237,7 +211,7 @@ export class GDBTCPServer {
     rp2040.onBreak = () => {
       rp2040.stop();
       rp2040.PC -= rp2040.breakRewind;
-      socket.write(gdbResponse(STOP_REPLY_TRAP));
+      socket.write(gdbMessage(STOP_REPLY_TRAP));
     };
 
     let buf = '';
@@ -245,7 +219,7 @@ export class GDBTCPServer {
       if (data[0] === 3) {
         console.log('BREAK');
         rp2040.stop();
-        socket.write(gdbResponse(STOP_REPLY_SIGINT));
+        socket.write(gdbMessage(STOP_REPLY_SIGINT));
         data = data.slice(1);
       }
 
