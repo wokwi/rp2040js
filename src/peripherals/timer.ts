@@ -6,10 +6,12 @@ const TIMELR = 0x0c;
 const TIMERAWH = 0x24;
 const TIMERAWL = 0x28;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const ALARM_0 = 1 << 0;
 const ALARM_1 = 1 << 1;
 const ALARM_2 = 1 << 2;
 const ALARM_3 = 1 << 3;
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export class RPTimer extends LoggingPeripheral implements Peripheral {
   latchedTimeHigh = 0;

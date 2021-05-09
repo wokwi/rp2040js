@@ -71,7 +71,6 @@ const r7 = 7;
 const r8 = 8;
 const ip = 12;
 const lr = 14;
-const pc = 15;
 
 const PRIMASK = 16;
 

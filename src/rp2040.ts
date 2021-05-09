@@ -9,6 +9,8 @@ export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 const SIO_CPUID_OFFSET = 0;
 
 const XIP_SSI_BASE = 0x18000000;
@@ -55,6 +57,8 @@ export const SYSM_MSP = 8;
 export const SYSM_PSP = 9;
 export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
+
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Lowest possible exception priority
 const LOWEST_PRIORITY = 4;
@@ -173,6 +177,7 @@ export class RP2040 {
   };
 
   // Debugging
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
     // console.error('Breakpoint!', code);
@@ -458,7 +463,7 @@ export class RP2040 {
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       const sioAddress = address - SIO_START_ADDRESS;
       // SIO write
-      let pinList = [];
+      const pinList = [];
       for (let i = 0; i < 32; i++) {
         if (value & (1 << i)) {
           pinList.push(i);
@@ -622,10 +627,15 @@ export class RP2040 {
     switch (excReturn & 0xf) {
       case 0b0001: // Returning to Handler mode
         this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+        break;
+
       case 0b1001: // Returning to Thread mode using Main stack
         this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+        break;
+
       case 0b1101: // Returning to Thread mode using Process stack
         this.SPprocess = (this.SPprocess + 0x20) | framePtrAlign;
+        break;
     }
 
     this.APSR = psr & 0xf0000000;
@@ -660,7 +670,7 @@ export class RP2040 {
         return (this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 22) & 0x3;
       case EXC_SYSTICK:
         return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
-      default:
+      default: {
         if (n < 16) {
           return LOWEST_PRIORITY;
         }
@@ -671,6 +681,7 @@ export class RP2040 {
           }
         }
         return LOWEST_PRIORITY;
+      }
     }
   }
 
@@ -938,8 +949,8 @@ export class RP2040 {
     }
     // BICS
     else if (opcode >> 6 === 0b0100001110) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rdn = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
       const result = (this.registers[Rdn] &= ~this.registers[Rm]);
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
@@ -1327,8 +1338,8 @@ export class RP2040 {
     }
     // REV
     else if (opcode >> 6 === 0b1011101000) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const input = this.registers[Rm];
       this.registers[Rd] =
         ((input & 0xff) << 24) |
@@ -1338,8 +1349,8 @@ export class RP2040 {
     }
     // REV16
     else if (opcode >> 6 === 0b1011101001) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const input = this.registers[Rm];
       this.registers[Rd] =
         (((input >> 16) & 0xff) << 24) |
@@ -1349,15 +1360,15 @@ export class RP2040 {
     }
     // REVSH
     else if (opcode >> 6 === 0b1011101011) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const input = this.registers[Rm];
       this.registers[Rd] = signExtend16(((input & 0xff) << 8) | ((input >> 8) & 0xff));
     }
     // ROR
     else if (opcode >> 6 === 0b0100000111) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rdn = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
       const input = this.registers[Rdn];
       const shift = (this.registers[Rm] & 0xff) % 32;
       const result = (input >>> shift) | (input << (32 - shift));
@@ -1368,8 +1379,8 @@ export class RP2040 {
     }
     // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
-      let Rn = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const value = this.registers[Rn] | 0;
       this.registers[Rd] = -value;
       this.N = value > 0;
@@ -1383,8 +1394,8 @@ export class RP2040 {
     }
     // SBCS (Encoding T2)
     else if (opcode >> 6 === 0b0100000110) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rdn = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
       const operand1 = this.registers[Rdn];
       const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
       const result = (operand1 - operand2) | 0;

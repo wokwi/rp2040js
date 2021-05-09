@@ -34,8 +34,6 @@ export class Clock {
   paused = true;
   timers = new Set<ClockTimer>();
 
-  constructor() {}
-
   pause() {
     if (!this.paused) {
       for (const timer of this.timers) {
@@ -56,7 +54,7 @@ export class Clock {
     }
   }
 
-  createTimer(deltaMicros: number, callback: () => void): any {
+  createTimer(deltaMicros: number, callback: () => void) {
     const timer = new ClockTimer(this.micros + deltaMicros, () => {
       this.timers.delete(timer);
       callback();

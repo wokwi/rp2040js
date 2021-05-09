@@ -160,6 +160,7 @@ export class GDBTCPServer {
           case 0x16:
             return specialRegister(SYSM_CONTROL);
         }
+        break;
       }
 
       case 'P': {
