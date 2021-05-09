@@ -353,18 +353,18 @@ export class RP2040 {
 
   get APSR() {
     return (
-      (this.N ? 0x8000000 : 0) |
-      (this.Z ? 0x4000000 : 0) |
-      (this.C ? 0x2000000 : 0) |
-      (this.V ? 0x1000000 : 0)
+      (this.N ? 0x80000000 : 0) |
+      (this.Z ? 0x40000000 : 0) |
+      (this.C ? 0x20000000 : 0) |
+      (this.V ? 0x10000000 : 0)
     );
   }
 
   set APSR(value: number) {
-    this.N = !!(value & 0x8000000);
-    this.Z = !!(value & 0x4000000);
-    this.C = !!(value & 0x2000000);
-    this.V = !!(value & 0x1000000);
+    this.N = !!(value & 0x80000000);
+    this.Z = !!(value & 0x40000000);
+    this.C = !!(value & 0x20000000);
+    this.V = !!(value & 0x10000000);
   }
 
   get xPSR() {
