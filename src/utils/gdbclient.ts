@@ -42,17 +42,16 @@ export class GDBClient {
     });
   }
 
-  private readResponse() {
+  private readResponse(needAck = true) {
     return new Promise<string>((resolve, reject) => {
       this.rejectCurrentResponse = reject;
-      let gotAck = false;
       let data = '';
 
       const listener = (buffer: Buffer) => {
         data += buffer.toString();
-        if (!gotAck) {
+        if (needAck) {
           if (data[0] === '+') {
-            gotAck = true;
+            needAck = false;
             data = data.substr(1);
           } else {
             this.socket.off('data', listener);
@@ -76,6 +75,21 @@ export class GDBClient {
   private async sendCommand(command: string) {
     this.socket.write(gdbMessage(command));
     return await this.readResponse();
+  }
+
+  async monitor(cmd: string) {
+    const buf = new Uint8Array(cmd.length);
+    for (let i = 0; i < cmd.length; i++) {
+      buf[i] = cmd.charCodeAt(i);
+    }
+    let response = await this.sendCommand(`qRcmd,${encodeHexBuf(buf)}`);
+    while (response !== 'OK' && response[0] === 'O') {
+      this.socket.write('+'); 
+      response = await this.readResponse(false);
+    }
+    if (response !== 'OK') {
+      throw new Error(`Invalid monitor response: ${response}`);
+    }
   }
 
   async readRegisters() {
@@ -111,6 +125,9 @@ export class GDBClient {
 
   async readRegister(index: number) {
     const response = await this.sendCommand(`p${encodeHexByte(index)}`);
+    if (response.length === 2) {
+      return decodeHexBuf(response)[0];
+    }
     return decodeHexUint32(response);
   }
 
@@ -142,5 +159,10 @@ export class GDBClient {
     if (response !== 'OK') {
       throw new Error(`Invalid writeRegister response: ${response}`);
     }
+  }
+
+  disconnect() {
+    this.rejectCurrentResponse = undefined;
+    this.socket.destroy();
   }
 }
