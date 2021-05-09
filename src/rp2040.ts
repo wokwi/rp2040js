@@ -1359,7 +1359,7 @@ export class RP2040 {
       let Rm = (opcode >> 3) & 0x7;
       let Rdn = opcode & 0x7;
       const input = this.registers[Rdn];
-      const shift = this.registers[Rm] & 0xff;
+      const shift = (this.registers[Rm] & 0xff) % 32;
       const result = (input >>> shift) | (input << (32 - shift));
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);

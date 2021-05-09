@@ -952,6 +952,20 @@ describe('RP2040', () => {
       expect(rp2040.C).toEqual(true);
     });
 
+    it('should execute a `ror r5, r3` instruction when r3 > 32', () => {
+      const rp2040 = new RP2040();
+      rp2040.PC = 0x10000000;
+      rp2040.flash16[0] = opcodeROR(r5, r3);
+      rp2040.registers[r5] = 0x12345678;
+      rp2040.registers[r3] = 0x2044;
+      rp2040.executeInstruction();
+      expect(rp2040.registers[r3]).toEqual(0x2044);
+      expect(rp2040.registers[r5]).toEqual(0x81234567);
+      expect(rp2040.N).toEqual(true);
+      expect(rp2040.Z).toEqual(false);
+      expect(rp2040.C).toEqual(true);
+    });
+
     it('should execute a `rsbs r0, r3` instruction', () => {
       // This instruction is also called `negs`
       const rp2040 = new RP2040();
