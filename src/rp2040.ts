@@ -1,3 +1,4 @@
+import { Clock, ClockTimer } from './clock';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
@@ -7,6 +8,8 @@ export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 const SIO_CPUID_OFFSET = 0;
 
@@ -19,7 +22,13 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
+const USBCTRL_BASE = 0x50100000;
+
 const PPB_BASE = 0xe0000000;
+const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
+const OFFSET_SYST_RVR = 0xe014; // SysTick Reload Value Register
+const OFFSET_SYST_CVR = 0xe018; // SysTick Current Value Register
+const OFFSET_SYST_CALIB = 0xe01c; // SysTick Calibration Value Register
 const OFFSET_NVIC_ISER = 0xe100; // Interrupt Set-Enable Register
 const OFFSET_NVIC_ICER = 0xe180; // Interrupt Clear-Enable Register
 const OFFSET_NVIC_ISPR = 0xe200; // Interrupt Set-Pending Register
@@ -49,6 +58,8 @@ export const SYSM_PSP = 9;
 export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
 
+/* eslint-enable @typescript-eslint/no-unused-vars */
+
 // Lowest possible exception priority
 const LOWEST_PRIORITY = 4;
 
@@ -57,7 +68,7 @@ enum ExecutionMode {
   Mode_Handler,
 }
 
-export type CPUWriteCallback = (address: number, value: number) => void;
+export type CPUWriteCallback = (value: number, address: number) => void;
 export type CPUReadCallback = (address: number) => number;
 
 function signExtend8(value: number) {
@@ -68,6 +79,7 @@ function signExtend16(value: number) {
   return (value << 16) >> 16;
 }
 
+const spRegister = 13;
 const pcRegister = 15;
 
 enum StackPointerBank {
@@ -84,9 +96,12 @@ export class RP2040 {
   readonly flashView = new DataView(this.flash.buffer);
   readonly registers = new Uint32Array(16);
   bankedSP: number = 0;
+  cycles: number = 0;
 
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
+
+  readonly clock = new Clock();
 
   readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
 
@@ -97,6 +112,9 @@ export class RP2040 {
   public C: boolean = false;
   public Z: boolean = false;
   public V: boolean = false;
+
+  // How many bytes to rewind the last break instruction
+  public breakRewind = 0;
 
   // PRIMASK fields
   public PM: boolean = false;
@@ -112,7 +130,19 @@ export class RP2040 {
   enabledInterrupts: number = 0;
   interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
   pendingSVCall: boolean = false;
+  pendingSystick: boolean = false;
   interruptsUpdated = false;
+
+  // M0Plus built-in registers
+  SHPR2 = 0;
+  SHPR3 = 0;
+
+  // Systick
+  systickCountFlag = false;
+  systickControl = 0;
+  systickLastZero = 0;
+  systickReload = 0;
+  systickTimer: ClockTimer | null = null;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
@@ -147,6 +177,7 @@ export class RP2040 {
   };
 
   // Debugging
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
     // console.error('Breakpoint!', code);
@@ -231,6 +262,57 @@ export class RP2040 {
         return result;
       });
     }
+
+    this.readHooks.set(PPB_BASE + OFFSET_SHPR2, () => this.SHPR2);
+    this.readHooks.set(PPB_BASE + OFFSET_SHPR3, () => this.SHPR3);
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR2, (value) => {
+      this.SHPR2 = value;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SHPR3, (value) => {
+      this.SHPR3 = value;
+    });
+
+    // SysTick
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CSR, () => {
+      const countFlagValue = this.systickCountFlag ? 1 << 16 : 0;
+      this.systickCountFlag = false;
+      return countFlagValue | (this.systickControl & 0x7);
+    });
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CVR, () => {
+      const delta = (this.clock.micros - this.systickLastZero) % (this.systickReload + 1);
+      if (!delta) {
+        return 0;
+      }
+      return this.systickReload - (delta - 1);
+    });
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_RVR, () => this.systickReload);
+    this.readHooks.set(PPB_BASE + OFFSET_SYST_CALIB, () => 0x0000270f);
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CSR, (value) => {
+      const prevInterrupt = this.systickControl === 0x7;
+      const interrupt = value === 0x7;
+      if (interrupt && !prevInterrupt) {
+        // TODO: adjust the timer based on the current systick value
+        const systickCallback = () => {
+          this.pendingSystick = true;
+          this.interruptsUpdated = true;
+          this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
+        };
+        this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
+      }
+      if (prevInterrupt && interrupt) {
+        if (this.systickTimer) {
+          this.clock.deleteTimer(this.systickTimer);
+        }
+        this.systickTimer = null;
+      }
+      this.systickControl = value & 0x7;
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CVR, (value) => {
+      console.log('SYSTICK CVR: not implemented yet, value=', value);
+    });
+    this.writeHooks.set(PPB_BASE + OFFSET_SYST_RVR, (value) => {
+      this.systickReload = value;
+    });
   }
 
   loadBootrom(bootromData: Uint32Array) {
@@ -241,6 +323,7 @@ export class RP2040 {
   reset() {
     this.SP = this.bootrom[0];
     this.PC = this.bootrom[1] & 0xfffffffe;
+    this.cycles = 0;
     this.flash.fill(0xff);
   }
 
@@ -270,18 +353,18 @@ export class RP2040 {
 
   get APSR() {
     return (
-      (this.N ? 0x8000000 : 0) |
-      (this.Z ? 0x4000000 : 0) |
-      (this.C ? 0x2000000 : 0) |
-      (this.V ? 0x1000000 : 0)
+      (this.N ? 0x80000000 : 0) |
+      (this.Z ? 0x40000000 : 0) |
+      (this.C ? 0x20000000 : 0) |
+      (this.V ? 0x10000000 : 0)
     );
   }
 
   set APSR(value: number) {
-    this.N = !!(value & 0x8000000);
-    this.Z = !!(value & 0x4000000);
-    this.C = !!(value & 0x2000000);
-    this.V = !!(value & 0x1000000);
+    this.N = !!(value & 0x80000000);
+    this.Z = !!(value & 0x40000000);
+    this.C = !!(value & 0x20000000);
+    this.V = !!(value & 0x10000000);
   }
 
   get xPSR() {
@@ -380,7 +463,7 @@ export class RP2040 {
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       const sioAddress = address - SIO_START_ADDRESS;
       // SIO write
-      let pinList = [];
+      const pinList = [];
       for (let i = 0; i < 32; i++) {
         if (value & (1 << i)) {
           pinList.push(i);
@@ -391,6 +474,8 @@ export class RP2040 {
       } else if (sioAddress === 24) {
         console.log(`GPIO pins ${pinList} set to LOW`);
       }
+    } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
+      // Ignore these USB writes for now
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
@@ -542,15 +627,21 @@ export class RP2040 {
     switch (excReturn & 0xf) {
       case 0b0001: // Returning to Handler mode
         this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+        break;
+
       case 0b1001: // Returning to Thread mode using Main stack
         this.SPmain = (this.SPmain + 0x20) | framePtrAlign;
+        break;
+
       case 0b1101: // Returning to Thread mode using Process stack
         this.SPprocess = (this.SPprocess + 0x20) | framePtrAlign;
+        break;
     }
 
     this.APSR = psr & 0xf0000000;
     const forceThread = this.currentMode == ExecutionMode.Mode_Thread && this.nPRIV;
     this.IPSR = forceThread ? 0 : psr & 0x3f;
+    this.interruptsUpdated = true;
     // Thumb bit should always be one! EPSR<24> = psr<24>; // Load valid EPSR bits from memory
     // SetEventRegister(); // See WFE instruction for more details
     // if CurrentMode == Mode_Thread && SCR.SLEEPONEXIT == '1' then
@@ -559,6 +650,10 @@ export class RP2040 {
 
   get svCallPriority() {
     return this.readUint32(PPB_BASE + OFFSET_SHPR2) >>> 30;
+  }
+
+  get systickPriority() {
+    return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
   }
 
   exceptionPriority(n: number) {
@@ -575,7 +670,7 @@ export class RP2040 {
         return (this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 22) & 0x3;
       case EXC_SYSTICK:
         return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
-      default:
+      default: {
         if (n < 16) {
           return LOWEST_PRIORITY;
         }
@@ -586,6 +681,7 @@ export class RP2040 {
           }
         }
         return LOWEST_PRIORITY;
+      }
     }
   }
 
@@ -595,12 +691,17 @@ export class RP2040 {
       this.PM ? 0 : LOWEST_PRIORITY
     );
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
-    const { svCallPriority } = this;
+    const { svCallPriority, systickPriority } = this;
     for (let priority = 0; priority < currentPriority; priority++) {
       const levelInterrupts = interruptSet & this.interruptPriorities[priority];
       if (this.pendingSVCall && priority === svCallPriority) {
         this.pendingSVCall = false;
         this.exceptionEntry(EXC_SVCALL);
+        return;
+      }
+      if (this.pendingSystick && priority === systickPriority) {
+        this.pendingSystick = false;
+        this.exceptionEntry(EXC_SYSTICK);
         return;
       }
       if (levelInterrupts) {
@@ -619,6 +720,9 @@ export class RP2040 {
     switch (sysm) {
       case SYSM_APSR:
         return this.APSR;
+
+      case SYSM_XPSR:
+        return this.xPSR;
 
       case SYSM_IPSR:
         return this.IPSR;
@@ -647,12 +751,17 @@ export class RP2040 {
         this.APSR = value;
         break;
 
+      case SYSM_XPSR:
+        this.xPSR = value;
+        break;
+
       case SYSM_IPSR:
         this.IPSR = value;
         break;
 
       case SYSM_PRIMASK:
         this.PM = !!(value & 1);
+        this.interruptsUpdated = true;
         break;
 
       case SYSM_MSP:
@@ -689,10 +798,11 @@ export class RP2040 {
       this.checkForInterrupts();
     }
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
-    const opcode = this.readUint16(this.PC);
-    const opcode2 = this.readUint16(this.PC + 2);
-    const opcodePC = this.PC;
+    const opcodePC = this.PC & ~1; //ensure no LSB set PC are executed
+    const opcode = this.readUint16(opcodePC);
+    const opcode2 = this.readUint16(opcodePC + 2);
     this.PC += 2;
+    this.cycles++;
     // ADCS
     if (opcode >> 6 === 0b0100000101) {
       const Rm = (opcode >> 3) & 0x7;
@@ -703,7 +813,7 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V =
         ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
         ((leftValue | 0) <= 0 && (rightValue | 0) <= 0 && (result | 0) > 0);
@@ -729,7 +839,7 @@ export class RP2040 {
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm3 < 0x80 && (result | 0) < 0;
     }
     // ADDS (Encoding T2)
@@ -741,7 +851,7 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && imm8 < 0x80 && (result | 0) < 0;
     }
     // ADDS (register)
@@ -755,24 +865,24 @@ export class RP2040 {
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result >= 0xffffffff;
+      this.C = result > 0xffffffff;
       this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
     }
     // ADD (register)
     else if (opcode >> 8 === 0b01000100) {
-      const regSP = 13;
-      const regPC = 15;
       const Rm = (opcode >> 3) & 0xf;
       const Rdn = ((opcode & 0x80) >> 4) | (opcode & 0x7);
-      const leftValue = Rdn === regPC ? this.PC + 2 : this.registers[Rdn];
+      const leftValue = Rdn === pcRegister ? this.PC + 2 : this.registers[Rdn];
       const rightValue = this.registers[Rm];
       const result = leftValue + rightValue;
-      this.registers[Rdn] = Rdn === regPC ? result & ~0x1 : result;
-      if (Rdn !== regSP && Rdn !== regPC) {
+      this.registers[Rdn] = Rdn === pcRegister ? result & ~0x1 : result;
+      if (Rdn !== spRegister && Rdn !== pcRegister) {
         this.N = !!(result & 0x80000000);
         this.Z = (result & 0xffffffff) === 0;
-        this.C = result >= 0xffffffff;
+        this.C = result > 0xffffffff;
         this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+      } else if (Rdn === pcRegister) {
+        this.cycles++;
       }
     }
     // ADR
@@ -796,11 +906,25 @@ export class RP2040 {
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
       const input = this.registers[Rm];
-      const result = imm5 ? this.registers[Rm] >> imm5 : 0;
+      const result = imm5 ? input >> imm5 : (input & 0x80000000) >> 31;
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
       this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
+    }
+    // ASRS (register)
+    else if (opcode >> 6 === 0b0100000100) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const input = this.registers[Rdn];
+      const shiftN = this.registers[Rm] & 0xff;
+      const result = this.registers[Rdn] >> shiftN;
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      if (shiftN) {
+        this.C = !!((input >>> (shiftN - 1)) & 0x1);
+      }
     }
     // B (with cond)
     else if (opcode >> 12 === 0b1101 && ((opcode >> 9) & 0x7) !== 0b111) {
@@ -811,6 +935,7 @@ export class RP2040 {
       }
       if (this.checkCondition(cond)) {
         this.PC += imm8 + 2;
+        this.cycles++;
       }
     }
     // B
@@ -820,11 +945,12 @@ export class RP2040 {
         imm11 = (imm11 & 0x7ff) - 0x800;
       }
       this.PC += imm11 + 2;
+      this.cycles++;
     }
     // BICS
     else if (opcode >> 6 === 0b0100001110) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rdn = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
       const result = (this.registers[Rdn] &= ~this.registers[Rm]);
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
@@ -847,17 +973,32 @@ export class RP2040 {
         ((S ? 0b11111111 : 0) << 24) | ((I1 << 23) | (I2 << 22) | (imm10 << 12) | (imm11 << 1));
       this.LR = (this.PC + 2) | 0x1;
       this.PC += 2 + imm32;
+      this.cycles += 2;
     }
     // BLX
     else if (opcode >> 7 === 0b010001111 && (opcode & 0x7) === 0) {
       const Rm = (opcode >> 3) & 0xf;
       this.LR = this.PC | 0x1;
       this.PC = this.registers[Rm] & ~1;
+      this.cycles++;
     }
     // BX
     else if (opcode >> 7 === 0b010001110 && (opcode & 0x7) === 0) {
       const Rm = (opcode >> 3) & 0xf;
       this.BXWritePC(this.registers[Rm]);
+      this.cycles++;
+    }
+    // CMN (register)
+    else if (opcode >> 6 === 0b0100001011) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rn = opcode & 0x7;
+      const leftValue = this.registers[Rn];
+      const rightValue = this.registers[Rm];
+      const result = leftValue + rightValue;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = result > 0xffffffff;
+      this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
@@ -883,8 +1024,9 @@ export class RP2040 {
       this.V =
         (leftValue > 0 && rightValue < 0 && result < 0) ||
         (leftValue < 0 && rightValue > 0 && result > 0);
-      // CMP (register) encoding T2
-    } else if (opcode >> 8 === 0b01000101) {
+    }
+    // CMP (register) encoding T2
+    else if (opcode >> 8 === 0b01000101) {
       const Rm = (opcode >> 3) & 0xf;
       const Rn = ((opcode >> 4) & 0x8) | (opcode & 0x7);
       const leftValue = this.registers[Rn] | 0;
@@ -904,10 +1046,17 @@ export class RP2040 {
     // CPSIE i
     else if (opcode === 0xb662) {
       this.PM = false;
+      this.interruptsUpdated = true;
     }
     // DMB SY
     else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f50) {
       this.PC += 2;
+      this.cycles += 2;
+    }
+    // DSB SY
+    else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f40) {
+      this.PC += 2;
+      this.cycles += 2;
     }
     // EORS
     else if (opcode >> 6 === 0b0100000001) {
@@ -918,6 +1067,11 @@ export class RP2040 {
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
     }
+    // ISB SY
+    else if (opcode === 0xf3bf && (opcode2 & 0xfff0) === 0x8f60) {
+      this.PC += 2;
+      this.cycles += 2;
+    }
     // LDMIA
     else if (opcode >> 11 === 0b11001) {
       const Rn = (opcode >> 8) & 0x7;
@@ -927,6 +1081,7 @@ export class RP2040 {
         if (registers & (1 << i)) {
           this.registers[i] = this.readUint32(address);
           address += 4;
+          this.cycles++;
         }
       }
       // Write back
@@ -963,6 +1118,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDRB (immediate)
@@ -971,6 +1129,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + imm5;
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = this.readUint8(addr);
     }
     // LDRB (register)
@@ -979,6 +1140,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = this.readUint8(addr);
     }
     // LDRH (immediate)
@@ -987,6 +1151,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + (imm5 << 1);
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = this.readUint16(addr);
     }
     // LDRH (register)
@@ -995,6 +1162,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = this.readUint16(addr);
     }
     // LDRSB
@@ -1003,6 +1173,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = signExtend8(this.readUint8(addr));
     }
     // LDRSH
@@ -1011,6 +1184,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(addr)) {
+        this.cycles++;
+      }
       this.registers[Rt] = signExtend16(this.readUint16(addr));
     }
     // LSLS (immediate)
@@ -1065,6 +1241,9 @@ export class RP2040 {
     else if (opcode >> 8 === 0b01000110) {
       const Rm = (opcode >> 3) & 0xf;
       const Rd = ((opcode >> 4) & 0x8) | (opcode & 0x7);
+      if (Rm === pcRegister) {
+        this.cycles++;
+      }
       this.registers[Rd] = Rm === pcRegister ? this.PC + 2 : this.registers[Rm];
     }
     // MOVS
@@ -1081,6 +1260,7 @@ export class RP2040 {
       const Rd = (opcode2 >> 8) & 0xf;
       this.registers[Rd] = this.readSpecialRegister(SYSm);
       this.PC += 2;
+      this.cycles += 2;
     }
     // MSR
     else if (opcode >> 4 === 0b111100111000 && opcode2 >> 8 == 0b10001000) {
@@ -1088,6 +1268,7 @@ export class RP2040 {
       const Rn = opcode & 0xf;
       this.writeSpecialRegister(SYSm, this.registers[Rn]);
       this.PC += 2;
+      this.cycles += 2;
     }
     // MULS
     else if (opcode >> 6 === 0b0100001101) {
@@ -1124,11 +1305,13 @@ export class RP2040 {
         if (opcode & (1 << i)) {
           this.registers[i] = this.readUint32(address);
           address += 4;
+          this.cycles++;
         }
       }
       if (P) {
         this.BXWritePC(this.readUint32(address));
         address += 4;
+        this.cycles += 2;
       }
       this.SP = address;
     }
@@ -1144,6 +1327,7 @@ export class RP2040 {
       for (let i = 0; i <= 7; i++) {
         if (opcode & (1 << i)) {
           this.writeUint32(address, this.registers[i]);
+          this.cycles++;
           address += 4;
         }
       }
@@ -1154,8 +1338,8 @@ export class RP2040 {
     }
     // REV
     else if (opcode >> 6 === 0b1011101000) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const input = this.registers[Rm];
       this.registers[Rd] =
         ((input & 0xff) << 24) |
@@ -1163,10 +1347,40 @@ export class RP2040 {
         (((input >> 16) & 0xff) << 8) |
         ((input >> 24) & 0xff);
     }
+    // REV16
+    else if (opcode >> 6 === 0b1011101001) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      this.registers[Rd] =
+        (((input >> 16) & 0xff) << 24) |
+        (((input >> 24) & 0xff) << 16) |
+        ((input & 0xff) << 8) |
+        ((input >> 8) & 0xff);
+    }
+    // REVSH
+    else if (opcode >> 6 === 0b1011101011) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      const input = this.registers[Rm];
+      this.registers[Rd] = signExtend16(((input & 0xff) << 8) | ((input >> 8) & 0xff));
+    }
+    // ROR
+    else if (opcode >> 6 === 0b0100000111) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
+      const input = this.registers[Rdn];
+      const shift = (this.registers[Rm] & 0xff) % 32;
+      const result = (input >>> shift) | (input << (32 - shift));
+      this.registers[Rdn] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = result === 0;
+      this.C = !!(result & 0x80000000);
+    }
     // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
-      let Rn = (opcode >> 3) & 0x7;
-      let Rd = opcode & 0x7;
+      const Rn = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
       const value = this.registers[Rn] | 0;
       this.registers[Rd] = -value;
       this.N = value > 0;
@@ -1174,10 +1388,14 @@ export class RP2040 {
       this.C = value === 0;
       this.V = value === 0x7fffffff;
     }
+    // NOP
+    else if (opcode === 0b1011111100000000) {
+      // Do nothing!
+    }
     // SBCS (Encoding T2)
     else if (opcode >> 6 === 0b0100000110) {
-      let Rm = (opcode >> 3) & 0x7;
-      let Rdn = opcode & 0x7;
+      const Rm = (opcode >> 3) & 0x7;
+      const Rdn = opcode & 0x7;
       const operand1 = this.registers[Rdn];
       const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
       const result = (operand1 - operand2) | 0;
@@ -1200,6 +1418,7 @@ export class RP2040 {
         if (registers & (1 << i)) {
           this.writeUint32(address, this.registers[i]);
           address += 4;
+          this.cycles++;
         }
       }
       // Write back
@@ -1213,6 +1432,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
       this.writeUint32(address, this.registers[Rt]);
     }
     // STR (sp + immediate)
@@ -1220,6 +1442,9 @@ export class RP2040 {
       const Rt = (opcode >> 8) & 0x7;
       const imm8 = opcode & 0xff;
       const address = this.SP + (imm8 << 2);
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
       this.writeUint32(address, this.registers[Rt]);
     }
     // STR (register)
@@ -1227,8 +1452,11 @@ export class RP2040 {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const addres = this.registers[Rm] + this.registers[Rn];
-      this.writeUint32(addres, this.registers[Rt]);
+      const address = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
+      this.writeUint32(address, this.registers[Rt]);
     }
     // STRB (immediate)
     else if (opcode >> 11 === 0b01110) {
@@ -1236,6 +1464,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
       this.writeUint8(address, this.registers[Rt]);
     }
     // STRB (register)
@@ -1243,8 +1474,11 @@ export class RP2040 {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const addres = this.registers[Rm] + this.registers[Rn];
-      this.writeUint8(addres, this.registers[Rt]);
+      const address = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
+      this.writeUint8(address, this.registers[Rt]);
     }
     // STRH (immediate)
     else if (opcode >> 11 === 0b10000) {
@@ -1252,6 +1486,9 @@ export class RP2040 {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
       this.writeUint16(address, this.registers[Rt]);
     }
     // STRH (register)
@@ -1259,8 +1496,11 @@ export class RP2040 {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const addres = this.registers[Rm] + this.registers[Rn];
-      this.writeUint16(addres, this.registers[Rt]);
+      const address = this.registers[Rm] + this.registers[Rn];
+      if (this.slowIO(address)) {
+        this.cycles++;
+      }
+      this.writeUint16(address, this.registers[Rt]);
     }
     // SUB (SP minus immediate)
     else if (opcode >> 7 === 0b101100001) {
@@ -1317,6 +1557,12 @@ export class RP2040 {
       const Rd = opcode & 0x7;
       this.registers[Rd] = signExtend8(this.registers[Rm]);
     }
+    // SXTH
+    else if (opcode >> 6 === 0b1011001000) {
+      const Rm = (opcode >> 3) & 0x7;
+      const Rd = opcode & 0x7;
+      this.registers[Rd] = signExtend16(this.registers[Rm]);
+    }
     // TST
     else if (opcode >> 6 == 0b0100001000) {
       const Rm = (opcode >> 3) & 0x7;
@@ -1328,7 +1574,16 @@ export class RP2040 {
     // UDF
     else if (opcode >> 8 == 0b11011110) {
       const imm8 = opcode & 0xff;
+      this.breakRewind = 2;
       this.onBreak(imm8);
+    }
+    // UDF (Encoding T2)
+    else if (opcode >> 4 === 0b111101111111 && opcode2 >> 12 === 0b1010) {
+      const imm4 = opcode & 0xf;
+      const imm12 = opcode2 & 0xfff;
+      this.breakRewind = 4;
+      this.onBreak((imm4 << 12) | imm12);
+      this.PC += 2;
     }
     // UXTB
     else if (opcode >> 6 == 0b1011001011) {
@@ -1345,13 +1600,31 @@ export class RP2040 {
     // WFE
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
+      this.cycles++;
+      console.log('WFE');
+    }
+    // WFI
+    else if (opcode === 0b1011111100110000) {
+      // do nothing for now. Wait for event!
+      this.cycles++;
+      console.log('WFI');
+    }
+    // YIELD
+    else if (opcode === 0b1011111100010000) {
+      // do nothing for now. Wait for event!
+      console.log('Yield');
     } else {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }
   }
 
+  slowIO(addr: number) {
+    return addr < SIO_START_ADDRESS || addr > SIO_START_ADDRESS + 0x10000000;
+  }
+
   execute() {
+    this.clock.resume();
     this.executeTimer = null;
     this.stopped = false;
     for (let i = 0; i < 1000 && !this.stopped; i++) {
@@ -1368,5 +1641,6 @@ export class RP2040 {
       clearTimeout(this.executeTimer);
       this.executeTimer = null;
     }
+    this.clock.pause();
   }
 }
