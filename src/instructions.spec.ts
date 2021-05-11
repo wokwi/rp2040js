@@ -14,23 +14,35 @@ import {
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
+  opcodeBT1,
+  opcodeBT2,
   opcodeBX,
   opcodeCMN,
+  opcodeCMPimm,
+  opcodeCMPregT1,
+  opcodeCMPregT2,
+  opcodeDMBSY,
+  opcodeDSBSY,
   opcodeEORS,
+  opcodeISBSY,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLDRBreg,
   opcodeLDRH,
   opcodeLDRHreg,
+  opcodeLDRimm,
+  opcodeLDRlit,
   opcodeLDRreg,
   opcodeLDRSB,
   opcodeLDRSH,
   opcodeLDRsp,
+  opcodeLSLSimm,
   opcodeLSLSreg,
   opcodeLSRS,
   opcodeLSRSreg,
   opcodeMOV,
   opcodeMOVS,
+  opcodeMOVSreg,
   opcodeMRS,
   opcodeMSR,
   opcodeMULS,
@@ -38,6 +50,7 @@ import {
   opcodeNOP,
   opcodeORRS,
   opcodePOP,
+  opcodePUSH,
   opcodeREV,
   opcodeREV16,
   opcodeREVSH,
@@ -59,6 +72,8 @@ import {
   opcodeSVC,
   opcodeSXTB,
   opcodeSXTH,
+  opcodeTST,
+  opcodeUDF,
   opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
@@ -356,7 +371,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `b.n .-20` instruction', async () => {
     await cpu.setPC(0x20000000 + 9 * 2);
-    await cpu.writeUint16(0x20000000 + 9 * 2, 0xe7f6); // b.n .-20
+    await cpu.writeUint16(0x20000000 + 9 * 2, opcodeBT2(0xfec)); 
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toEqual(0x20000002);
@@ -365,7 +380,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute a `bne.n .-6` instruction', async () => {
     await cpu.setPC(0x20000000 + 9 * 2);
     await cpu.setRegisters({ Z: false });
-    await cpu.writeUint16(0x20000000 + 9 * 2, 0xd1fc); // bne.n .-6
+    await cpu.writeUint16(0x20000000 + 9 * 2, opcodeBT1(1,0x1f8)); 
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toEqual(0x2000000e);
@@ -397,7 +412,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `cmp r5, #66` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x2d42); // cmp r5, #66
+    await cpu.writeUint16(0x20000000, opcodeCMPimm(r5,66));
     await cpu.setRegisters({ r5: 60 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -409,7 +424,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `cmp r5, r0` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x4285); // cmp r5, r0
+    await cpu.writeUint16(0x20000000, opcodeCMPregT1(r5,r0));
     await cpu.setRegisters({ r5: 60 });
     await cpu.setRegisters({ r0: 56 });
     await cpu.singleStep();
@@ -422,7 +437,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `cmp ip, r6` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x45b4); // cmp ip (r12), r6
+    await cpu.writeUint16(0x20000000, opcodeCMPregT2(ip,r6));
     await cpu.setRegisters({ r6: 56, r12: 60 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -434,7 +449,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should correctly decode a `dmb sy` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint32(0x20000000, 0x8f50f3bf); // DMB SY
+    await cpu.writeUint32(0x20000000, opcodeDMBSY());
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toBe(0x20000004);
@@ -442,7 +457,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should correctly decode a `dsb sy` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint32(0x20000000, 0x8f4ff3bf); // DSB SY
+    await cpu.writeUint32(0x20000000, opcodeDSBSY());
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toBe(0x20000004);
@@ -462,7 +477,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should correctly decode a `isb sy` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint32(0x20000000, 0x8f6ff3bf); // ISB SY
+    await cpu.writeUint32(0x20000000, opcodeISBSY());
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toBe(0x20000004);
@@ -583,7 +598,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute a `push {r4, r5, r6, lr}` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.setRegisters({ sp: RAM_START_ADDRESS + 0x100 });
-    await cpu.writeUint16(0x20000000, 0xb570); // push {r4, r5, r6, lr}
+    await cpu.writeUint16(0x20000000, opcodePUSH(true,(1 << r4) | (1 << r5) | (1 << r6)));
     await cpu.setRegisters({ r4: 0x40, r5: 0x50, r6: 0x60, lr: 0x42 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -651,7 +666,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `ldr r0, [pc, #148]` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x4825); // ldr r0, [pc, #148]
+    await cpu.writeUint16(0x20000000, opcodeLDRlit(r0,148)); 
     await cpu.writeUint32(0x20000000 + 152, 0x42);
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -661,7 +676,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `ldr r3, [r2, #24]` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x6993); // ldr r3, [r2, #24]
+    await cpu.writeUint16(0x20000000,opcodeLDRimm(r3,r2,24)); 
     await cpu.setRegisters({ r2: 0x20000000 });
     await cpu.writeUint8(0x20000000 + 24, 0x55);
     await cpu.singleStep();
@@ -766,7 +781,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     const breakMock = jest.fn();
     const rp2040 = new RP2040();
     rp2040.PC = 0x20000000;
-    rp2040.writeUint16(0x20000000, 0xde01); // udf 1
+    rp2040.writeUint16(0x20000000, opcodeUDF(0x1));
     rp2040.onBreak = breakMock;
     rp2040.executeInstruction();
     expect(rp2040.PC).toEqual(0x20000002);
@@ -786,7 +801,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `lsls r5, r5, #18` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x04ad); // lsls r5, r5, #18
+    await cpu.writeUint16(0x20000000, opcodeLSLSimm(r5,r5,18));
     await cpu.setRegisters({ r5: 0b00000000000000000011 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -809,7 +824,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `lsls r5, r5, #18` instruction with carry', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x04ad); // lsls r5, r5, #18
+    await cpu.writeUint16(0x20000000, opcodeLSLSimm(r5,r5,18)); 
     await cpu.setRegisters({ r5: 0x00004001 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -821,7 +836,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLSRSreg(r5, r0));
     await cpu.setRegisters({ r5: 0xff00000f });
-    await cpu.setRegisters({ r0: 0xff003302 }); // Shift amount: 02
+    await cpu.setRegisters({ r0: 0xff003302 }); 
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r5).toEqual(0x3fc00003);
@@ -853,7 +868,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `movs r6, r5` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x002e); // movs r6, r5
+    await cpu.writeUint16(0x20000000, opcodeMOVSreg(r6,r5));
     await cpu.setRegisters({ r5: 0x50 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -1154,7 +1169,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `tst r1, r3` instruction when the result is negative', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x4219); // tst r1, r3
+    await cpu.writeUint16(0x20000000, opcodeTST(r1,r3)); 
     await cpu.setRegisters({ r1: 0xf0000000 });
     await cpu.setRegisters({ r3: 0xf0004000 });
     await cpu.singleStep();
@@ -1164,7 +1179,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute an `tst r1, r3` instruction when the registers are different', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint16(0x20000000, 0x4219); // tst r1, r3
+    await cpu.writeUint16(0x20000000, opcodeTST(r1,r3)); 
     await cpu.setRegisters({ r1: 0xf0, r3: 0x0f });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
