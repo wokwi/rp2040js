@@ -42,6 +42,14 @@ export function opcodeASRSreg(Rdn: number, Rm: number) {
   return (0b0100000100 << 6) | ((Rm & 0x7) << 3) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
 }
 
+export function opcodeBT1(cond: number , imm8 : number) {
+  return (0b1101 << 12 ) | ((cond & 0xf) << 8) |((imm8 >> 1) &  0x1ff);
+}
+
+export function opcodeBT2(imm11 : number) {
+  return (0b11100 << 11 ) | ((imm11 >> 1 ) &  0x7ff);
+}
+
 export function opcodeBICS(Rdn: number, Rm: number) {
   return (0b0100001110 << 6) | ((Rm & 7) << 3) | (Rdn & 7);
 }
