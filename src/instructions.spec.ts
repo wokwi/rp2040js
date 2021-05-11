@@ -371,7 +371,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `b.n .-20` instruction', async () => {
     await cpu.setPC(0x20000000 + 9 * 2);
-    await cpu.writeUint16(0x20000000 + 9 * 2, opcodeBT2(0xfec)); 0
+    await cpu.writeUint16(0x20000000 + 9 * 2, opcodeBT2(0xfec)); 
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.pc).toEqual(0x20000002);
