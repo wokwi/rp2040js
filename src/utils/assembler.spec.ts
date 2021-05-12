@@ -13,27 +13,43 @@ import {
   opcodeBICS,
   opcodeBL,
   opcodeBLX,
+  opcodeBT1,
+  opcodeBT2,
   opcodeBX,
   opcodeCMN,
+  opcodeCMPimm,
+  opcodeCMPregT1,
+  opcodeCMPregT2,
+  opcodeDMBSY,
+  opcodeDSBSY,
   opcodeEORS,
+  opcodeISBSY,
   opcodeLDMIA,
   opcodeLDRB,
   opcodeLDRBreg,
   opcodeLDRH,
   opcodeLDRHreg,
+  opcodeLDRimm,
+  opcodeLDRlit,
   opcodeLDRreg,
+  opcodeLDRsp,
   opcodeLDRSB,
   opcodeLDRSH,
+  opcodeLSLSimm,
   opcodeLSLSreg,
   opcodeLSRS,
   opcodeLSRSreg,
   opcodeMOV,
+  opcodeMOVS,
+  opcodeMOVSreg,
   opcodeMRS,
   opcodeMSR,
   opcodeMULS,
   opcodeMVNS,
+  opcodeNOP,
   opcodeORRS,
   opcodePOP,
+  opcodePUSH,
   opcodeREV,
   opcodeREV16,
   opcodeREVSH,
@@ -55,9 +71,13 @@ import {
   opcodeSVC,
   opcodeSXTB,
   opcodeSXTH,
+  opcodeTST,
+  opcodeUDF,
   opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
+  opcodeWFI,
+  opcodeYIELD,
 } from './assembler';
 
 const r0 = 0;
@@ -119,6 +139,14 @@ describe('assembler', () => {
     expect(opcodeASRSreg(r3, r4)).toEqual(0x4123);
   });
 
+  it('should correctly encode an `b.n -20` instruction', () => {
+    expect(opcodeBT1(1,0x1f8)).toEqual(0xd1fc);
+  });
+
+  it('should correctly encode an `b.n -20` instruction', () => {
+    expect(opcodeBT2(0xfec)).toEqual(0xe7f6);
+  });
+
   it('should correctly encode an `bics r0, r3` instruction', () => {
     expect(opcodeBICS(r0, r3)).toEqual(0x4398);
   });
@@ -147,12 +175,36 @@ describe('assembler', () => {
     expect(opcodeCMN(r5, r6)).toEqual(0x42f5);
   });
 
+  it('should correctly encode an `cmp r5, #66` instruction', () => {
+    expect(opcodeCMPimm(r5, 66)).toEqual(0x2d42);
+  });
+
+  it('should correctly encode an `cmp r5, r0` instruction', () => {
+    expect(opcodeCMPregT1(r5, r0)).toEqual(0x4285);
+  });
+
+  it('should correctly encode an `cmp ip (r12), r6` instruction', () => {
+    expect(opcodeCMPregT2(ip, r6)).toEqual(0x45b4);
+  });
+
   it('should correctly encode an `eors r1, r3` instruction', () => {
     expect(opcodeEORS(r1, r3)).toEqual(0x4059);
   });
 
+  it('should correctly encode an `dmb sy` instruction', () => {
+    expect(opcodeDMBSY()).toEqual(0x8f50f3bf);
+  });
+
+  it('should correctly encode an `dsb sy` instruction', () => {
+    expect(opcodeDSBSY()).toEqual(0x8f4ff3bf);
+  });
+
   it('should correctly encode an `ldmia r0!, {r1, r2}` instruction', () => {
     expect(opcodeLDMIA(r0, (1 << r1) | (1 << r2))).toEqual(0xc806);
+  });
+
+  it('should correctly encode an `isb sy` instruction', () => {
+    expect(opcodeISBSY()).toEqual(0x8f6ff3bf);
   });
 
   it('should correctly encode an `lsls r5, r0` instruction', () => {
@@ -167,8 +219,20 @@ describe('assembler', () => {
     expect(opcodeLSRSreg(r0, r4)).toEqual(0x40e0);
   });
 
+  it('should correctly encode an `ldr r3, [r2, #24]', () => {
+    expect(opcodeLDRimm(r3,r2,24)).toEqual(0x6993);
+  });
+
+  it('should correctly encode an `ldr r0, [pc, #148]', () => {
+    expect(opcodeLDRlit(r0,148)).toEqual(0x4825);
+  });
+
   it('should correctly encode an `ldr r3, [r3, r4]', () => {
     expect(opcodeLDRreg(r3, r3, r4)).toEqual(0x591b);
+  });
+
+  it('should correctly encode an `ldr r3, [sp, #12]', () => {
+    expect(opcodeLDRsp(r3, 12)).toEqual(0x9b03);
   });
 
   it('should correctly encode an `ldrb r0, [r1, #0]` instruction', () => {
@@ -195,8 +259,20 @@ describe('assembler', () => {
     expect(opcodeLDRSH(r5, r3, r5)).toEqual(0x5f5d);
   });
 
+  it('should correctly encode an `lsls r5, r5, #18]` instruction', () => {
+    expect(opcodeLSLSimm(r5, r5, 18)).toEqual(0x04ad);
+  });
+
   it('should correctly encode an `mov r3, r8` instruction', () => {
     expect(opcodeMOV(r3, r8)).toEqual(0x4643);
+  });
+
+  it('should correctly encode an `movs r5, #128` instruction', () => {
+    expect(opcodeMOVS(r5, 128)).toEqual(0x2580);
+  });
+
+  it('should correctly encode an `movs r6, r5` instruction', () => {
+    expect(opcodeMOVSreg(r6, r5)).toEqual(0x002e);
   });
 
   it('should correctly encode an `mrs r6, PRIMASK` instruction', () => {
@@ -215,12 +291,16 @@ describe('assembler', () => {
     expect(opcodeMVNS(r3, r3)).toEqual(0x43db);
   });
 
-  it('should correctly encode an `prrs r3, r0` instruction', () => {
+  it('should correctly encode an `orrs r3, r0` instruction', () => {
     expect(opcodeORRS(r3, r0)).toEqual(0x4303);
   });
 
   it('should correctly encode an `pop {r0, r1, pc}` instruction', () => {
     expect(opcodePOP(true, (1 << r0) | (1 << r1))).toEqual(0xbd03);
+  });
+
+  it('should correctly encode an `push {r4, r5, r6, lr}` instruction', () => {
+    expect(opcodePUSH(true, (1 << r4) | (1 << r5) | (1 << r6))).toEqual(0xb570);
   });
 
   it('should correctly encode an `rev r3, r1` instruction', () => {
@@ -305,6 +385,14 @@ describe('assembler', () => {
 
   it('should correctly encode an `sxth r6, r3` instruction', () => {
     expect(opcodeSXTH(r6, r3)).toEqual(0xb21e);
+  });
+
+  it('should correctly encode an `tst r1,r3` instruction', () => {
+    expect(opcodeTST(r1,r3)).toEqual(0x4219);
+  });
+
+  it('should correctly encode an `udf #1` instruction', () => {
+    expect(opcodeUDF(1)).toEqual(0xde01);
   });
 
   it('should correctly encode an `udf.w #0` instruction', () => {
