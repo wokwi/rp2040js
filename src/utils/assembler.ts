@@ -42,12 +42,12 @@ export function opcodeASRSreg(Rdn: number, Rm: number) {
   return (0b0100000100 << 6) | ((Rm & 0x7) << 3) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
 }
 
-export function opcodeBT1(cond: number , imm8 : number) {
-  return (0b1101 << 12 ) | ((cond & 0xf) << 8) |((imm8 >> 1) &  0x1ff);
+export function opcodeBT1(cond: number, imm8: number) {
+  return (0b1101 << 12) | ((cond & 0xf) << 8) | ((imm8 >> 1) & 0x1ff);
 }
 
-export function opcodeBT2(imm11 : number) {
-  return (0b11100 << 11 ) | ((imm11 >> 1 ) &  0x7ff);
+export function opcodeBT2(imm11: number) {
+  return (0b11100 << 11) | ((imm11 >> 1) & 0x7ff);
 }
 
 export function opcodeBICS(Rdn: number, Rm: number) {
@@ -86,7 +86,7 @@ export function opcodeCMPregT1(Rn: number, Rm: number) {
 }
 
 export function opcodeCMPregT2(Rn: number, Rm: number) {
-  return (0b01000101 << 8) | ((Rn >> 3) & 0x1) << 7  | ((Rm & 0x7) << 3) | (Rn & 0x7);
+  return (0b01000101 << 8) | (((Rn >> 3) & 0x1) << 7) | ((Rm & 0x7) << 3) | (Rn & 0x7);
 }
 
 export function opcodeDMBSY() {
@@ -114,11 +114,11 @@ export function opcodeLDRreg(Rt: number, Rn: number, Rm: number) {
 }
 
 export function opcodeLDRimm(Rt: number, Rn: number, imm5: number) {
-  return (0b01101 << 11) | (((imm5 >> 2 )& 0x1f) << 6) | ((Rn & 0x7) << 3) | (Rt & 0x7);
+  return (0b01101 << 11) | (((imm5 >> 2) & 0x1f) << 6) | ((Rn & 0x7) << 3) | (Rt & 0x7);
 }
 
 export function opcodeLDRlit(Rt: number, imm8: number) {
-  return (0b01001 << 11) | (imm8 >>2 & 0xff)  | ((Rt & 0x7) << 8);
+  return (0b01001 << 11) | ((imm8 >> 2) & 0xff) | ((Rt & 0x7) << 8);
 }
 
 export function opcodeLDRB(Rt: number, Rn: number, imm5: number) {
@@ -153,8 +153,8 @@ export function opcodeLSLSreg(Rdn: number, Rm: number) {
   return (0b0100000010 << 6) | ((Rm & 0x7) << 3) | (Rdn & 0x7);
 }
 
-export function opcodeLSLSimm(Rd: number, Rm: number, Imm5 : number) {
-  return (0b00000 << 11) | ((Imm5 & 0x1f) << 6) |((Rm & 0x7) << 3) | (Rd & 0x7);
+export function opcodeLSLSimm(Rd: number, Rm: number, Imm5: number) {
+  return (0b00000 << 11) | ((Imm5 & 0x1f) << 6) | ((Rm & 0x7) << 3) | (Rd & 0x7);
 }
 
 export function opcodeLSRS(Rd: number, Rm: number, imm5: number) {
@@ -323,4 +323,3 @@ export function opcodeWFI() {
 export function opcodeYIELD() {
   return 0b1011111100010000;
 }
-

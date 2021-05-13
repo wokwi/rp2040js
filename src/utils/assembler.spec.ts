@@ -32,9 +32,9 @@ import {
   opcodeLDRimm,
   opcodeLDRlit,
   opcodeLDRreg,
-  opcodeLDRsp,
   opcodeLDRSB,
   opcodeLDRSH,
+  opcodeLDRsp,
   opcodeLSLSimm,
   opcodeLSLSreg,
   opcodeLSRS,
@@ -46,7 +46,6 @@ import {
   opcodeMSR,
   opcodeMULS,
   opcodeMVNS,
-  opcodeNOP,
   opcodeORRS,
   opcodePOP,
   opcodePUSH,
@@ -76,8 +75,6 @@ import {
   opcodeUDF2,
   opcodeUXTB,
   opcodeUXTH,
-  opcodeWFI,
-  opcodeYIELD,
 } from './assembler';
 
 const r0 = 0;
@@ -140,7 +137,7 @@ describe('assembler', () => {
   });
 
   it('should correctly encode an `b.n -20` instruction', () => {
-    expect(opcodeBT1(1,0x1f8)).toEqual(0xd1fc);
+    expect(opcodeBT1(1, 0x1f8)).toEqual(0xd1fc);
   });
 
   it('should correctly encode an `b.n -20` instruction', () => {
@@ -220,11 +217,11 @@ describe('assembler', () => {
   });
 
   it('should correctly encode an `ldr r3, [r2, #24]', () => {
-    expect(opcodeLDRimm(r3,r2,24)).toEqual(0x6993);
+    expect(opcodeLDRimm(r3, r2, 24)).toEqual(0x6993);
   });
 
   it('should correctly encode an `ldr r0, [pc, #148]', () => {
-    expect(opcodeLDRlit(r0,148)).toEqual(0x4825);
+    expect(opcodeLDRlit(r0, 148)).toEqual(0x4825);
   });
 
   it('should correctly encode an `ldr r3, [r3, r4]', () => {
@@ -388,7 +385,7 @@ describe('assembler', () => {
   });
 
   it('should correctly encode an `tst r1,r3` instruction', () => {
-    expect(opcodeTST(r1,r3)).toEqual(0x4219);
+    expect(opcodeTST(r1, r3)).toEqual(0x4219);
   });
 
   it('should correctly encode an `udf #1` instruction', () => {
