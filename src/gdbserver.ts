@@ -142,11 +142,14 @@ export class GDBTCPServer {
         const params = cmd.substr(1).split('=');
         const registerIndex = parseInt(params[0], 16);
         const registerValue = params[1].trim();
-        if (registerIndex < 0 || registerIndex > 0x16 || registerValue.length !== 8) {
+        const registerBytes = registerIndex > 0x12 ? 1 : 4;
+        const decodedValue = decodeHexBuf(registerValue);
+        if (registerIndex < 0 || registerIndex > 0x16 || decodedValue.length !== registerBytes) {
           return gdbMessage('E00');
         }
-        const valueBuffer = new Uint8Array(decodeHexBuf(registerValue)).buffer;
-        const value = new DataView(valueBuffer).getUint32(0, true);
+        const valueBuffer = new Uint8Array(4);
+        valueBuffer.set(decodedValue.slice(0, 4));
+        const value = new DataView(valueBuffer.buffer).getUint32(0, true);
         switch (registerIndex) {
           case 0x10:
             rp2040.xPSR = value;
@@ -259,5 +262,7 @@ export class GDBTCPServer {
     socket.on('close', () => {
       console.log('GDB disconnected');
     });
+
+    socket.write('+');
   }
 }
