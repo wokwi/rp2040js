@@ -134,7 +134,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
-  it('should execute `adcs r5, r4` instruction', async () => {
+  it('should execute `adcs r5, r4` instruction and set negative/overflow flags', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADCS(r5, r4));
     cpu.setRegisters({
