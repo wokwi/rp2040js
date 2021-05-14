@@ -1237,11 +1237,11 @@ export class RP2040 {
       const Rdn = opcode & 0x7;
       const shiftAmount = this.registers[Rm] & 0xff;
       const input = this.registers[Rdn];
-      const result = input >>> shiftAmount;
+      const result = shiftAmount < 32 ? input >>> shiftAmount : 0;
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
-      this.C = !!((input >>> (shiftAmount - 1)) & 0x1);
+      this.C = shiftAmount > 32 ? !!((input >>> (shiftAmount - 1)) & 0x1) : false;
     }
     // MOV
     else if (opcode >> 8 === 0b01000110) {

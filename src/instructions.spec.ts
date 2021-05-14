@@ -899,6 +899,17 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.C).toEqual(true);
   });
 
+  it('should return zero for `lsrs r2, r3` with 32 bit shift', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeLSRSreg(r2, r3));
+    await cpu.setRegisters({ r2: 10, r3: 32 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r2).toEqual(0);
+    expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(false);
+  });
+
   it('should execute a `lsrs r1, r1, #1` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLSRS(r1, r1, 1));
