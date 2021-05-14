@@ -332,7 +332,7 @@ export class RP2040 {
   }
 
   set SP(value: number) {
-    this.registers[13] = value;
+    this.registers[13] = value & ~0x3;
   }
 
   get LR() {
@@ -875,14 +875,17 @@ export class RP2040 {
       const leftValue = Rdn === pcRegister ? this.PC + 2 : this.registers[Rdn];
       const rightValue = this.registers[Rm];
       const result = leftValue + rightValue;
-      this.registers[Rdn] = Rdn === pcRegister ? result & ~0x1 : result;
       if (Rdn !== spRegister && Rdn !== pcRegister) {
+        this.registers[Rdn] = result;
         this.N = !!(result & 0x80000000);
         this.Z = (result & 0xffffffff) === 0;
         this.C = result > 0xffffffff;
         this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
       } else if (Rdn === pcRegister) {
+        this.registers[Rdn] = result & ~0x1;
         this.cycles++;
+      } else if (Rdn === spRegister) {
+        this.registers[Rdn] = result & ~0x3;
       }
     }
     // ADR
@@ -1241,10 +1244,14 @@ export class RP2040 {
     else if (opcode >> 8 === 0b01000110) {
       const Rm = (opcode >> 3) & 0xf;
       const Rd = ((opcode >> 4) & 0x8) | (opcode & 0x7);
-      if (Rm === pcRegister) {
+      let value = Rm === pcRegister ? this.PC + 2 : this.registers[Rm]
+      if (Rd === pcRegister) {
         this.cycles++;
+        value &= ~1;
+      } else if (Rd === spRegister) {
+        value &= ~3;
       }
-      this.registers[Rd] = Rm === pcRegister ? this.PC + 2 : this.registers[Rm];
+      this.registers[Rd] = value;
     }
     // MOVS
     else if (opcode >> 11 === 0b00100) {

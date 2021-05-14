@@ -166,13 +166,13 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `add r1, sp, #4` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.setRegisters({ sp: 0x55 });
+    await cpu.setRegisters({ sp: 0x54 });
     await cpu.writeUint16(0x20000000, opcodeADDspPlusImm(r1, 0x10));
     await cpu.setRegisters({ r1: 0 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
-    expect(registers.sp).toEqual(0x55);
-    expect(registers.r1).toEqual(0x65);
+    expect(registers.sp).toEqual(0x54);
+    expect(registers.r1).toEqual(0x64);
   });
 
   it('should execute `adds r1, r2, #3` instruction', async () => {
@@ -232,10 +232,10 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute `add sp, r8` instruction and not update the flags', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADDreg(sp, r8));
-    await cpu.setRegisters({ sp: 0x20030000, Z: true, r8: 0x11 });
+    await cpu.setRegisters({ sp: 0x20030000, Z: true, r8: 0x13 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
-    expect(registers.sp).toEqual(0x20030011);
+    expect(registers.sp).toEqual(0x20030010);
     expect(registers.Z).toEqual(true); // assert it didn't update the flags
   });
 
@@ -498,6 +498,15 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0x20000004);
+  });
+
+  it('should execute a `mov sp, r8` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeMOV(r3, r8));
+    await cpu.setRegisters({ r8: 55 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(55);
   });
 
   it('should execute a `muls r0, r2` instruction', async () => {
@@ -864,6 +873,24 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.r1).toEqual(0);
     expect(registers.pc).toEqual(0x20000002);
     expect(registers.C).toEqual(true);
+  });
+
+  it('should keep lower 2 bits of sp clear when executing a `movs sp, r5` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeMOV(sp, r5));
+    await cpu.setRegisters({ r5: 0x53 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.sp).toEqual(0x50);
+  });
+
+  it('should keep lower bit of pc clear when executing a `movs pc, r5` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeMOV(pc, r5));
+    await cpu.setRegisters({ r5: 0x53 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.pc).toEqual(0x52);
   });
 
   it('should execute a `movs r6, r5` instruction', async () => {
