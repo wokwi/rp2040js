@@ -1244,7 +1244,7 @@ export class RP2040 {
     else if (opcode >> 8 === 0b01000110) {
       const Rm = (opcode >> 3) & 0xf;
       const Rd = ((opcode >> 4) & 0x8) | (opcode & 0x7);
-      let value = Rm === pcRegister ? this.PC + 2 : this.registers[Rm]
+      let value = Rm === pcRegister ? this.PC + 2 : this.registers[Rm];
       if (Rd === pcRegister) {
         this.cycles++;
         value &= ~1;
@@ -1316,11 +1316,12 @@ export class RP2040 {
         }
       }
       if (P) {
+        this.SP = address + 4;
         this.BXWritePC(this.readUint32(address));
-        address += 4;
         this.cycles += 2;
+      } else {
+        this.SP = address;
       }
-      this.SP = address;
     }
     // PUSH
     else if (opcode >> 9 === 0b1011010) {

@@ -1,7 +1,8 @@
 import { RP2040 } from './rp2040';
-import { opcodeBX, opcodeMOVS } from './utils/assembler';
+import { opcodeBX, opcodeMOVS, opcodePOP, opcodePUSH } from './utils/assembler';
 
 const r0 = 0;
+const r4 = 4;
 const lr = 14;
 
 const VTOR = 0xe000ed08;
@@ -65,6 +66,35 @@ describe('RP2040', () => {
       // Exception handler should return at this point.
       expect(rp2040.PC).toEqual(0x10004000);
       expect(rp2040.registers[r0]).toEqual(0x44);
+      expect(rp2040.IPSR).toEqual(0);
+    });
+
+    it('should return correctly from exception with POP {lr}', () => {
+      const INT1 = 1 << 1;
+      const INT1_HANDLER = 0x10000100;
+      const EXC_INT1 = 16 + 1;
+      const rp2040 = new RP2040();
+      rp2040.SP = 0x20004000;
+      rp2040.PC = 0x10004001;
+      rp2040.registers[r4] = 105;
+      rp2040.pendingInterrupts = INT1;
+      rp2040.enabledInterrupts = INT1;
+      rp2040.interruptsUpdated = true;
+      rp2040.writeUint32(VTOR, 0x10000000);
+      rp2040.writeUint32(0x10000000 + EXC_INT1 * 4, INT1_HANDLER);
+      rp2040.writeUint16(INT1_HANDLER, opcodePUSH(true, 0b01110000));
+      rp2040.writeUint16(INT1_HANDLER + 2, opcodeMOVS(r4, 42));
+      rp2040.writeUint16(INT1_HANDLER + 4, opcodePOP(true, 0b01110000));
+      // Exception handler should start at this point.
+      rp2040.executeInstruction(); // push {r4, r5, r6, lr}
+      expect(rp2040.IPSR).toEqual(EXC_INT1);
+      expect(rp2040.PC).toEqual(INT1_HANDLER + 2);
+      rp2040.executeInstruction(); // mov r4, 42
+      expect(rp2040.registers[r4]).toEqual(42);
+      rp2040.executeInstruction(); // pop {r4, r5, r6, pc}
+      // Exception handler should return at this point.
+      expect(rp2040.PC).toEqual(0x10004000);
+      expect(rp2040.registers[r4]).toEqual(105);
       expect(rp2040.IPSR).toEqual(0);
     });
   });
