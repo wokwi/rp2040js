@@ -1014,7 +1014,7 @@ export class RP2040 {
       const result = (value - imm8) | 0;
       this.N = value < imm8;
       this.Z = value === imm8;
-      this.C = value >= imm8;
+      this.C = value >>> 0 >= imm8;
       this.V = value < 0 && imm8 > 0 && result > 0;
     }
     // CMP (register)
