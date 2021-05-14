@@ -884,10 +884,6 @@ export class RP2040 {
       const result = leftValue + rightValue;
       if (Rdn !== spRegister && Rdn !== pcRegister) {
         this.registers[Rdn] = result;
-        this.N = !!(result & 0x80000000);
-        this.Z = (result & 0xffffffff) === 0;
-        this.C = result > 0xffffffff;
-        this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
       } else if (Rdn === pcRegister) {
         this.registers[Rdn] = result & ~0x1;
         this.cycles++;
