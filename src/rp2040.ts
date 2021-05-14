@@ -1559,7 +1559,7 @@ export class RP2040 {
       const rightValue = this.registers[Rm];
       const result = (leftValue - rightValue) | 0;
       this.registers[Rd] = result;
-      this.N = leftValue < rightValue;
+      this.N = (leftValue | 0) < (rightValue | 0);
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
