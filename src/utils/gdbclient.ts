@@ -131,8 +131,9 @@ export class GDBClient {
     return decodeHexUint32(response);
   }
 
-  async writeRegister(index: number, value: number) {
-    const response = await this.sendCommand(`P${encodeHexByte(index)}=${encodeHexUint32(value)}`);
+  async writeRegister(index: number, value: number, width: 8 | 32 = 32) {
+    const response = await this.sendCommand(`P${encodeHexByte(index)}=${
+      width === 32 ? encodeHexUint32(value) : encodeHexByte(value)}`);
     if (response !== 'OK') {
       throw new Error(`Invalid writeRegister response: ${response}`);
     }
