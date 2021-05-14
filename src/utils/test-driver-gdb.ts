@@ -8,6 +8,7 @@ export class GDBTestDriver implements ICortexTestDriver {
 
   async init() {
     await this.gdbClient.monitor('reset init');
+    await this.setRegisters({ C: false, Z: false, N: false, V: false });
   }
 
   async tearDown() {

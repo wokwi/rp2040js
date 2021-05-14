@@ -123,12 +123,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute `adcs r5, r4` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADCS(r5, r4));
-    await cpu.setRegisters({
-      r4: 55,
-      r5: 66,
-      xPSR: 0x01000010,
-      C: true,
-    });
+    await cpu.setRegisters({ r4: 55, r5: 66, C: true });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r5).toEqual(122);
@@ -218,8 +213,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute `add r1, ip` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADDreg(r1, ip));
-    await cpu.setRegisters({ r1: 66 });
-    await cpu.setRegisters({ r12: 44 });
+    await cpu.setRegisters({ r1: 66, r12: 44 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r1).toEqual(110);
