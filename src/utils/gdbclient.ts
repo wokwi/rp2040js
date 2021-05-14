@@ -141,7 +141,7 @@ export class GDBClient {
 
   async singleStep() {
     const response = await this.sendCommand('vCont;s:1;c');
-    if (!response.startsWith('T')) {
+    if (!response.startsWith('T') && !response.startsWith('S')) {
       throw new Error(`Invalid singleStep response: ${response}`);
     }
   }
