@@ -9,25 +9,51 @@
 
 import { GDBClient, dumpUint32, registerNames } from '../src/utils/gdbclient';
 
-function printComparedRegisters(emulator: Uint32Array, silicone: Uint32Array) {
-  console.log('Registers \t Emulator \t     Silicone');
+function printComparedRegisters(
+  registers: Uint32Array,
+  emulator: Uint32Array,
+  silicone: Uint32Array
+) {
   for (let i = 0; i < registerNames.length; i++) {
+    let modified = '';
+    if (emulator[i] !== silicone[i]) {
+      modified = '*';
+    }
     console.log(
       registerNames[i],
-      '    \t\t0x' + dumpUint32(emulator[i]) + '\t\t 0x' + dumpUint32(silicone[i])
+      modified,
+      '\t\t0x' +
+        dumpUint32(registers[i]) +
+        '\t0x' +
+        dumpUint32(emulator[i]) +
+        '\t0x' +
+        dumpUint32(silicone[i])
     );
+    if (registerNames[i] === 'xPSR' && modified === '*') {
+      console.log(
+        'Flags\t\t',
+        printFlags(registers[i]),
+        '\t',
+        printFlags(emulator[i]),
+        '\t',
+        printFlags(silicone[i])
+      );
+    }
   }
+}
+
+function printFlags(xpsr: number) {
+  let negative = xpsr & 0x80000000 ? 'N' : '-';
+  let zero = xpsr & 0x40000000 ? 'Z' : '-';
+  let carry = xpsr & 0x20000000 ? 'C' : '-';
+  let overflow = xpsr & 0x10000000 ? 'O' : '-';
+  return `[${negative}${zero}${carry}${overflow}]`;
 }
 
 function compareRegisters(emulator: Uint32Array, silicone: Uint32Array) {
   let result = true;
   for (let i = 0; i < emulator.length; i++) {
     if (emulator[i] !== silicone[i]) {
-      console.log(
-        `Mismatch register ${i}: emulator 0x${emulator[i].toString(16)} != silicone 0x${silicone[
-          i
-        ].toString(16)}`
-      );
       result = false;
     }
   }
@@ -45,26 +71,23 @@ async function main() {
   // Start diffing
   let lastRegSet1 = await client1.readRegisters();
   let lastRegSet2 = await client2.readRegisters();
-  let counter = 0;
-  for (counter = 0; ; counter++) {
+  let counter = 1;
+  for (counter = 1; ; counter++) {
     const regSet1 = await client1.readRegisters();
     const regSet2 = await client2.readRegisters();
-    //await client1.dumpRegisters();
+
     if (!compareRegisters(regSet1, regSet2)) {
-      console.log('status register at failed instruction:');
-      printComparedRegisters(lastRegSet1, lastRegSet2);
-      console.log('Status register at current instruction:');
-      printComparedRegisters(regSet1, regSet2);
-      break;
+      console.log('\nMismatch after ', counter, ' compared instructions');
+      console.log('\nRegister\tStartValue\tEmulator\tSilicone');
+      printComparedRegisters(lastRegSet1, regSet1, regSet2);
+      process.exit(1);
     }
     lastRegSet1 = regSet1;
-    lastRegSet2 = regSet2;
     await client1.singleStep();
     await client2.singleStep();
     if (counter % 500 === 0) {
-      console.log('Successfully compared ' + counter + ' instructions');
+      console.log(`Successfully compared ${counter} instructions`);
     }
-    //console.log('---');
   }
 }
 
