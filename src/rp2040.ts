@@ -58,6 +58,8 @@ export const SYSM_PSP = 9;
 export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
 
+const MAX_HARDWARE_IRQ = 25; // That's RTC_IRQ
+
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Lowest possible exception priority
@@ -707,6 +709,11 @@ export class RP2040 {
       if (levelInterrupts) {
         for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
           if (levelInterrupts & (1 << interruptNumber)) {
+            // TODO: should this also apply for some of the hardware
+            // interrupts? see issue #22
+            if (interruptNumber > MAX_HARDWARE_IRQ) {
+              this.pendingInterrupts &= ~(1 << interruptNumber);
+            }
             this.exceptionEntry(16 + interruptNumber);
             return;
           }

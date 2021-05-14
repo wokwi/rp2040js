@@ -1,5 +1,5 @@
 import { RP2040 } from './rp2040';
-import { opcodeBX, opcodeMOVS, opcodePOP, opcodePUSH } from './utils/assembler';
+import { opcodeBX, opcodeMOVS, opcodeNOP, opcodePOP, opcodePUSH } from './utils/assembler';
 
 const r0 = 0;
 const r4 = 4;
@@ -96,6 +96,27 @@ describe('RP2040', () => {
       expect(rp2040.PC).toEqual(0x10004000);
       expect(rp2040.registers[r4]).toEqual(105);
       expect(rp2040.IPSR).toEqual(0);
+    });
+
+    it('should clear the pending interrupt flag in exceptionEntry() for user IRQs (> 25)', () => {
+      const INT31 = 1 << 31;
+      const INT31_HANDLER = 0x10003100;
+      const EXC_INT31 = 16 + 31;
+      const NVIC_ISPR = 0xe000e200;
+      const rp2040 = new RP2040();
+      rp2040.SP = 0x20004000;
+      rp2040.PC = 0x10004001;
+      rp2040.writeUint32(NVIC_ISPR, INT31); // Set IRQ31 to pending
+      rp2040.enabledInterrupts = INT31;
+      rp2040.interruptsUpdated = true;
+      rp2040.writeUint32(VTOR, 0x10000000);
+      rp2040.writeUint32(0x10000000 + EXC_INT31 * 4, INT31_HANDLER);
+      rp2040.writeUint16(INT31_HANDLER, opcodeNOP());
+      expect(rp2040.pendingInterrupts).toEqual(INT31);
+      // Exception handler should start at this point.
+      rp2040.executeInstruction(); // nop
+      expect(rp2040.pendingInterrupts).toEqual(0); // interrupt flag has been cleared
+      expect(rp2040.readUint32(NVIC_ISPR)).toEqual(0); 
     });
   });
 
