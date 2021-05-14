@@ -823,7 +823,7 @@ export class RP2040 {
       this.C = result > 0xffffffff;
       this.V =
         ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
-        ((leftValue | 0) <= 0 && (rightValue | 0) <= 0 && (result | 0) > 0);
+        ((leftValue | 0) < 0 && (rightValue | 0) < 0 && (result | 0) > 0);
     }
     // ADD (register = SP plus immediate)
     else if (opcode >> 11 === 0b10101) {
