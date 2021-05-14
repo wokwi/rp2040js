@@ -1248,7 +1248,7 @@ export class RP2040 {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
-      this.C = shiftAmount > 32 ? !!((input >>> (shiftAmount - 1)) & 0x1) : false;
+      this.C = shiftAmount <= 32 ? !!((input >>> (shiftAmount - 1)) & 0x1) : false;
     }
     // MOV
     else if (opcode >> 8 === 0b01000110) {
