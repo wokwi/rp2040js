@@ -94,6 +94,7 @@ const r5 = 5;
 const r6 = 6;
 const r7 = 7;
 const r8 = 8;
+const r11 = 11;
 const r12 = 12;
 const ip = 12;
 const sp = 13;
@@ -463,6 +464,18 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(false);
+  });
+
+  it('should correctly set carry flag when executing `cmp r11, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeCMPregT2(r11, r3));
+    await cpu.setRegisters({ r3: 0x00000008, r11: 0xffffffff });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.N).toEqual(true);
     expect(registers.Z).toEqual(false);
     expect(registers.C).toEqual(true);
     expect(registers.V).toEqual(false);
