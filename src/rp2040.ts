@@ -1,5 +1,6 @@
 import { Clock, ClockTimer } from './clock';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
+import { RP2040RTC } from './peripherals/rtc';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
@@ -14,10 +15,14 @@ export const SIO_START_ADDRESS = 0xd0000000;
 const SIO_CPUID_OFFSET = 0;
 
 const XIP_SSI_BASE = 0x18000000;
+const SSI_TXFLR_OFFSET = 0x00000020;
+const SSI_RXFLR_OFFSET = 0x00000024;
 const SSI_SR_OFFSET = 0x00000028;
 const SSI_DR0_OFFSET = 0x00000060;
 const SSI_SR_BUSY_BITS = 0x00000001;
+const SSI_SR_TFNF_BITS = 0x00000002;
 const SSI_SR_TFE_BITS = 0x00000004;
+const SSI_SR_RFNE_BITS = 0x00000008;
 const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
@@ -172,7 +177,7 @@ export class RP2040 {
     0x40050: new UnimplementedPeripheral(this, 'PWM_BASE'),
     0x40054: new RPTimer(this, 'TIMER_BASE'),
     0x40058: new UnimplementedPeripheral(this, 'WATCHDOG_BASE'),
-    0x4005c: new UnimplementedPeripheral(this, 'RTC_BASE'),
+    0x4005c: new RP2040RTC(this, 'RTC_BASE'),
     0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
     0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
@@ -193,8 +198,10 @@ export class RP2040 {
       // Returns the current CPU core id (always 0 for now)
       return 0;
     });
+    this.readHooks.set(XIP_SSI_BASE + SSI_TXFLR_OFFSET, () => 0);
+    this.readHooks.set(XIP_SSI_BASE + SSI_RXFLR_OFFSET, () => 0);
     this.readHooks.set(XIP_SSI_BASE + SSI_SR_OFFSET, () => {
-      return SSI_SR_TFE_BITS;
+      return SSI_SR_TFE_BITS | SSI_SR_RFNE_BITS | SSI_SR_TFNF_BITS;
     });
 
     let dr0 = 0;
