@@ -590,10 +590,10 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.setPC(0x20000000);
     await cpu.setRegisters({ sp: RAM_START_ADDRESS + 0xf0 });
     await cpu.writeUint16(0x20000000, opcodePOP(true, (1 << r4) | (1 << r5) | (1 << r6)));
-    await cpu.writeUint8(0x200000f0, 0x40);
-    await cpu.writeUint8(0x200000f4, 0x50);
-    await cpu.writeUint8(0x200000f8, 0x60);
-    await cpu.writeUint8(0x200000fc, 0x42);
+    await cpu.writeUint32(0x200000f0, 0x40);
+    await cpu.writeUint32(0x200000f4, 0x50);
+    await cpu.writeUint32(0x200000f8, 0x60);
+    await cpu.writeUint32(0x200000fc, 0x42);
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.sp).toEqual(RAM_START_ADDRESS + 0x100);
@@ -687,7 +687,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLDRimm(r3, r2, 24));
     await cpu.setRegisters({ r2: 0x20000000 });
-    await cpu.writeUint8(0x20000000 + 24, 0x55);
+    await cpu.writeUint32(0x20000000 + 24, 0x55);
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0x55);
@@ -697,7 +697,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.setPC(0x20000000);
     await cpu.setRegisters({ sp: 0x20000000 });
     await cpu.writeUint16(0x20000000, opcodeLDRsp(r3, 12));
-    await cpu.writeUint8(0x20000000 + 12, 0x55);
+    await cpu.writeUint32(0x20000000 + 12, 0x55);
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0x55);
