@@ -1028,10 +1028,10 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001010) {
       const Rm = (opcode >> 3) & 0x7;
       const Rn = opcode & 0x7;
-      const leftValue = this.registers[Rn] | 0;
-      const rightValue = this.registers[Rm] | 0;
-      const result = (leftValue - rightValue) | 0;
-      this.N = leftValue < rightValue;
+      const leftValue = this.registers[Rn];
+      const rightValue = this.registers[Rm];
+      const result = ((leftValue | 0) - (rightValue | 0)) | 0;
+      this.N = result < 0;
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V =
