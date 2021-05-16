@@ -42,10 +42,10 @@ function printComparedRegisters(
 }
 
 function printFlags(xpsr: number) {
-  let negative = xpsr & 0x80000000 ? 'N' : '-';
-  let zero = xpsr & 0x40000000 ? 'Z' : '-';
-  let carry = xpsr & 0x20000000 ? 'C' : '-';
-  let overflow = xpsr & 0x10000000 ? 'O' : '-';
+  const negative = xpsr & 0x80000000 ? 'N' : '-';
+  const zero = xpsr & 0x40000000 ? 'Z' : '-';
+  const carry = xpsr & 0x20000000 ? 'C' : '-';
+  const overflow = xpsr & 0x10000000 ? 'O' : '-';
   return `[${negative}${zero}${carry}${overflow}]`;
 }
 
