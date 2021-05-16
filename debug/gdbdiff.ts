@@ -50,14 +50,14 @@ function printFlags(xpsr: number) {
 }
 
 async function compareFixRegisters(
-  tofixclient: GDBClient,
   emulator: Uint32Array,
-  silicone: Uint32Array
+  silicone: Uint32Array,
+  toFixClient: GDBClient
 ) {
   let result = true;
   for (let i = 0; i < emulator.length; i++) {
     if (emulator[i] !== silicone[i]) {
-      await tofixclient.writeRegister(i, silicone[i]);
+      await toFixClient.writeRegister(i, silicone[i]);
       result = false;
     }
   }
@@ -65,29 +65,28 @@ async function compareFixRegisters(
 }
 
 async function main() {
-  const client1 = new GDBClient();
-  const client2 = new GDBClient();
-  await client1.connect('localhost', 3334);
-  await client2.connect('localhost', 3333);
+  const emulatorClient = new GDBClient();
+  const siliconeClient = new GDBClient();
+  await emulatorClient.connect('localhost', 3334);
+  await siliconeClient.connect('localhost', 3333);
   // Disable interrupts
-  await client1.writeRegister(19, 1, 8);
-  await client2.writeRegister(19, 1, 8);
+  await emulatorClient.writeRegister(19, 1, 8);
+  await siliconeClient.writeRegister(19, 1, 8);
   // Start diffing
-  let prevRegSet = await client2.readRegisters();
-  let counter = 1;
-  for (counter = 1; ; counter++) {
-    const regSet1 = await client1.readRegisters();
-    const regSet2 = await client2.readRegisters();
+  let prevRegSet = await siliconeClient.readRegisters();
+  for (let counter = 1; ; counter++) {
+    const emulatorRegSet = await emulatorClient.readRegisters();
+    const siliconeRegSet = await siliconeClient.readRegisters();
 
-    if (!(await compareFixRegisters(client1, regSet1, regSet2))) {
+    if (!(await compareFixRegisters(emulatorRegSet, siliconeRegSet, emulatorClient))) {
       console.log('\n\nMismatch after ', counter, ' compared instructions');
       console.log('\nRegister\tStartValue\tEmulator\tSilicone');
-      printComparedRegisters(prevRegSet, regSet1, regSet2);
+      printComparedRegisters(prevRegSet, emulatorRegSet, siliconeRegSet);
     }
-    prevRegSet = regSet1;
-    await client1.singleStep();
-    await client2.singleStep();
-    if (counter % 50 === 0) {
+    prevRegSet = emulatorRegSet;
+    await emulatorClient.singleStep();
+    await siliconeClient.singleStep();
+    if (counter % 200 === 0) {
       console.log(`Successfully compared ${counter} instructions`);
     }
   }
