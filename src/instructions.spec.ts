@@ -469,12 +469,10 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
-  it('should execute an `cmp	r2, r0` instruction', async () => {
+  it('should correctly unset carry when executing an `cmp	r2, r0` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeCMPregT1(r2, r0));
-    await cpu.setRegisters({ r0: 0xb71b0000 });
-    await cpu.setRegisters({ r2: 0x00b71b00 });
-    await cpu.setRegisters({ xPSR: 0x61000000 });
+    await cpu.setRegisters({ r0: 0xb71b0000, r2: 0x00b71b00 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.N).toEqual(false);
@@ -482,6 +480,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.C).toEqual(false);
     expect(registers.V).toEqual(false);
   });
+
   it('should correctly set carry flag when executing `cmp r11, r3` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeCMPregT2(r11, r3));
