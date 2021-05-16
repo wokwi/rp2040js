@@ -469,7 +469,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
-  it('should correctly unset carry when executing an `cmp	r2, r0` instruction', async () => {
+  it('should execute an cmp r2, r0 instruction and not set any flags when r0=0xb71b0000 and r2=0x00b71b00', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeCMPregT1(r2, r0));
     await cpu.setRegisters({ r0: 0xb71b0000, r2: 0x00b71b00 });
