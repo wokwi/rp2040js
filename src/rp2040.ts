@@ -1410,7 +1410,7 @@ export class RP2040 {
     else if (opcode === 0b1011111100000000) {
       // Do nothing!
     }
-    // SBCS (Encoding T1)
+    // SBCS (Encoding T2)
     else if (opcode >> 6 === 0b0100000110) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
@@ -1418,8 +1418,8 @@ export class RP2040 {
       const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
       const result = (operand1 - operand2) | 0;
       this.registers[Rdn] = result;
-      this.N = (operand1 | 0) < (operand2 | 0);
-      this.Z = (operand1 | 0) === (operand2 | 0);
+      this.N = operand1 < operand2;
+      this.Z = operand1 === operand2;
       this.C = operand1 >= operand2;
       this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
     }
