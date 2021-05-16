@@ -10,7 +10,27 @@ import {
   gdbMessage,
 } from './gdb';
 
-function dumpUint32(value: number) {
+export const registerNames = [
+  'r0',
+  'r1',
+  'r2',
+  'r3',
+  'r4',
+  'r5',
+  'r6',
+  'r7',
+  'r8',
+  'r9',
+  'r10',
+  'r11',
+  'r12',
+  'sp',
+  'lr',
+  'pc',
+  'xPSR',
+];
+
+export function dumpUint32(value: number) {
   let valueStr = value.toString(16);
   while (valueStr.length < 8) {
     valueStr = '0' + valueStr;
@@ -84,7 +104,7 @@ export class GDBClient {
     }
     let response = await this.sendCommand(`qRcmd,${encodeHexBuf(buf)}`);
     while (response !== 'OK' && response[0] === 'O') {
-      this.socket.write('+'); 
+      this.socket.write('+');
       response = await this.readResponse(false);
     }
     if (response !== 'OK') {
@@ -98,25 +118,6 @@ export class GDBClient {
   }
 
   async dumpRegisters() {
-    const registerNames = [
-      'r0',
-      'r1',
-      'r2',
-      'r3',
-      'r4',
-      'r5',
-      'r6',
-      'r7',
-      'r8',
-      'r9',
-      'r10',
-      'r11',
-      'r12',
-      'sp',
-      'lr',
-      'pc',
-      'xPSR',
-    ];
     const registers = await this.readRegisters();
     for (let i = 0; i < registerNames.length; i++) {
       console.log(registerNames[i], '=', '0x' + dumpUint32(registers[i]));
@@ -132,8 +133,9 @@ export class GDBClient {
   }
 
   async writeRegister(index: number, value: number, width: 8 | 32 = 32) {
-    const response = await this.sendCommand(`P${encodeHexByte(index)}=${
-      width === 32 ? encodeHexUint32(value) : encodeHexByte(value)}`);
+    const response = await this.sendCommand(
+      `P${encodeHexByte(index)}=${width === 32 ? encodeHexUint32(value) : encodeHexByte(value)}`
+    );
     if (response !== 'OK') {
       throw new Error(`Invalid writeRegister response: ${response}`);
     }

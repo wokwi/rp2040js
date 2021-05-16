@@ -7,13 +7,57 @@
  * Copyright (C) 2021, Uri Shaked.
  **/
 
-import { GDBClient } from '../src/utils/gdbclient';
+import { GDBClient, dumpUint32, registerNames } from '../src/utils/gdbclient';
 
-function compareRegisters(emulator: Uint32Array, silicone: Uint32Array) {
+function printComparedRegisters(
+  registers: Uint32Array,
+  emulator: Uint32Array,
+  silicone: Uint32Array
+) {
+  for (let i = 0; i < registerNames.length; i++) {
+    let modified = ' ';
+    if (emulator[i] !== silicone[i]) {
+      modified = '*';
+    }
+    console.log(
+      registerNames[i] + modified,
+      '\t\t0x' +
+        dumpUint32(registers[i]) +
+        '\t0x' +
+        dumpUint32(emulator[i]) +
+        '\t0x' +
+        dumpUint32(silicone[i])
+    );
+    if (registerNames[i] === 'xPSR' && modified === '*') {
+      console.log(
+        'Flags\t\t',
+        printFlags(registers[i]),
+        '\t',
+        printFlags(emulator[i]),
+        '\t',
+        printFlags(silicone[i])
+      );
+    }
+  }
+}
+
+function printFlags(xpsr: number) {
+  let negative = xpsr & 0x80000000 ? 'N' : '-';
+  let zero = xpsr & 0x40000000 ? 'Z' : '-';
+  let carry = xpsr & 0x20000000 ? 'C' : '-';
+  let overflow = xpsr & 0x10000000 ? 'O' : '-';
+  return `[${negative}${zero}${carry}${overflow}]`;
+}
+
+async function compareFixRegisters(
+  emulator: Uint32Array,
+  silicone: Uint32Array,
+  toFixClient: GDBClient
+) {
   let result = true;
   for (let i = 0; i < emulator.length; i++) {
     if (emulator[i] !== silicone[i]) {
-      console.log(`Mismatch register ${i}: emulator ${emulator[i]} != silicone ${silicone[i]}`);
+      await toFixClient.writeRegister(i, silicone[i]);
       result = false;
     }
   }
@@ -21,27 +65,30 @@ function compareRegisters(emulator: Uint32Array, silicone: Uint32Array) {
 }
 
 async function main() {
-  const client1 = new GDBClient();
-  const client2 = new GDBClient();
-  await client1.connect('localhost');
-  await client2.connect('raspberrypi');
+  const emulatorClient = new GDBClient();
+  const siliconeClient = new GDBClient();
+  await emulatorClient.connect('localhost', 3334);
+  await siliconeClient.connect('localhost', 3333);
   // Disable interrupts
-  await client1.writeRegister(19, 1, 8);
-  await client2.writeRegister(19, 1, 8);
+  await emulatorClient.writeRegister(19, 1, 8);
+  await siliconeClient.writeRegister(19, 1, 8);
   // Start diffing
-  for (let counter = 0; ; counter++) {
-    const regSet1 = await client1.readRegisters();
-    const regSet2 = await client2.readRegisters();
-    console.log(`Instruction ${counter}`);
-    await client1.dumpRegisters();
-    if (!compareRegisters(regSet1, regSet2)) {
-      console.log('PC (emulator): ', regSet1[15].toString(16));
-      console.log('PC (silicone): ', regSet2[15].toString(16));
-      break;
+  let prevRegSet = await siliconeClient.readRegisters();
+  for (let counter = 1; ; counter++) {
+    const emulatorRegSet = await emulatorClient.readRegisters();
+    const siliconeRegSet = await siliconeClient.readRegisters();
+
+    if (!(await compareFixRegisters(emulatorRegSet, siliconeRegSet, emulatorClient))) {
+      console.log('\n\nMismatch after ', counter, ' compared instructions');
+      console.log('\nRegister\tStartValue\tEmulator\tSilicone');
+      printComparedRegisters(prevRegSet, emulatorRegSet, siliconeRegSet);
     }
-    await client1.singleStep();
-    await client2.singleStep();
-    console.log('---');
+    prevRegSet = emulatorRegSet;
+    await emulatorClient.singleStep();
+    await siliconeClient.singleStep();
+    if (counter % 200 === 0) {
+      console.log(`Successfully compared ${counter} instructions`);
+    }
   }
 }
 
