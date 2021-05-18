@@ -1,3 +1,4 @@
+import { BasePeripheral } from './peripherals/peripheral';
 import { RP2040 } from './rp2040';
 import { opcodeBX, opcodeMOVS, opcodeNOP, opcodePOP, opcodePUSH } from './utils/assembler';
 
@@ -18,26 +19,30 @@ describe('RP2040', () => {
   describe('IO Register Writes', () => {
     it('should replicate 8-bit values four times', () => {
       const rp2040 = new RP2040();
-      const writeUint32 = jest.fn();
-      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
+      const testPeripheral = new BasePeripheral(rp2040, 'TestPeripheral');
+      const writeUint32 = jest.spyOn(testPeripheral, 'writeUint32');
+      rp2040.peripherals[0x10] = testPeripheral;
       rp2040.writeUint8(0x10123, 0x534);
       expect(writeUint32).toHaveBeenCalledWith(0x120, 0x34343434);
     });
 
     it('should replicate 16-bit values twice', () => {
       const rp2040 = new RP2040();
-      const writeUint32 = jest.fn();
-      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
+      const testPeripheral = new BasePeripheral(rp2040, 'TestPeripheral');
+      const writeUint32 = jest.spyOn(testPeripheral, 'writeUint32');
+      rp2040.peripherals[0x10] = testPeripheral;
       rp2040.writeUint16(0x10123, 0x12345678);
       expect(writeUint32).toHaveBeenCalledWith(0x120, 0x56785678);
     });
 
     it('should support atomic I/O register write addresses', () => {
       const rp2040 = new RP2040();
-      const writeUint32 = jest.fn();
-      rp2040.peripherals[0x10] = { writeUint32, readUint32: jest.fn() };
-      rp2040.writeUint32(0x11120, 0x123);
-      expect(writeUint32).toHaveBeenCalledWith(0x1120, 0x123);
+      const testPeripheral = new BasePeripheral(rp2040, 'TestAtomic');
+      jest.spyOn(testPeripheral, 'readUint32').mockReturnValue(0xff);
+      const writeUint32 = jest.spyOn(testPeripheral, 'writeUint32');
+      rp2040.peripherals[0x10] = testPeripheral;
+      rp2040.writeUint32(0x11120, 0x0f);
+      expect(writeUint32).toHaveBeenCalledWith(0x120, 0xf0);
     });
   });
 
@@ -116,7 +121,7 @@ describe('RP2040', () => {
       // Exception handler should start at this point.
       rp2040.executeInstruction(); // nop
       expect(rp2040.pendingInterrupts).toEqual(0); // interrupt flag has been cleared
-      expect(rp2040.readUint32(NVIC_ISPR)).toEqual(0); 
+      expect(rp2040.readUint32(NVIC_ISPR)).toEqual(0);
     });
   });
 

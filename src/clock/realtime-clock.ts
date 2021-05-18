@@ -1,6 +1,7 @@
-import { getCurrentMicroseconds } from './utils/time';
+import { getCurrentMicroseconds } from '../utils/time';
+import { IClock, IClockTimer } from './clock';
 
-export class ClockTimer {
+export class ClockTimer implements IClockTimer {
   private jsTimer: NodeJS.Timeout | null = null;
   private timeLeft: number = this.micros;
 
@@ -28,7 +29,7 @@ export class ClockTimer {
   }
 }
 
-export class Clock {
+export class RealtimeClock implements IClock {
   baseTime: number = 0;
   pauseTime: number = 0;
   paused = true;

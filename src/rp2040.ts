@@ -1,4 +1,5 @@
-import { Clock, ClockTimer } from './clock';
+import { IClockTimer, IClock } from './clock/clock';
+import { RealtimeClock } from './clock/realtime-clock';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RP2040RTC } from './peripherals/rtc';
 import { RP2040SysCfg } from './peripherals/syscfg';
@@ -108,8 +109,6 @@ export class RP2040 {
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
 
-  readonly clock = new Clock();
-
   readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
 
   private stopped = false;
@@ -149,7 +148,7 @@ export class RP2040 {
   systickControl = 0;
   systickLastZero = 0;
   systickReload = 0;
-  systickTimer: ClockTimer | null = null;
+  systickTimer: IClockTimer | null = null;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
@@ -191,7 +190,7 @@ export class RP2040 {
     this.stopped = true;
   };
 
-  constructor() {
+  constructor(readonly clock: IClock = new RealtimeClock()) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
     this.readHooks.set(SIO_START_ADDRESS + SIO_CPUID_OFFSET, () => {
@@ -462,7 +461,9 @@ export class RP2040 {
     const { bootrom } = this;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
-      peripheral.writeUint32(address & 0x3fff, value);
+      const atomicType = (address & 0x3000) >> 12;
+      const offset = address & 0xfff;
+      peripheral.writeUint32Atomic(offset, value, atomicType);
     } else if (address < bootrom.length * 4) {
       bootrom[address / 4] = value;
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
@@ -500,9 +501,12 @@ export class RP2040 {
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
-      peripheral.writeUint32(
-        alignedAddress & 0x3fff,
-        (value & 0xff) | ((value & 0xff) << 8) | ((value & 0xff) << 16) | ((value & 0xff) << 24)
+      const atomicType = (alignedAddress & 0x3000) >> 12;
+      const offset = alignedAddress & 0xfff;
+      peripheral.writeUint32Atomic(
+        offset,
+        (value & 0xff) | ((value & 0xff) << 8) | ((value & 0xff) << 16) | ((value & 0xff) << 24),
+        atomicType
       );
       return;
     }
@@ -519,7 +523,9 @@ export class RP2040 {
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
-      peripheral.writeUint32(alignedAddress & 0x3fff, (value & 0xffff) | ((value & 0xffff) << 16));
+      const atomicType = (alignedAddress & 0x3000) >> 12;
+      const offset = alignedAddress & 0xfff;
+      peripheral.writeUint32Atomic(offset, (value & 0xffff) | ((value & 0xffff) << 16), atomicType);
       return;
     }
     const originalValue = this.readUint32(alignedAddress);
@@ -691,6 +697,16 @@ export class RP2040 {
         }
         return LOWEST_PRIORITY;
       }
+    }
+  }
+
+  setInterrupt(irq: number, value: boolean) {
+    const irqBit = 1 << irq;
+    if (value && !(this.pendingInterrupts & irqBit)) {
+      this.pendingInterrupts |= irqBit;
+      this.interruptsUpdated = true;
+    } else if (!value) {
+      this.pendingInterrupts &= ~irqBit;
     }
   }
 

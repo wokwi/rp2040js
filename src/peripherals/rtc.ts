@@ -1,9 +1,9 @@
-import { LoggingPeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral';
 
 const RTC_CTRL = 0x0c;
 const RTC_ACTIVE_BITS = 0x2;
 
-export class RP2040RTC extends LoggingPeripheral implements Peripheral {
+export class RP2040RTC extends BasePeripheral implements Peripheral {
   running = true;
 
   readUint32(offset: number) {
