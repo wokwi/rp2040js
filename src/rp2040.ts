@@ -1,10 +1,12 @@
-import { IClockTimer, IClock } from './clock/clock';
+import { IClock, IClockTimer } from './clock/clock';
 import { RealtimeClock } from './clock/realtime-clock';
+import { GPIOPin } from './gpio-pin';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RP2040RTC } from './peripherals/rtc';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
+import { RPSIO } from './sio';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -12,8 +14,6 @@ export const RAM_START_ADDRESS = 0x20000000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
-const SIO_CPUID_OFFSET = 0;
 
 const XIP_SSI_BASE = 0x18000000;
 const SSI_TXFLR_OFFSET = 0x00000020;
@@ -109,7 +109,42 @@ export class RP2040 {
   readonly writeHooks = new Map<number, CPUWriteCallback>();
   readonly readHooks = new Map<number, CPUReadCallback>();
 
+  readonly sio = new RPSIO(this);
+
   readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
+
+  readonly gpio = [
+    new GPIOPin(this, 0),
+    new GPIOPin(this, 1),
+    new GPIOPin(this, 2),
+    new GPIOPin(this, 3),
+    new GPIOPin(this, 4),
+    new GPIOPin(this, 5),
+    new GPIOPin(this, 6),
+    new GPIOPin(this, 7),
+    new GPIOPin(this, 8),
+    new GPIOPin(this, 9),
+    new GPIOPin(this, 10),
+    new GPIOPin(this, 11),
+    new GPIOPin(this, 12),
+    new GPIOPin(this, 13),
+    new GPIOPin(this, 14),
+    new GPIOPin(this, 15),
+    new GPIOPin(this, 16),
+    new GPIOPin(this, 17),
+    new GPIOPin(this, 18),
+    new GPIOPin(this, 19),
+    new GPIOPin(this, 20),
+    new GPIOPin(this, 21),
+    new GPIOPin(this, 22),
+    new GPIOPin(this, 23),
+    new GPIOPin(this, 24),
+    new GPIOPin(this, 25),
+    new GPIOPin(this, 26),
+    new GPIOPin(this, 27),
+    new GPIOPin(this, 28),
+    new GPIOPin(this, 29),
+  ];
 
   private stopped = false;
 
@@ -193,10 +228,6 @@ export class RP2040 {
   constructor(readonly clock: IClock = new RealtimeClock()) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
-    this.readHooks.set(SIO_START_ADDRESS + SIO_CPUID_OFFSET, () => {
-      // Returns the current CPU core id (always 0 for now)
-      return 0;
-    });
     this.readHooks.set(XIP_SSI_BASE + SSI_TXFLR_OFFSET, () => 0);
     this.readHooks.set(XIP_SSI_BASE + SSI_RXFLR_OFFSET, () => 0);
     this.readHooks.set(XIP_SSI_BASE + SSI_SR_OFFSET, () => {
@@ -436,6 +467,10 @@ export class RP2040 {
       const hook = this.readHooks.get(address);
       if (hook) {
         return hook(address);
+      } else {
+        if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
+          return this.sio.readUint32(address - SIO_START_ADDRESS);
+        }
       }
     }
     console.warn(`Read from invalid memory address: ${address.toString(16)}`);
@@ -471,19 +506,7 @@ export class RP2040 {
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
-      const sioAddress = address - SIO_START_ADDRESS;
-      // SIO write
-      const pinList = [];
-      for (let i = 0; i < 32; i++) {
-        if (value & (1 << i)) {
-          pinList.push(i);
-        }
-      }
-      if (sioAddress === 20) {
-        console.log(`GPIO pins ${pinList} set to HIGH`);
-      } else if (sioAddress === 24) {
-        console.log(`GPIO pins ${pinList} set to LOW`);
-      }
+      this.sio.writeUint32(address - SIO_START_ADDRESS, value);
     } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
       // Ignore these USB writes for now
     } else {
