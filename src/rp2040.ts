@@ -7,6 +7,7 @@ import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 import { RPSIO } from './sio';
+import { RPReset } from './peripherals/reset';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -191,7 +192,7 @@ export class RP2040 {
     0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
     0x40008: new UnimplementedPeripheral(this, 'CLOCKS_BASE'),
-    0x4000c: new UnimplementedPeripheral(this, 'RESETS_BASE'),
+    0x4000c: new RPReset(this, 'RESETS_BASE'),
     0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
     0x40014: new UnimplementedPeripheral(this, 'IO_BANK0_BASE'),
     0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
