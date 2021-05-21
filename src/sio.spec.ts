@@ -22,7 +22,7 @@ describe('RPSIO', () => {
       expect(rp2040.readUint32(_DIV_CSR)).toEqual(0);
     });
 
-    it('should set perform an unsigned hardware divider -123456 / 321 = 384 R192', () => {
+    it('should set perform an unsigned hardware divider 123456 / 321 = 384 R192', () => {
       const rp2040 = new RP2040();
       expect(rp2040.readUint32(_DIV_CSR)).toEqual(0);
       rp2040.writeUint32(_DIV_UDIVIDEND, 123456);
