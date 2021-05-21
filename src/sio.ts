@@ -24,11 +24,25 @@ const GPIO_HI_OE_XOR = 0x04c; // QSPI output enable XOR
 
 const GPIO_MASK = 0x3fffffff;
 
+//HARDWARE DIVIDER
+const DIV_UDIVIDEND = 0x060; //  Divider unsigned dividend
+const DIV_UDIVISOR = 0x064; //  Divider unsigned divisor
+const DIV_SDIVIDEND = 0x068; //  Divider signed dividend
+const DIV_SDIVISOR = 0x06c; //  Divider signed divisor
+const DIV_QUOTIENT = 0x070; //  Divider result quotient
+const DIV_REMAINDER = 0x074; //Divider result remainder
+const DIV_CSR = 0x078;
+
 export class RPSIO {
   gpioValue = 0;
   gpioOutputEnable = 0;
   qspiGpioValue = 0;
   qspiGpioOutputEnable = 0;
+  divDividend = 0;
+  divDivisor = 1;
+  divQuotient = 0;
+  divRemainder = 0;
+  divCSR = 0;
 
   constructor(private readonly rp2040: RP2040) {}
 
@@ -62,6 +76,19 @@ export class RPSIO {
       case CPUID:
         // Returns the current CPU core id (always 0 for now)
         return 0;
+      case DIV_UDIVIDEND:
+      case DIV_SDIVIDEND:
+        return this.divDividend;
+      case DIV_UDIVISOR:
+      case DIV_SDIVISOR:
+        return this.divDivisor;
+      case DIV_QUOTIENT:
+        this.divCSR = 0;
+        return this.divQuotient;
+      case DIV_REMAINDER:
+        return this.divRemainder;
+      case DIV_CSR:
+        return this.divCSR;
     }
     console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
     return 0xffffffff;
@@ -116,6 +143,26 @@ export class RPSIO {
         break;
       case GPIO_HI_OE_XOR:
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
+        break;
+      case DIV_UDIVIDEND:
+      case DIV_SDIVIDEND:
+        this.divDividend = value | 0;
+        this.divCSR = 1;
+        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
+        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        break;
+      case DIV_UDIVISOR:
+      case DIV_SDIVISOR:
+        this.divDivisor = value | 0;
+        this.divCSR = 1;
+        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
+        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        break;
+      case DIV_QUOTIENT:
+        this.divQuotient = value | 0;
+        break;
+      case DIV_REMAINDER:
+        this.divRemainder = value | 0;
         break;
     }
   }
