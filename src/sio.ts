@@ -150,6 +150,7 @@ export class RPSIO {
         this.divCSR = 1;
         this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
         this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        this.rp2040.cycles += 8;
         break;
       case DIV_UDIVISOR:
       case DIV_SDIVISOR:
@@ -157,6 +158,7 @@ export class RPSIO {
         this.divCSR = 1;
         this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
         this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        this.rp2040.cycles += 8;
         break;
       case DIV_QUOTIENT:
         this.divQuotient = value | 0;
