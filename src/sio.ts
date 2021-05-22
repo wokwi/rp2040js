@@ -77,13 +77,15 @@ export class RPSIO {
         // Returns the current CPU core id (always 0 for now)
         return 0;
       case DIV_UDIVIDEND:
+        return this.divDividend >>> 0;
       case DIV_SDIVIDEND:
-        return this.divDividend;
+        return this.divDividend | 0;
       case DIV_UDIVISOR:
+        return this.divDivisor >>> 0;
       case DIV_SDIVISOR:
-        return this.divDivisor;
+        return this.divDivisor | 0;
       case DIV_QUOTIENT:
-        this.divCSR = 0;
+        this.divCSR &= ~0b10;
         return this.divQuotient;
       case DIV_REMAINDER:
         return this.divRemainder;
@@ -145,26 +147,54 @@ export class RPSIO {
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
         break;
       case DIV_UDIVIDEND:
+        this.divDividend = value >>> 0;
+        this.divCSR = 0b10;
+        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) >>> 0;
+        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) >>> 0;
+        this.divCSR = 0b11;
+        this.rp2040.cycles += 8;
+        break;
       case DIV_SDIVIDEND:
         this.divDividend = value | 0;
-        this.divCSR = 1;
-        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
-        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        this.divCSR = 0b10;
+        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) | 0;
+        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) | 0;
+        this.divCSR = 0b11;
         this.rp2040.cycles += 8;
         break;
       case DIV_UDIVISOR:
+        this.divDivisor = value >>> 0;
+        this.divCSR = 0b10;
+        if (this.divDivisor == 0) {
+          this.divQuotient = 0xffffffff;
+          this.divRemainder = this.divDividend;
+        } else {
+          this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) >>> 0;
+          this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) >>> 0;
+        }
+        this.divCSR = 0b11;
+        this.rp2040.cycles += 8;
+        break;
       case DIV_SDIVISOR:
+        this.divCSR = 0b10;
         this.divDivisor = value | 0;
-        this.divCSR = 1;
-        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
-        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+        if (this.divDivisor == 0) {
+          this.divQuotient = 0xffffffff;
+          this.divRemainder = this.divDividend;
+        } else {
+          this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) | 0;
+          this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) | 0;
+        }
+        this.divCSR = 0b11;
         this.rp2040.cycles += 8;
         break;
       case DIV_QUOTIENT:
-        this.divQuotient = value | 0;
+        this.divQuotient = value;
+        this.divCSR = 0b11;
         break;
       case DIV_REMAINDER:
-        this.divRemainder = value | 0;
+        this.divRemainder = value;
+        this.divCSR = 0b11;
         break;
     }
   }
