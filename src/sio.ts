@@ -53,9 +53,9 @@ export class RPSIO {
     } else {
       this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
       this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
-      this.divCSR = 0b11;
-      this.rp2040.cycles += 8;
     }
+    this.divCSR = 0b11;
+    this.rp2040.cycles += 8;
   }
 
   readUint32(offset: number) {
