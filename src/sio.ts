@@ -46,6 +46,18 @@ export class RPSIO {
 
   constructor(private readonly rp2040: RP2040) {}
 
+  updateHardwareDivider() {
+    if (this.divDivisor == 0) {
+      this.divQuotient = 0xffffffff;
+      this.divRemainder = this.divDividend;
+    } else {
+      this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
+      this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+      this.divCSR = 0b11;
+      this.rp2040.cycles += 8;
+    }
+  }
+
   readUint32(offset: number) {
     switch (offset) {
       case GPIO_IN:
@@ -147,46 +159,14 @@ export class RPSIO {
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
         break;
       case DIV_UDIVIDEND:
-        this.divDividend = value >>> 0;
-        this.divCSR = 0b10;
-        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) >>> 0;
-        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) >>> 0;
-        this.divCSR = 0b11;
-        this.rp2040.cycles += 8;
-        break;
       case DIV_SDIVIDEND:
-        this.divDividend = value | 0;
-        this.divCSR = 0b10;
-        this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) | 0;
-        this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) | 0;
-        this.divCSR = 0b11;
-        this.rp2040.cycles += 8;
+        this.divDividend = value;
+        this.updateHardwareDivider();
         break;
       case DIV_UDIVISOR:
-        this.divDivisor = value >>> 0;
-        this.divCSR = 0b10;
-        if (this.divDivisor == 0) {
-          this.divQuotient = 0xffffffff;
-          this.divRemainder = this.divDividend;
-        } else {
-          this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) >>> 0;
-          this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) >>> 0;
-        }
-        this.divCSR = 0b11;
-        this.rp2040.cycles += 8;
-        break;
       case DIV_SDIVISOR:
-        this.divCSR = 0b10;
-        this.divDivisor = value | 0;
-        if (this.divDivisor == 0) {
-          this.divQuotient = 0xffffffff;
-          this.divRemainder = this.divDividend;
-        } else {
-          this.divQuotient = Math.trunc(this.divDividend / this.divDivisor) | 0;
-          this.divRemainder = Math.trunc(this.divDividend % this.divDivisor) | 0;
-        }
-        this.divCSR = 0b11;
-        this.rp2040.cycles += 8;
+        this.divDivisor = value;
+        this.updateHardwareDivider();
         break;
       case DIV_QUOTIENT:
         this.divQuotient = value;
