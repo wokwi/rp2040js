@@ -46,13 +46,18 @@ export class RPSIO {
 
   constructor(private readonly rp2040: RP2040) {}
 
-  updateHardwareDivider() {
+  updateHardwareDivider(signed: boolean) {
     if (this.divDivisor == 0) {
-      this.divQuotient = 0xffffffff;
+      this.divQuotient = (this.divDividend | 0) < 0 ? 1 : 0xffffffff;
       this.divRemainder = this.divDividend;
     } else {
-      this.divQuotient = Math.trunc(this.divDividend / this.divDivisor);
-      this.divRemainder = Math.trunc(this.divDividend % this.divDivisor);
+      if (signed) {
+        this.divQuotient = ((this.divDividend | 0) / (this.divDivisor | 0)) | 0;
+        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0) | 0;
+      } else {
+        this.divQuotient = ((this.divDividend >>> 0) / (this.divDivisor >>> 0)) | 0;
+        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0) | 0;
+      }
     }
     this.divCSR = 0b11;
     this.rp2040.cycles += 8;
@@ -159,14 +164,18 @@ export class RPSIO {
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
         break;
       case DIV_UDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(false);
       case DIV_SDIVIDEND:
         this.divDividend = value;
-        this.updateHardwareDivider();
+        this.updateHardwareDivider(true);
         break;
       case DIV_UDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(false);
       case DIV_SDIVISOR:
         this.divDivisor = value;
-        this.updateHardwareDivider();
+        this.updateHardwareDivider(true);
         break;
       case DIV_QUOTIENT:
         this.divQuotient = value;
