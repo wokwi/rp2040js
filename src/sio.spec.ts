@@ -89,10 +89,10 @@ describe('RPSIO', () => {
       expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0xffffffff);
     });
 
-    it('should perform an unsigned division by zero 0xffffffde / 0 = 0xffffffff REM 0xffffffde', async () => {
-      await cpu.writeUint32(SIO_DIV_UDIVIDEND, 0xfffffde);
+    it('should perform an unsigned division by zero 0x80000000 / 0 = 0xffffffff REM 0x80000000', async () => {
+      await cpu.writeUint32(SIO_DIV_UDIVIDEND, 0x80000000);
       await cpu.writeUint32(SIO_DIV_UDIVISOR, 0);
-      expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0xfffffde);
+      expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0x80000000);
       expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0xffffffff);
     });
 
@@ -108,6 +108,20 @@ describe('RPSIO', () => {
       await cpu.writeUint32(SIO_DIV_SDIVISOR, 0);
       expect(await cpu.readInt32(SIO_DIV_REMAINDER)).toEqual(-3000);
       expect(await cpu.readInt32(SIO_DIV_QUOTIENT)).toEqual(1);
+    });
+
+    it('should perform a signed division 0x80000000 / 2 = 0xc0000000 REM 0', async () => {
+      await cpu.writeUint32(SIO_DIV_SDIVIDEND, 0x80000000);
+      await cpu.writeUint32(SIO_DIV_SDIVISOR, 2);
+      expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0);
+      expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0xc0000000);
+    });
+
+    it('should perform an unsigned division 0x80000000 / 2 = 0x40000000 REM 0', async () => {
+      await cpu.writeUint32(SIO_DIV_UDIVIDEND, 0x80000000);
+      await cpu.writeUint32(SIO_DIV_UDIVISOR, 2);
+      expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0);
+      expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0x40000000);
     });
   });
 });

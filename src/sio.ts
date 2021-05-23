@@ -48,15 +48,15 @@ export class RPSIO {
 
   updateHardwareDivider(signed: boolean) {
     if (this.divDivisor == 0) {
-      this.divQuotient = (this.divDividend | 0) < 0 ? 1 : 0xffffffff;
+      this.divQuotient = this.divDividend > 0 ? -1 : 1;
       this.divRemainder = this.divDividend;
     } else {
       if (signed) {
-        this.divQuotient = ((this.divDividend | 0) / (this.divDivisor | 0)) | 0;
-        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0) | 0;
+        this.divQuotient = (this.divDividend | 0) / (this.divDivisor | 0);
+        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0);
       } else {
-        this.divQuotient = ((this.divDividend >>> 0) / (this.divDivisor >>> 0)) | 0;
-        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0) | 0;
+        this.divQuotient = (this.divDividend >>> 0) / (this.divDivisor >>> 0);
+        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0);
       }
     }
     this.divCSR = 0b11;
@@ -94,13 +94,13 @@ export class RPSIO {
         // Returns the current CPU core id (always 0 for now)
         return 0;
       case DIV_UDIVIDEND:
-        return this.divDividend >>> 0;
+        return this.divDividend;
       case DIV_SDIVIDEND:
-        return this.divDividend | 0;
+        return this.divDividend;
       case DIV_UDIVISOR:
-        return this.divDivisor >>> 0;
+        return this.divDivisor;
       case DIV_SDIVISOR:
-        return this.divDivisor | 0;
+        return this.divDivisor;
       case DIV_QUOTIENT:
         this.divCSR &= ~0b10;
         return this.divQuotient;
@@ -166,6 +166,7 @@ export class RPSIO {
       case DIV_UDIVIDEND:
         this.divDividend = value;
         this.updateHardwareDivider(false);
+        break;
       case DIV_SDIVIDEND:
         this.divDividend = value;
         this.updateHardwareDivider(true);
@@ -173,6 +174,7 @@ export class RPSIO {
       case DIV_UDIVISOR:
         this.divDivisor = value;
         this.updateHardwareDivider(false);
+        break;
       case DIV_SDIVISOR:
         this.divDivisor = value;
         this.updateHardwareDivider(true);
