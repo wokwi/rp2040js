@@ -160,4 +160,8 @@ export class RP2040TestDriver implements ICortexTestDriver {
   async readUint32(address: number) {
     return this.rp2040.readUint32(address);
   }
+
+  async readInt32(address: number) {
+    return this.rp2040.readUint32(address) | 0;
+  }
 }

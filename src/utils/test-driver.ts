@@ -41,5 +41,6 @@ export interface ICortexTestDriver {
   readUint8(address: number): Promise<number>;
   readUint16(address: number): Promise<number>;
   readUint32(address: number): Promise<number>;
+  readInt32(address: number): Promise<number>;
   tearDown(): Promise<void>;
 }
