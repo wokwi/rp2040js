@@ -24,13 +24,44 @@ const GPIO_HI_OE_XOR = 0x04c; // QSPI output enable XOR
 
 const GPIO_MASK = 0x3fffffff;
 
+//HARDWARE DIVIDER
+const DIV_UDIVIDEND = 0x060; //  Divider unsigned dividend
+const DIV_UDIVISOR = 0x064; //  Divider unsigned divisor
+const DIV_SDIVIDEND = 0x068; //  Divider signed dividend
+const DIV_SDIVISOR = 0x06c; //  Divider signed divisor
+const DIV_QUOTIENT = 0x070; //  Divider result quotient
+const DIV_REMAINDER = 0x074; //Divider result remainder
+const DIV_CSR = 0x078;
+
 export class RPSIO {
   gpioValue = 0;
   gpioOutputEnable = 0;
   qspiGpioValue = 0;
   qspiGpioOutputEnable = 0;
+  divDividend = 0;
+  divDivisor = 1;
+  divQuotient = 0;
+  divRemainder = 0;
+  divCSR = 0;
 
   constructor(private readonly rp2040: RP2040) {}
+
+  updateHardwareDivider(signed: boolean) {
+    if (this.divDivisor == 0) {
+      this.divQuotient = this.divDividend > 0 ? -1 : 1;
+      this.divRemainder = this.divDividend;
+    } else {
+      if (signed) {
+        this.divQuotient = (this.divDividend | 0) / (this.divDivisor | 0);
+        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0);
+      } else {
+        this.divQuotient = (this.divDividend >>> 0) / (this.divDivisor >>> 0);
+        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0);
+      }
+    }
+    this.divCSR = 0b11;
+    this.rp2040.cycles += 8;
+  }
 
   readUint32(offset: number) {
     switch (offset) {
@@ -62,6 +93,21 @@ export class RPSIO {
       case CPUID:
         // Returns the current CPU core id (always 0 for now)
         return 0;
+      case DIV_UDIVIDEND:
+        return this.divDividend;
+      case DIV_SDIVIDEND:
+        return this.divDividend;
+      case DIV_UDIVISOR:
+        return this.divDivisor;
+      case DIV_SDIVISOR:
+        return this.divDivisor;
+      case DIV_QUOTIENT:
+        this.divCSR &= ~0b10;
+        return this.divQuotient;
+      case DIV_REMAINDER:
+        return this.divRemainder;
+      case DIV_CSR:
+        return this.divCSR;
     }
     console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
     return 0xffffffff;
@@ -116,6 +162,30 @@ export class RPSIO {
         break;
       case GPIO_HI_OE_XOR:
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
+        break;
+      case DIV_UDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_UDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_QUOTIENT:
+        this.divQuotient = value;
+        this.divCSR = 0b11;
+        break;
+      case DIV_REMAINDER:
+        this.divRemainder = value;
+        this.divCSR = 0b11;
         break;
     }
   }

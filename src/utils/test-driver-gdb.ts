@@ -148,4 +148,8 @@ export class GDBTestDriver implements ICortexTestDriver {
     const result = await this.gdbClient.readMemory(address, 4);
     return new Uint32Array(result.buffer)[0];
   }
+
+  async readInt32(address: number) {
+    return (await this.readUint32(address)) | 0;
+  }
 }
