@@ -134,6 +134,7 @@ export class RPSIO {
     if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
       const bitIndexMask = ~(1 << ((offset - SPINLOCK0) / 4));
       this.spinLock &= bitIndexMask;
+      return;
     }
     switch (offset) {
       case GPIO_OUT:
