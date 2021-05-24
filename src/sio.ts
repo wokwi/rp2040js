@@ -70,152 +70,144 @@ export class RPSIO {
   }
 
   readUint32(offset: number) {
-    if (offset < SPINLOCK0) {
-      //not a spinlock
-      switch (offset) {
-        case GPIO_IN:
-          return 0; // TODO implement!
-        case GPIO_HI_IN:
-          return 0; // TODO implement!
-        case GPIO_OUT:
-          return this.gpioValue;
-        case GPIO_OE:
-          return this.gpioOutputEnable;
-        case GPIO_HI_OUT:
-          return this.qspiGpioValue;
-        case GPIO_HI_OE:
-          return this.qspiGpioOutputEnable;
-        case GPIO_OUT_SET:
-        case GPIO_OUT_CLR:
-        case GPIO_OUT_XOR:
-        case GPIO_OE_SET:
-        case GPIO_OE_CLR:
-        case GPIO_OE_XOR:
-        case GPIO_HI_OUT_SET:
-        case GPIO_HI_OUT_CLR:
-        case GPIO_HI_OUT_XOR:
-        case GPIO_HI_OE_SET:
-        case GPIO_HI_OE_CLR:
-        case GPIO_HI_OE_XOR:
-          return 0; // TODO verify with silicone
-        case CPUID:
-          // Returns the current CPU core id (always 0 for now)
-          return 0;
-        case SPINLOCK_ST:
-          return this.spinLock;
-        case DIV_UDIVIDEND:
-          return this.divDividend;
-        case DIV_SDIVIDEND:
-          return this.divDividend;
-        case DIV_UDIVISOR:
-          return this.divDivisor;
-        case DIV_SDIVISOR:
-          return this.divDivisor;
-        case DIV_QUOTIENT:
-          this.divCSR &= ~0b10;
-          return this.divQuotient;
-        case DIV_REMAINDER:
-          return this.divRemainder;
-        case DIV_CSR:
-          return this.divCSR;
-      }
-    }
     if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
-      //spinlock
-      const bitIndex = (1 << ((offset - SPINLOCK0) / 4)) >>> 0;
-      if (this.spinLock & bitIndex) {
+      const bitIndexMask = 1 << ((offset - SPINLOCK0) / 4);
+      if (this.spinLock & bitIndexMask) {
         return 0;
       } else {
-        this.spinLock |= bitIndex;
-        return bitIndex;
+        this.spinLock |= bitIndexMask;
+        return bitIndexMask;
       }
+    }
+    switch (offset) {
+      case GPIO_IN:
+        return 0; // TODO implement!
+      case GPIO_HI_IN:
+        return 0; // TODO implement!
+      case GPIO_OUT:
+        return this.gpioValue;
+      case GPIO_OE:
+        return this.gpioOutputEnable;
+      case GPIO_HI_OUT:
+        return this.qspiGpioValue;
+      case GPIO_HI_OE:
+        return this.qspiGpioOutputEnable;
+      case GPIO_OUT_SET:
+      case GPIO_OUT_CLR:
+      case GPIO_OUT_XOR:
+      case GPIO_OE_SET:
+      case GPIO_OE_CLR:
+      case GPIO_OE_XOR:
+      case GPIO_HI_OUT_SET:
+      case GPIO_HI_OUT_CLR:
+      case GPIO_HI_OUT_XOR:
+      case GPIO_HI_OE_SET:
+      case GPIO_HI_OE_CLR:
+      case GPIO_HI_OE_XOR:
+        return 0; // TODO verify with silicone
+      case CPUID:
+        // Returns the current CPU core id (always 0 for now)
+        return 0;
+      case SPINLOCK_ST:
+        return this.spinLock;
+      case DIV_UDIVIDEND:
+        return this.divDividend;
+      case DIV_SDIVIDEND:
+        return this.divDividend;
+      case DIV_UDIVISOR:
+        return this.divDivisor;
+      case DIV_SDIVISOR:
+        return this.divDivisor;
+      case DIV_QUOTIENT:
+        this.divCSR &= ~0b10;
+        return this.divQuotient;
+      case DIV_REMAINDER:
+        return this.divRemainder;
+      case DIV_CSR:
+        return this.divCSR;
     }
     console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
     return 0xffffffff;
   }
 
   writeUint32(offset: number, value: number) {
-    if (offset < SPINLOCK0) {
-      //not a spinlock
-      switch (offset) {
-        case GPIO_OUT:
-          this.gpioValue = value & GPIO_MASK;
-          break;
-        case GPIO_OUT_SET:
-          this.gpioValue |= value & GPIO_MASK;
-          break;
-        case GPIO_OUT_CLR:
-          this.gpioValue &= ~value;
-          break;
-        case GPIO_OUT_XOR:
-          this.gpioValue ^= value & GPIO_MASK;
-          break;
-        case GPIO_OE:
-          this.gpioOutputEnable = value & GPIO_MASK;
-          break;
-        case GPIO_OE_SET:
-          this.gpioOutputEnable |= value & GPIO_MASK;
-          break;
-        case GPIO_OE_CLR:
-          this.gpioOutputEnable &= ~value;
-          break;
-        case GPIO_OE_XOR:
-          this.gpioOutputEnable ^= value & GPIO_MASK;
-          break;
-        case GPIO_HI_OUT:
-          this.qspiGpioValue = value & GPIO_MASK;
-          break;
-        case GPIO_HI_OUT_SET:
-          this.qspiGpioValue |= value & GPIO_MASK;
-          break;
-        case GPIO_HI_OUT_CLR:
-          this.qspiGpioValue &= ~value;
-          break;
-        case GPIO_HI_OUT_XOR:
-          this.qspiGpioValue ^= value & GPIO_MASK;
-          break;
-        case GPIO_HI_OE:
-          this.qspiGpioOutputEnable = value & GPIO_MASK;
-          break;
-        case GPIO_HI_OE_SET:
-          this.qspiGpioOutputEnable |= value & GPIO_MASK;
-          break;
-        case GPIO_HI_OE_CLR:
-          this.qspiGpioOutputEnable &= ~value;
-          break;
-        case GPIO_HI_OE_XOR:
-          this.qspiGpioOutputEnable ^= value & GPIO_MASK;
-          break;
-        case DIV_UDIVIDEND:
-          this.divDividend = value;
-          this.updateHardwareDivider(false);
-          break;
-        case DIV_SDIVIDEND:
-          this.divDividend = value;
-          this.updateHardwareDivider(true);
-          break;
-        case DIV_UDIVISOR:
-          this.divDivisor = value;
-          this.updateHardwareDivider(false);
-          break;
-        case DIV_SDIVISOR:
-          this.divDivisor = value;
-          this.updateHardwareDivider(true);
-          break;
-        case DIV_QUOTIENT:
-          this.divQuotient = value;
-          this.divCSR = 0b11;
-          break;
-        case DIV_REMAINDER:
-          this.divRemainder = value;
-          this.divCSR = 0b11;
-          break;
-      }
-    }
     if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
-      //spinlock
-      const bitIndexMask = ~(1 << ((offset - SPINLOCK0) / 4)) >>> 0;
+      const bitIndexMask = ~(1 << ((offset - SPINLOCK0) / 4));
       this.spinLock &= bitIndexMask;
+    }
+    switch (offset) {
+      case GPIO_OUT:
+        this.gpioValue = value & GPIO_MASK;
+        break;
+      case GPIO_OUT_SET:
+        this.gpioValue |= value & GPIO_MASK;
+        break;
+      case GPIO_OUT_CLR:
+        this.gpioValue &= ~value;
+        break;
+      case GPIO_OUT_XOR:
+        this.gpioValue ^= value & GPIO_MASK;
+        break;
+      case GPIO_OE:
+        this.gpioOutputEnable = value & GPIO_MASK;
+        break;
+      case GPIO_OE_SET:
+        this.gpioOutputEnable |= value & GPIO_MASK;
+        break;
+      case GPIO_OE_CLR:
+        this.gpioOutputEnable &= ~value;
+        break;
+      case GPIO_OE_XOR:
+        this.gpioOutputEnable ^= value & GPIO_MASK;
+        break;
+      case GPIO_HI_OUT:
+        this.qspiGpioValue = value & GPIO_MASK;
+        break;
+      case GPIO_HI_OUT_SET:
+        this.qspiGpioValue |= value & GPIO_MASK;
+        break;
+      case GPIO_HI_OUT_CLR:
+        this.qspiGpioValue &= ~value;
+        break;
+      case GPIO_HI_OUT_XOR:
+        this.qspiGpioValue ^= value & GPIO_MASK;
+        break;
+      case GPIO_HI_OE:
+        this.qspiGpioOutputEnable = value & GPIO_MASK;
+        break;
+      case GPIO_HI_OE_SET:
+        this.qspiGpioOutputEnable |= value & GPIO_MASK;
+        break;
+      case GPIO_HI_OE_CLR:
+        this.qspiGpioOutputEnable &= ~value;
+        break;
+      case GPIO_HI_OE_XOR:
+        this.qspiGpioOutputEnable ^= value & GPIO_MASK;
+        break;
+      case DIV_UDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_UDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_QUOTIENT:
+        this.divQuotient = value;
+        this.divCSR = 0b11;
+        break;
+      case DIV_REMAINDER:
+        this.divRemainder = value;
+        this.divCSR = 0b11;
+        break;
     }
   }
 }
