@@ -21,10 +21,9 @@ describe('RPSIO', () => {
   let cpu: ICortexTestDriver;
 
   beforeEach(async () => {
-    // if (process.env.TEST_GDB_SERVER) {
-    if (false) {
+    if (process.env.TEST_GDB_SERVER) {
       const client = new GDBClient();
-      await client.connect('127.0.0.1');
+      await client.connect(process.env.TEST_GDB_SERVER);
       cpu = new GDBTestDriver(client);
       await cpu.init();
     } else {
@@ -127,15 +126,15 @@ describe('RPSIO', () => {
       expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0);
       expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0x40000000);
     });
+  });
 
-    it('should unlock, lock and check lock status of spinlock10', async () => {
-      await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //ensure the spinlock is released
-      expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(1024); // lock spinlock, return 1<<spinlock num if previously unlocked
-      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024); //bit mask of all spinlocks, locked=1<<spinlock
-      expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(0); //0=already locked
-      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024);
-      await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //release the spinlock
-      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(0);
-    });
+  it('should unlock, lock and check lock status of spinlock10', async () => {
+    await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //ensure the spinlock is released
+    expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(1024); // lock spinlock, return 1<<spinlock num if previously unlocked
+    expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024); //bit mask of all spinlocks, locked=1<<spinlock
+    expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(0); //0=already locked
+    expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024);
+    await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //release the spinlock
+    expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(0);
   });
 });
