@@ -13,6 +13,10 @@ const SIO_DIV_QUOTIENT = SIO_START_ADDRESS + 0x070; //  Divider result quotient
 const SIO_DIV_REMAINDER = SIO_START_ADDRESS + 0x074; //Divider result remainder
 const SIO_DIV_CSR = SIO_START_ADDRESS + 0x078;
 
+//SPINLOCK
+const SIO_SPINLOCK10 = SIO_START_ADDRESS + 0x128;
+const SIO_SPINLOCKST = SIO_START_ADDRESS + 0x5c;
+
 describe('RPSIO', () => {
   let cpu: ICortexTestDriver;
 
@@ -122,6 +126,16 @@ describe('RPSIO', () => {
       await cpu.writeUint32(SIO_DIV_UDIVISOR, 2);
       expect(await cpu.readUint32(SIO_DIV_REMAINDER)).toEqual(0);
       expect(await cpu.readUint32(SIO_DIV_QUOTIENT)).toEqual(0x40000000);
+    });
+
+    it('should unlock, lock and check lock status of spinlock10', async () => {
+      await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //ensure the spinlock is released
+      expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(1024); // lock spinlock, return 1<<spinlock num if previously unlocked
+      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024); //bit mask of all spinlocks, locked=1<<spinlock
+      expect(await cpu.readUint32(SIO_SPINLOCK10)).toEqual(0); //0=already locked
+      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(1024);
+      await cpu.writeUint32(SIO_SPINLOCK10, 0x00000001); //release the spinlock
+      expect(await cpu.readUint32(SIO_SPINLOCKST)).toEqual(0);
     });
   });
 });

@@ -33,6 +33,11 @@ const DIV_QUOTIENT = 0x070; //  Divider result quotient
 const DIV_REMAINDER = 0x074; //Divider result remainder
 const DIV_CSR = 0x078;
 
+//SPINLOCK
+const SPINLOCK_ST = 0x5c;
+const SPINLOCK0 = 0x100;
+const SPINLOCK31 = 0x17c;
+
 export class RPSIO {
   gpioValue = 0;
   gpioOutputEnable = 0;
@@ -43,6 +48,7 @@ export class RPSIO {
   divQuotient = 0;
   divRemainder = 0;
   divCSR = 0;
+  spinLock = 0;
 
   constructor(private readonly rp2040: RP2040) {}
 
@@ -64,6 +70,15 @@ export class RPSIO {
   }
 
   readUint32(offset: number) {
+    if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
+      const bitIndexMask = 1 << ((offset - SPINLOCK0) / 4);
+      if (this.spinLock & bitIndexMask) {
+        return 0;
+      } else {
+        this.spinLock |= bitIndexMask;
+        return bitIndexMask;
+      }
+    }
     switch (offset) {
       case GPIO_IN:
         return 0; // TODO implement!
@@ -93,6 +108,8 @@ export class RPSIO {
       case CPUID:
         // Returns the current CPU core id (always 0 for now)
         return 0;
+      case SPINLOCK_ST:
+        return this.spinLock;
       case DIV_UDIVIDEND:
         return this.divDividend;
       case DIV_SDIVIDEND:
@@ -114,6 +131,11 @@ export class RPSIO {
   }
 
   writeUint32(offset: number, value: number) {
+    if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
+      const bitIndexMask = ~(1 << ((offset - SPINLOCK0) / 4));
+      this.spinLock &= bitIndexMask;
+      return;
+    }
     switch (offset) {
       case GPIO_OUT:
         this.gpioValue = value & GPIO_MASK;
