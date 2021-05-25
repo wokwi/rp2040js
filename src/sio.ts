@@ -80,10 +80,26 @@ export class RPSIO {
       }
     }
     switch (offset) {
-      case GPIO_IN:
-        return 0; // TODO implement!
-      case GPIO_HI_IN:
-        return 0; // TODO implement!
+      case GPIO_IN: {
+        const { gpio } = this.rp2040;
+        let result = 0;
+        for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
+          if (gpio[gpioIndex].inputValue) {
+            result |= 1 << gpioIndex;
+          }
+        }
+        return result;
+      }
+      case GPIO_HI_IN: {
+        const { qspi } = this.rp2040;
+        let result = 0;
+        for (let qspiIndex = 0; qspiIndex < qspi.length; qspiIndex++) {
+          if (qspi[qspiIndex].inputValue) {
+            result |= 1 << qspiIndex;
+          }
+        }
+        return result;
+      }
       case GPIO_OUT:
         return this.gpioValue;
       case GPIO_OE:
@@ -136,6 +152,8 @@ export class RPSIO {
       this.spinLock &= bitIndexMask;
       return;
     }
+    const prevGpioValue = this.gpioValue;
+    const prevGpioOutputEnable = this.gpioOutputEnable;
     switch (offset) {
       case GPIO_OUT:
         this.gpioValue = value & GPIO_MASK;
@@ -209,6 +227,20 @@ export class RPSIO {
         this.divRemainder = value;
         this.divCSR = 0b11;
         break;
+      default:
+        console.warn(
+          `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)}`
+        );
+    }
+    const pinsToUpdate =
+      (this.gpioValue ^ prevGpioValue) | (this.gpioOutputEnable ^ prevGpioOutputEnable);
+    if (pinsToUpdate) {
+      const { gpio } = this.rp2040;
+      for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
+        if (pinsToUpdate & (1 << gpioIndex)) {
+          gpio[gpioIndex].checkForUpdates();
+        }
+      }
     }
   }
 }

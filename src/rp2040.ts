@@ -8,6 +8,8 @@ import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 import { RPSIO } from './sio';
 import { RPReset } from './peripherals/reset';
+import { RPIO } from './peripherals/io';
+import { RPPADS } from './peripherals/pads';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -65,6 +67,7 @@ export const SYSM_PSP = 9;
 export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
 
+const IO_IRQ_BANK0 = 13;
 const MAX_HARDWARE_IRQ = 25; // That's RTC_IRQ
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
@@ -147,6 +150,15 @@ export class RP2040 {
     new GPIOPin(this, 29),
   ];
 
+  readonly qspi = [
+    new GPIOPin(this, 0, 'SCLK'),
+    new GPIOPin(this, 1, 'SS'),
+    new GPIOPin(this, 2, 'SD0'),
+    new GPIOPin(this, 3, 'SD1'),
+    new GPIOPin(this, 4, 'SD2'),
+    new GPIOPin(this, 5, 'SD3'),
+  ];
+
   private stopped = false;
 
   // APSR fields
@@ -197,10 +209,10 @@ export class RP2040 {
     0x40008: new UnimplementedPeripheral(this, 'CLOCKS_BASE'),
     0x4000c: new RPReset(this, 'RESETS_BASE'),
     0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
-    0x40014: new UnimplementedPeripheral(this, 'IO_BANK0_BASE'),
+    0x40014: new RPIO(this, 'IO_BANK0_BASE'),
     0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
-    0x4001c: new UnimplementedPeripheral(this, 'PADS_BANK0_BASE'),
-    0x40020: new UnimplementedPeripheral(this, 'PADS_QSPI_BASE'),
+    0x4001c: new RPPADS(this, 'PADS_BANK0_BASE', 'bank0'),
+    0x40020: new RPPADS(this, 'PADS_QSPI_BASE', 'qspi'),
     0x40024: new UnimplementedPeripheral(this, 'XOSC_BASE'),
     0x40028: new UnimplementedPeripheral(this, 'PLL_SYS_BASE'),
     0x4002c: new UnimplementedPeripheral(this, 'PLL_USB_BASE'),
@@ -771,6 +783,16 @@ export class RP2040 {
       }
     }
     this.interruptsUpdated = false;
+  }
+
+  updateIOInterrupt() {
+    let interruptValue = false;
+    for (const pin of this.gpio) {
+      if (pin.irqValue) {
+        interruptValue = true;
+      }
+    }
+    this.setInterrupt(IO_IRQ_BANK0, interruptValue);
   }
 
   readSpecialRegister(sysm: number) {
