@@ -186,6 +186,9 @@ export class RP2040 {
   systickReload = 0;
   systickTimer: IClockTimer | null = null;
 
+  // logMissingInstructions
+  logMissingInstructions = true;
+
   private executeTimer: NodeJS.Timeout | null = null;
 
   readonly peripherals: { [index: number]: Peripheral } = {
@@ -1465,7 +1468,9 @@ export class RP2040 {
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
-      console.log('SEV');
+      if (this.logMissingInstructions) {
+        console.log('SEV');
+      }
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
@@ -1659,18 +1664,24 @@ export class RP2040 {
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      console.log('WFE');
+      if (this.logMissingInstructions) {
+        console.log('WFE');
+      }
     }
     // WFI
     else if (opcode === 0b1011111100110000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      console.log('WFI');
+      if (this.logMissingInstructions) {
+        console.log('WFI');
+      }
     }
     // YIELD
     else if (opcode === 0b1011111100010000) {
       // do nothing for now. Wait for event!
-      console.log('Yield');
+      if (this.logMissingInstructions) {
+        console.log('Yield');
+      }
     } else {
       console.log(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       console.log(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
