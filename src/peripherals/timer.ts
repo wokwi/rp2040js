@@ -52,7 +52,7 @@ export class RPTimer extends BasePeripheral implements Peripheral {
   }
 
   get intStatus() {
-    return (this.intRaw | this.intForce) & this.intEnable;
+    return (this.intRaw & this.intEnable) | this.intForce;
   }
 
   readUint32(offset: number) {
