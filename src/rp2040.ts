@@ -68,6 +68,8 @@ export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
 
 const IO_IRQ_BANK0 = 13;
+const UART0_IRQ = 20;
+const UART1_IRQ = 21;
 const MAX_HARDWARE_IRQ = 25; // That's RTC_IRQ
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
@@ -115,7 +117,7 @@ export class RP2040 {
 
   readonly sio = new RPSIO(this);
 
-  readonly uart = [new RPUART(this, 'UART0'), new RPUART(this, 'UART1')];
+  readonly uart = [new RPUART(this, 'UART0', UART0_IRQ), new RPUART(this, 'UART1', UART1_IRQ)];
 
   readonly gpio = [
     new GPIOPin(this, 0),
