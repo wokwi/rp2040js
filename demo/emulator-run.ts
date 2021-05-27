@@ -15,7 +15,7 @@ const gdbServer = new GDBTCPServer(mcu, 3333);
 console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
 
 mcu.uart[0].onByte = (value) => {
-  console.log('UART sent: ', String.fromCharCode(value));
+  process.stdout.write(new Uint8Array([value]));
 };
 
 mcu.PC = 0x10000000;
