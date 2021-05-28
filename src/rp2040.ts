@@ -1102,8 +1102,8 @@ export class RP2040 {
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V =
-        (leftValue > 0 && rightValue < 0 && result < 0) ||
-        (leftValue < 0 && rightValue > 0 && result > 0);
+        (leftValue > 0 && (rightValue | 0) < 0 && result < 0) ||
+        ((leftValue | 0) < 0 && rightValue > 0 && result > 0);
     }
     // CMP (register) encoding T2
     else if (opcode >> 8 === 0b01000101) {
@@ -1116,8 +1116,8 @@ export class RP2040 {
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V =
-        (leftValue > 0 && rightValue < 0 && result < 0) ||
-        (leftValue < 0 && rightValue > 0 && result > 0);
+        (leftValue > 0 && (rightValue | 0) < 0 && result < 0) ||
+        ((leftValue | 0) < 0 && rightValue > 0 && result > 0);
     }
     // CPSID i
     else if (opcode === 0xb672) {
@@ -1485,10 +1485,10 @@ export class RP2040 {
       const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
       const result = (operand1 - operand2) | 0;
       this.registers[Rdn] = result;
-      this.N = (operand1 | 0) < (operand2 | 0);
+      this.N = !!(result & 0x80000000);
       this.Z = (operand1 | 0) === (operand2 | 0);
       this.C = operand1 >= operand2;
-      this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
+      this.V = (operand1 | 0) > 0 && (operand2 | 0) < 0 && result < 0;
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
