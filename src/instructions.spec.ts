@@ -138,7 +138,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute `adcs r5, r4` instruction and set negative/overflow flags', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADCS(r5, r4));
-    cpu.setRegisters({
+    await cpu.setRegisters({
       r4: 0x7fffffff, // Max signed INT32
       r5: 0,
       C: true,
@@ -155,7 +155,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should not set the overflow flag when executing `adcs r3, r2` adding 0 to 0 with carry', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADCS(r3, r2));
-    cpu.setRegisters({ r2: 0, r3: 0, C: true, Z: true });
+    await cpu.setRegisters({ r2: 0, r3: 0, C: true, Z: true });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(1);
@@ -481,7 +481,31 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
-  it('should correctly set carry flag when executing `cmp r11, r3` instruction', async () => {
+  it('should execute an `cmp r2, r0` instruction set flags N V when r0=0x80000000 and r2=0x8', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeCMPregT1(r2, r0));
+    await cpu.setRegisters({ r0: 0x80000000, r2: 0x8 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should set flags C V when executing `cmp r11, r3` instruction when r3=8 and r11=0x80000000', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeCMPregT2(r11, r3));
+    await cpu.setRegisters({ r3: 0x00000008, r11: 0x80000000 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should set N C flag when executing `cmp r11, r3` instruction where r3=8 r11=-1', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeCMPregT2(r11, r3));
     await cpu.setRegisters({ r3: 0x00000008, r11: 0xffffffff });
@@ -1080,6 +1104,19 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should execute a `sbcs r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 8, r3: 0x80000000, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(2147483655);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
   it('should execute a `sdmia r0!, {r1, r2}` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeSTMIA(r0, (1 << r1) | (1 << r2)));
@@ -1111,6 +1148,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(await cpu.readUint32(0x20000020 + 20)).toEqual(0xf00d);
+    expect(registers.pc).toEqual(0x20000002);
+  });
+
+  it('should execute a `str r2, [r3, r1]` instruction where r1 + r3 > 32 bits', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSTRreg(r2, r1, r3));
+    await cpu.setRegisters({ r1: -4, r3: 0x20041e50, r2: 0x4201337 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(await cpu.readUint32(0x20041e4c)).toEqual(0x4201337);
     expect(registers.pc).toEqual(0x20000002);
   });
 
@@ -1253,27 +1300,28 @@ describe('Cortex-M0+ Instruction Set', () => {
   });
 
   it('should raise an SVCALL exception when `svc` instruction runs', async () => {
-    const SVCALL_HANDLER = 0x20002000;
-    await cpu.setRegisters({ sp: 0x20004000 });
-    cpu.setPC(0x20004000);
-    await cpu.writeUint16(0x20004000, opcodeSVC(10));
-    await cpu.setRegisters({ r0: 0x44 });
-    await cpu.writeUint32(VTOR, 0x20040000);
-    await cpu.writeUint32(0x20040000 + EXC_SVCALL * 4, SVCALL_HANDLER);
-    await cpu.writeUint16(SVCALL_HANDLER, opcodeMOVS(r0, 0x55));
-
-    await cpu.singleStep();
     if (cpu instanceof RP2040TestDriver) {
-      expect(cpu.rp2040.pendingSVCall).toEqual(true);
-    }
+      const SVCALL_HANDLER = 0x20002000;
+      await cpu.setRegisters({ sp: 0x20004000, r0: 0x44 });
+      await cpu.setPC(0x20004000);
+      await cpu.writeUint16(0x20004000, opcodeSVC(10));
+      await cpu.writeUint32(VTOR, 0x20040000);
+      await cpu.writeUint32(0x20040000 + EXC_SVCALL * 4, SVCALL_HANDLER);
+      await cpu.writeUint16(SVCALL_HANDLER, opcodeMOVS(r0, 0x55));
 
-    await cpu.singleStep(); // SVCall handler should run here
-    const registers2 = await cpu.readRegisters();
-    if (cpu instanceof RP2040TestDriver) {
-      expect(cpu.rp2040.pendingSVCall).toEqual(false);
+      await cpu.singleStep();
+      if (cpu instanceof RP2040TestDriver) {
+        expect(cpu.rp2040.pendingSVCall).toEqual(true);
+      }
+
+      await cpu.singleStep(); // SVCall handler should run here
+      const registers2 = await cpu.readRegisters();
+      if (cpu instanceof RP2040TestDriver) {
+        expect(cpu.rp2040.pendingSVCall).toEqual(false);
+      }
+      expect(registers2.pc).toEqual(SVCALL_HANDLER + 2);
+      expect(registers2.r0).toEqual(0x55);
     }
-    expect(registers2.pc).toEqual(SVCALL_HANDLER + 2);
-    expect(registers2.r0).toEqual(0x55);
   });
 
   it('should execute a `sxtb r2, r2` instruction with sign bit 1', async () => {

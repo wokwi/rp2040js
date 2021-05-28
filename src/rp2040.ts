@@ -1485,7 +1485,7 @@ export class RP2040 {
       const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
       const result = (operand1 - operand2) | 0;
       this.registers[Rdn] = result;
-      this.N = !!(result & 0x80000000);
+      this.N = result < 0;
       this.Z = (operand1 | 0) === (operand2 | 0);
       this.C = operand1 >= operand2;
       this.V = (operand1 | 0) > 0 && (operand2 | 0) < 0 && result < 0;
@@ -1539,7 +1539,7 @@ export class RP2040 {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const address = this.registers[Rm] + this.registers[Rn];
+      const address = (this.registers[Rm] | 0) + (this.registers[Rn] | 0);
       if (this.slowIO(address)) {
         this.cycles++;
       }
