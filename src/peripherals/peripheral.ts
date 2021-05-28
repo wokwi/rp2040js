@@ -31,15 +31,15 @@ export class BasePeripheral implements Peripheral {
   constructor(protected rp2040: RP2040, readonly name: string) {}
 
   readUint32(offset: number) {
-    console.warn(`Unimplemented peripheral ${this.name} read from ${offset.toString(16)}`);
+    this.rp2040.logger.warn(`Unimplemented peripheral ${this.name} read from ${offset.toString(16)}`);
     if (offset > 0x1000) {
-      console.warn('Unimplemented read from peripheral in the atomic operation region');
+      this.rp2040.logger.warn('Unimplemented read from peripheral in the atomic operation region');
     }
     return 0xffffffff;
   }
 
   writeUint32(offset: number, value: number) {
-    console.warn(`Unimplemented peripheral ${this.name} write to ${offset.toString(16)}: ${value}`);
+    this.rp2040.logger.warn(`Unimplemented peripheral ${this.name} write to ${offset.toString(16)}: ${value}`);
   }
 
   writeUint32Atomic(offset: number, value: number, atomicType: number) {
