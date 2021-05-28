@@ -1631,7 +1631,7 @@ export class RP2040 {
       this.N = (leftValue | 0) < (rightValue | 0);
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
-      this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
+      this.V = (leftValue | 0) < 0 && (rightValue | 0) > 0 && result > 0;
     }
     // SVC
     else if (opcode >> 8 === 0b11011111) {

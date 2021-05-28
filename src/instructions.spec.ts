@@ -1225,6 +1225,20 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should execute a `subs r0, r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSUBSreg(r0, r0, r3));
+    await cpu.setRegisters({ r3: 0x80000000 });
+    await cpu.setRegisters({ r0: 0x853d1eee });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x053d1eee);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(false);
+  });
+
   it('should execute a `subs r3, r3, r2` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeSUBSreg(r3, r3, r2));
