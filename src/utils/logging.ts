@@ -1,57 +1,53 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export interface LogInterface {
-    debug(msg: string, ...supportingData: any[]): void;
-    warn(msg: string, ...supportingData: any[]): void;
-    error(msg: string, ...supportingData: any[]): void;
-    info(msg: string, ...supportingData: any[]): void;
+export interface Logging {
+  debug(msg: string): void;
+  warn(msg: string): void;
+  error(msg: string): void;
+  info(msg: string): void;
 }
 
 export enum LogLevel {
-    debug,
-    info,
-    warn,
-    error
+  Debug,
+  Info,
+  Warn,
+  Error,
 }
 
+export class ConsoleLogger implements Logging {
+  public currentLogLevel;
+  private throwOnError;
+  private loggerName;
 
-export class Log implements LogInterface {
-    public currentLogLevel = LogLevel.info;
-    private exitonerror = true;
+  constructor(name: string, currentLogLevel: LogLevel, throwOnError: boolean) {
+    this.currentLogLevel = currentLogLevel;
+    this.throwOnError = throwOnError;
+    this.loggerName = name;
+  }
 
-    constructor(loglevel: LogLevel, exitonerror: boolean) {
-        this.currentLogLevel = loglevel;
-        this.exitonerror = exitonerror;
+  private aboveLogLevel(loglevel: LogLevel): boolean {
+    return loglevel >= this.currentLogLevel ? true : false;
+  }
+
+  private formatMessage(name: string, msg: string) {
+    const currenttime = new Date().toLocaleString();
+    return `${currenttime} [${name}] ${msg}`;
+  }
+
+  debug(msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Debug)) console.debug(this.formatMessage(this.loggerName, msg));
+  }
+
+  warn(msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Warn)) console.warn(this.formatMessage(this.loggerName, msg));
+  }
+
+  error(msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Error)) {
+      console.error(this.formatMessage(this.loggerName, msg));
+      if (this.throwOnError) throw new Error(msg);
     }
+  }
 
-    private aboveLogLevel(loglevel: LogLevel): boolean {
-        return loglevel >= this.currentLogLevel ? true: false;
-    }
-
-    debug(msg: string, ...supportingData: any[]): void {
-        this.emitLogMessage("debug", msg, supportingData);
-    }
-
-    warn(msg: string, ...supportingData: any[]): void {
-        this.emitLogMessage("warn", msg, supportingData);
-    }
-
-    error(msg: string, ...supportingData: any[]): void {
-        this.emitLogMessage("error", msg, supportingData);
-        if(this.exitonerror) throw new Error(msg);
-    }
-
-    info(msg: string, ...supportingData: any[]): void {
-        this.emitLogMessage("info", msg, supportingData);
-    }
-
-    private emitLogMessage(msgType: "debug" | "info" | "warn" | "error", msg: string, supportingData: any[]) {
-        if(this.aboveLogLevel(LogLevel[msgType])) {
-            if (supportingData.length > 0) {
-                console[msgType](msg, supportingData);
-            } else {
-                console[msgType](msg);
-            }
-        }
-    }
-    
+  info(msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Info)) console.info(this.formatMessage(this.loggerName, msg));
+  }
 }

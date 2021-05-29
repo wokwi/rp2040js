@@ -10,7 +10,7 @@ import { LogLevel } from '../src/utils/logging';
 const hex = fs.readFileSync('micropython.hex', 'utf-8');
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
-mcu.logger.currentLogLevel = LogLevel.error;
+mcu.logger.currentLogLevel = LogLevel.Error;
 loadHex(hex, mcu.flash, 0x10000000);
 
 const gdbServer = new GDBTCPServer(mcu, 3333);

@@ -10,7 +10,7 @@ import { RPSIO } from './sio';
 import { RPReset } from './peripherals/reset';
 import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
-import { Log, LogLevel } from './utils/logging';
+import { ConsoleLogger, LogLevel } from './utils/logging';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -164,7 +164,7 @@ export class RP2040 {
 
   private stopped = false;
 
-  public logger = new Log(LogLevel.debug, true);
+  public logger = new ConsoleLogger("rp2040", LogLevel.Debug, true);
 
   // APSR fields
   public N: boolean = false;
@@ -365,7 +365,7 @@ export class RP2040 {
       this.systickControl = value & 0x7;
     });
     this.writeHooks.set(PPB_BASE + OFFSET_SYST_CVR, (value) => {
-      this.logger.warn('SYSTICK CVR: not implemented yet, value=', value);
+      this.logger.warn(`SYSTICK CVR: not implemented yet, value=${value}`);
     });
     this.writeHooks.set(PPB_BASE + OFFSET_SYST_RVR, (value) => {
       this.systickReload = value;
@@ -822,7 +822,7 @@ export class RP2040 {
         return (this.SPSEL === StackPointerBank.SPprocess ? 2 : 0) | (this.nPRIV ? 1 : 0);
 
       default:
-        this.logger.warn('MRS with unimplemented SYSm value: ', sysm);
+        this.logger.warn(`MRS with unimplemented SYSm value: ${sysm}`);
         return 0;
     }
   }
@@ -862,7 +862,7 @@ export class RP2040 {
         break;
 
       default:
-        this.logger.debug('MRS with unimplemented SYSm value: ', sysm);
+        this.logger.warn(`MRS with unimplemented SYSm value: ${sysm}`);
         return 0;
     }
   }
@@ -1493,7 +1493,7 @@ export class RP2040 {
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
-      this.logger.warn("SEV");
+      this.logger.info("SEV");
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
@@ -1687,18 +1687,18 @@ export class RP2040 {
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.warn("WFE");
+      this.logger.info("WFE");
     }
     // WFI
     else if (opcode === 0b1011111100110000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.warn("WFI");
+      this.logger.info("WFI");
     }
     // YIELD
     else if (opcode === 0b1011111100010000) {
       // do nothing for now. Wait for event!
-      this.logger.warn("Yield");
+      this.logger.info("Yield");
     } else {
       this.logger.warn(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       this.logger.warn(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
