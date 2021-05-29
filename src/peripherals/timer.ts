@@ -129,7 +129,7 @@ export class RPTimer extends BasePeripheral implements Peripheral {
       case PAUSE:
         this.paused = !!(value & 1);
         if (this.paused) {
-          console.warn('Unimplemented Timer Pause');
+          this.warn('Unimplemented Timer Pause');
         }
         // TODO actually pause the timer
         break;
