@@ -102,6 +102,8 @@ enum StackPointerBank {
   SPprocess,
 }
 
+const LOG_NAME = "RP2040";
+
 export class RP2040 {
   readonly bootrom = new Uint32Array(4 * 1024);
   readonly sram = new Uint8Array(264 * 1024);
@@ -164,7 +166,8 @@ export class RP2040 {
 
   private stopped = false;
 
-  public logger = new ConsoleLogger("rp2040", LogLevel.Debug, true);
+  // Console logger
+  public logger = new ConsoleLogger(LogLevel.Debug, true);
 
   // APSR fields
   public N: boolean = false;
@@ -365,7 +368,7 @@ export class RP2040 {
       this.systickControl = value & 0x7;
     });
     this.writeHooks.set(PPB_BASE + OFFSET_SYST_CVR, (value) => {
-      this.logger.warn(`SYSTICK CVR: not implemented yet, value=${value}`);
+      this.logger.warn(LOG_NAME, `SYSTICK CVR: not implemented yet, value=${value}`);
     });
     this.writeHooks.set(PPB_BASE + OFFSET_SYST_RVR, (value) => {
       this.systickReload = value;
@@ -468,7 +471,7 @@ export class RP2040 {
   readUint32(address: number) {
     const { bootrom } = this;
     if (address & 0x3) {
-      this.logger.error(`read from address ${address.toString(16)}, which is not 32 bit aligned`);
+      this.logger.error(LOG_NAME, `read from address ${address.toString(16)}, which is not 32 bit aligned`);
     }
     address = address >>> 0; // round to 32-bits, unsigned
     const peripheral = this.findPeripheral(address);
@@ -491,7 +494,7 @@ export class RP2040 {
         }
       }
     }
-    this.logger.warn(`Read from invalid memory address: ${address.toString(16)}`);
+    this.logger.warn(LOG_NAME, `Read from invalid memory address: ${address.toString(16)}`);
     return 0xffffffff;
   }
 
@@ -527,13 +530,13 @@ export class RP2040 {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
     } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
       // Ignore these USB writes for now
-      this.logger.info("USB write ignored for now");
+      this.logger.info(LOG_NAME, "USB write ignored for now");
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
         hook(value, address);
       } else {
-        this.logger.warn(`Write to undefined address: ${address.toString(16)}`);
+        this.logger.warn(LOG_NAME, `Write to undefined address: ${address.toString(16)}`);
       }
     }
   }
@@ -822,7 +825,7 @@ export class RP2040 {
         return (this.SPSEL === StackPointerBank.SPprocess ? 2 : 0) | (this.nPRIV ? 1 : 0);
 
       default:
-        this.logger.warn(`MRS with unimplemented SYSm value: ${sysm}`);
+        this.logger.warn(LOG_NAME, `MRS with unimplemented SYSm value: ${sysm}`);
         return 0;
     }
   }
@@ -862,7 +865,7 @@ export class RP2040 {
         break;
 
       default:
-        this.logger.warn(`MRS with unimplemented SYSm value: ${sysm}`);
+        this.logger.warn(LOG_NAME, `MRS with unimplemented SYSm value: ${sysm}`);
         return 0;
     }
   }
@@ -1493,7 +1496,7 @@ export class RP2040 {
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
-      this.logger.info("SEV");
+      this.logger.info(LOG_NAME, "SEV");
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
@@ -1687,21 +1690,21 @@ export class RP2040 {
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info("WFE");
+      this.logger.info(LOG_NAME, "WFE");
     }
     // WFI
     else if (opcode === 0b1011111100110000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info("WFI");
+      this.logger.info(LOG_NAME, "WFI");
     }
     // YIELD
     else if (opcode === 0b1011111100010000) {
       // do nothing for now. Wait for event!
-      this.logger.info("Yield");
+      this.logger.info(LOG_NAME, "Yield");
     } else {
-      this.logger.warn(`Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
-      this.logger.warn(`Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
+      this.logger.warn(LOG_NAME, `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
+      this.logger.warn(LOG_NAME, `Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }
   }
 

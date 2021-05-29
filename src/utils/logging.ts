@@ -1,8 +1,8 @@
 export interface Logging {
-  debug(msg: string): void;
-  warn(msg: string): void;
-  error(msg: string): void;
-  info(msg: string): void;
+  debug(name: string, msg: string): void;
+  warn(name: string, msg: string): void;
+  error(name: string, msg: string): void;
+  info(name: string, msg: string): void;
 }
 
 export enum LogLevel {
@@ -13,14 +13,9 @@ export enum LogLevel {
 }
 
 export class ConsoleLogger implements Logging {
-  public currentLogLevel;
-  private throwOnError;
-  private loggerName;
-
-  constructor(name: string, currentLogLevel: LogLevel, throwOnError: boolean) {
+  constructor(public currentLogLevel: LogLevel, private throwOnError: boolean) {
     this.currentLogLevel = currentLogLevel;
     this.throwOnError = throwOnError;
-    this.loggerName = name;
   }
 
   private aboveLogLevel(loglevel: LogLevel): boolean {
@@ -32,22 +27,22 @@ export class ConsoleLogger implements Logging {
     return `${currenttime} [${name}] ${msg}`;
   }
 
-  debug(msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Debug)) console.debug(this.formatMessage(this.loggerName, msg));
+  debug(name: string, msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Debug)) console.debug(this.formatMessage(name, msg));
   }
 
-  warn(msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Warn)) console.warn(this.formatMessage(this.loggerName, msg));
+  warn(name: string, msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Warn)) console.warn(this.formatMessage(name, msg));
   }
 
-  error(msg: string): void {
+  error(name: string, msg: string): void {
     if (this.aboveLogLevel(LogLevel.Error)) {
-      console.error(this.formatMessage(this.loggerName, msg));
+      console.error(this.formatMessage(name, msg));
       if (this.throwOnError) throw new Error(msg);
     }
   }
 
-  info(msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Info)) console.info(this.formatMessage(this.loggerName, msg));
+  info(name: string, msg: string): void {
+    if (this.aboveLogLevel(LogLevel.Info)) console.info(this.formatMessage(name, msg));
   }
 }
