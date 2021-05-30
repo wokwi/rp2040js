@@ -1,3 +1,5 @@
+import { getCurrentTimeWithMilliseconds } from './time';
+
 export interface Logging {
   debug(name: string, msg: string): void;
   warn(name: string, msg: string): void;
@@ -23,16 +25,20 @@ export class ConsoleLogger implements Logging {
   }
 
   private formatMessage(name: string, msg: string) {
-    const currenttime = new Date().toLocaleString();
+    const currenttime = getCurrentTimeWithMilliseconds();
     return `${currenttime} [${name}] ${msg}`;
   }
 
   debug(name: string, msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Debug)) console.debug(this.formatMessage(name, msg));
+    if (this.aboveLogLevel(LogLevel.Debug)) {
+      console.debug(this.formatMessage(name, msg));
+    }
   }
 
   warn(name: string, msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Warn)) console.warn(this.formatMessage(name, msg));
+    if (this.aboveLogLevel(LogLevel.Warn)) {
+      console.warn(this.formatMessage(name, msg));
+    }
   }
 
   error(name: string, msg: string): void {
@@ -43,6 +49,8 @@ export class ConsoleLogger implements Logging {
   }
 
   info(name: string, msg: string): void {
-    if (this.aboveLogLevel(LogLevel.Info)) console.info(this.formatMessage(name, msg));
+    if (this.aboveLogLevel(LogLevel.Info)) {
+      console.info(this.formatMessage(name, msg));
+    }
   }
 }

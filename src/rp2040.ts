@@ -530,7 +530,7 @@ export class RP2040 {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
     } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
       // Ignore these USB writes for now
-      this.logger.info(LOG_NAME, "USB write ignored for now");
+      this.logger.info(LOG_NAME, 'USB write ignored for now');
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
@@ -1496,7 +1496,7 @@ export class RP2040 {
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
-      this.logger.info(LOG_NAME, "SEV");
+      this.logger.info(LOG_NAME, 'SEV');
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
@@ -1690,18 +1690,18 @@ export class RP2040 {
     else if (opcode === 0b1011111100100000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info(LOG_NAME, "WFE");
+      this.logger.info(LOG_NAME, 'WFE');
     }
     // WFI
     else if (opcode === 0b1011111100110000) {
       // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info(LOG_NAME, "WFI");
+      this.logger.info(LOG_NAME, 'WFI');
     }
     // YIELD
     else if (opcode === 0b1011111100010000) {
       // do nothing for now. Wait for event!
-      this.logger.info(LOG_NAME, "Yield");
+      this.logger.info(LOG_NAME, 'Yield');
     } else {
       this.logger.warn(LOG_NAME, `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
       this.logger.warn(LOG_NAME, `Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
