@@ -14,8 +14,7 @@ import {
   gdbChecksum,
   gdbMessage,
 } from './utils/gdb';
-
-const DEBUG = false;
+import { ConsoleLogger, LogLevel } from './utils/logging';
 
 const STOP_REPLY_SIGINT = 'S02';
 const STOP_REPLY_TRAP = 'S05';
@@ -53,8 +52,13 @@ const targetXML = `<?xml version="1.0"?>
 </feature>
 </target>`;
 
+const LOG_NAME = "GDBSERVER";
+
 export class GDBTCPServer {
   private socketServer = createServer();
+
+  // Console logger
+  public logger = new ConsoleLogger(LogLevel.Warn, true);
 
   constructor(readonly rp2040: RP2040, readonly port: number = 3333) {
     this.socketServer.listen(port);
@@ -128,8 +132,10 @@ export class GDBTCPServer {
           case 0x13:
             return specialRegister(SYSM_PRIMASK);
           case 0x14:
+            this.logger.warn(LOG_NAME, 'TODO BASEPRI');
             return gdbMessage(encodeHexUint32(0)); // TODO BASEPRI
           case 0x15:
+            this.logger.warn(LOG_NAME, 'TODO faultmask');
             return gdbMessage(encodeHexUint32(0)); // TODO faultmask
           case 0x16:
             return specialRegister(SYSM_CONTROL);
@@ -164,8 +170,10 @@ export class GDBTCPServer {
             rp2040.writeSpecialRegister(SYSM_PRIMASK, value);
             break;
           case 0x14:
+            this.logger.warn(LOG_NAME, 'TODO BASEPRI');
             break; // TODO BASEPRI
           case 0x15:
+            this.logger.warn(LOG_NAME, 'TODO faultmask');
             break; // TODO faultmask
           case 0x16:
             rp2040.writeSpecialRegister(SYSM_CONTROL, value);
@@ -196,7 +204,7 @@ export class GDBTCPServer {
         const length = parseInt(params[1], 16);
         const data = decodeHexBuf(params[2].substr(0, length * 2));
         for (let i = 0; i < data.length; i++) {
-          console.log('write', data[i].toString(16), 'to', (address + i).toString(16));
+          this.logger.debug(LOG_NAME, `write ${data[i].toString(16)} to ${(address + i).toString(16)}`);
           rp2040.writeUint8(address + i, data[i]);
         }
         return gdbMessage('OK');
@@ -220,7 +228,7 @@ export class GDBTCPServer {
     let buf = '';
     socket.on('data', (data) => {
       if (data[0] === 3) {
-        console.log('BREAK');
+        this.logger.info(LOG_NAME, 'BREAK');
         rp2040.stop();
         socket.write(gdbMessage(STOP_REPLY_SIGINT));
         data = data.slice(1);
@@ -237,18 +245,14 @@ export class GDBTCPServer {
         const cksum = buf.substr(hash + 1, 2);
         buf = buf.substr(hash + 2);
         if (gdbChecksum(cmd) !== cksum) {
-          console.warn('Warning: GDB checksum error in message:', cmd);
+          this.logger.warn(LOG_NAME, `GDB checksum error in message: ${cmd}`);
           socket.write('-');
         } else {
           socket.write('+');
-          if (DEBUG) {
-            console.log('>', cmd);
-          }
+          this.logger.debug(LOG_NAME, `>${cmd}`);
           const response = this.processGDBMessage(cmd);
           if (response) {
-            if (DEBUG) {
-              console.log('<', response);
-            }
+            this.logger.debug(LOG_NAME, `<${response}`);
             socket.write(response);
           }
         }
@@ -256,7 +260,7 @@ export class GDBTCPServer {
     });
 
     socket.on('error', (err) => {
-      console.error('GDB socket error', err);
+      this.logger.error(LOG_NAME, `GDB socket error ${err}`);
     });
 
     socket.on('close', () => {
