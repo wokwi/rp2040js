@@ -102,7 +102,7 @@ enum StackPointerBank {
   SPprocess,
 }
 
-const LOG_NAME = "RP2040";
+const LOG_NAME = 'RP2040';
 
 export class RP2040 {
   readonly bootrom = new Uint32Array(4 * 1024);
@@ -471,7 +471,10 @@ export class RP2040 {
   readUint32(address: number) {
     const { bootrom } = this;
     if (address & 0x3) {
-      this.logger.error(LOG_NAME, `read from address ${address.toString(16)}, which is not 32 bit aligned`);
+      this.logger.error(
+        LOG_NAME,
+        `read from address ${address.toString(16)}, which is not 32 bit aligned`
+      );
     }
     address = address >>> 0; // round to 32-bits, unsigned
     const peripheral = this.findPeripheral(address);
@@ -1103,13 +1106,13 @@ export class RP2040 {
       const Rn = opcode & 0x7;
       const leftValue = this.registers[Rn];
       const rightValue = this.registers[Rm];
-      const result = ((leftValue | 0) - (rightValue | 0)) | 0;
-      this.N = result < 0;
+      const result = leftValue - rightValue;
+      this.N = !!(result & 0x80000000);
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V =
-        (leftValue > 0 && rightValue < 0 && result < 0) ||
-        (leftValue < 0 && rightValue > 0 && result > 0);
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // CMP (register) encoding T2
     else if (opcode >> 8 === 0b01000101) {
@@ -1117,13 +1120,13 @@ export class RP2040 {
       const Rn = ((opcode >> 4) & 0x8) | (opcode & 0x7);
       const leftValue = this.registers[Rn];
       const rightValue = this.registers[Rm];
-      const result = ((leftValue | 0) - (rightValue | 0)) | 0;
-      this.N = result < 0;
+      const result = leftValue - rightValue;
+      this.N = !!(result & 0x80000000);
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
       this.V =
-        (leftValue > 0 && rightValue < 0 && result < 0) ||
-        (leftValue < 0 && rightValue > 0 && result > 0);
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // CPSID i
     else if (opcode === 0xb672) {
@@ -1705,7 +1708,10 @@ export class RP2040 {
       // do nothing for now. Wait for event!
       this.logger.info(LOG_NAME, 'Yield');
     } else {
-      this.logger.warn(LOG_NAME, `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`);
+      this.logger.warn(
+        LOG_NAME,
+        `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`
+      );
       this.logger.warn(LOG_NAME, `Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }
   }
