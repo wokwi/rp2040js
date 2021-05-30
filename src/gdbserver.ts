@@ -16,8 +16,6 @@ import {
 } from './utils/gdb';
 import { ConsoleLogger, LogLevel } from './utils/logging';
 
-const DEBUG = false;
-
 const STOP_REPLY_SIGINT = 'S02';
 const STOP_REPLY_TRAP = 'S05';
 
