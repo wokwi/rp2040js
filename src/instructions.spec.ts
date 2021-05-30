@@ -165,6 +165,19 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should set the zero, carry and overflow flag when executing `adcs r0, r0` adding 0x80000000 to 0x80000000', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeADCS(r0, r0));
+    await cpu.setRegisters({ r0: 0x80000000, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(true);
+  });
+
   it('should execute a `add sp, 0x10` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.setRegisters({ sp: 0x10000040 });
