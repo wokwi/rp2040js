@@ -86,7 +86,7 @@ export function opcodeCMPregT1(Rn: number, Rm: number) {
 }
 
 export function opcodeCMPregT2(Rn: number, Rm: number) {
-  return (0b01000101 << 8) | (((Rn >> 3) & 0x1) << 7) | ((Rm & 0x7) << 3) | (Rn & 0x7);
+  return (0b01000101 << 8) | (((Rn >> 3) & 0x1) << 7) | ((Rm & 0xf) << 3) | (Rn & 0x7);
 }
 
 export function opcodeDMBSY() {
