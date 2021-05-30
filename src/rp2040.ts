@@ -894,14 +894,14 @@ export class RP2040 {
       const Rdn = opcode & 0x7;
       const leftValue = this.registers[Rdn];
       const rightValue = this.registers[Rm];
+      const unsignedSum = (leftValue + rightValue + (this.C ? 1 : 0)) >>> 0;
+      const signedSum = (leftValue | 0) + (rightValue | 0) + (this.C ? 1 : 0);
       const result = leftValue + rightValue + (this.C ? 1 : 0);
-      this.registers[Rdn] = result;
+      this.registers[Rdn] = result & 0xffffffff;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result > 0xffffffff;
-      this.V =
-        ((leftValue | 0) >= 0 && (rightValue | 0) >= 0 && (result | 0) < 0) ||
-        ((leftValue | 0) < 0 && (rightValue | 0) < 0 && (result | 0) > 0);
+      this.C = result === unsignedSum ? false : true;
+      this.V = (result | 0) === signedSum ? false : true;
     }
     // ADD (register = SP plus immediate)
     else if (opcode >> 11 === 0b10101) {
