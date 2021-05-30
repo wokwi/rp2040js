@@ -1539,7 +1539,7 @@ export class RP2040 {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
-      const address = this.registers[Rm] + this.registers[Rn];
+      const address = (this.registers[Rm] | 0) + (this.registers[Rn] | 0);
       if (this.slowIO(address)) {
         this.cycles++;
       }
