@@ -225,6 +225,32 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should execute `adds r4, r4, r2` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeADDSreg(r4, r4, r2));
+    await cpu.setRegisters({ r2: 0x74bc8000, r4: 0x43740000 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r4).toEqual(0xb8308000);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should execute `adds r1, r1, r1` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeADDSreg(r1, r1, r1));
+    await cpu.setRegisters({ r1: 0xbf8d1424, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r1).toEqual(0x7f1a2848);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(true);
+  });
+
   it('should execute `add r1, ip` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADDreg(r1, ip));
