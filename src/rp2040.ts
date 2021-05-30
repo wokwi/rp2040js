@@ -942,14 +942,14 @@ export class RP2040 {
       const Rd = opcode & 0x7;
       const leftValue = this.registers[Rn];
       const rightValue = this.registers[Rm];
-      const unsigned_sum = (leftValue + rightValue) >>> 0;
-      const signed_sum = (leftValue | 0) + (rightValue | 0);
+      const unsignedSum = (leftValue + rightValue) >>> 0;
+      const signedSum = (leftValue | 0) + (rightValue | 0);
       const result = leftValue + rightValue;
       this.registers[Rd] = result & 0xffffffff;
       this.N = (result | 0) < 0;
       this.Z = (result & 0xffffffff) === 0;
-      this.C = result == unsigned_sum ? false : true;
-      this.V = (result | 0) == signed_sum ? false : true;
+      this.C = result == unsignedSum ? false : true;
+      this.V = (result | 0) == signedSum ? false : true;
     }
     // ADD (register)
     else if (opcode >> 8 === 0b01000100) {
