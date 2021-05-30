@@ -1,4 +1,4 @@
-import { getCurrentTimeWithMilliseconds } from './time';
+import { formatTime } from './time';
 
 export interface Logging {
   debug(name: string, msg: string): void;
@@ -20,13 +20,13 @@ export class ConsoleLogger implements Logging {
     this.throwOnError = throwOnError;
   }
 
-  private aboveLogLevel(loglevel: LogLevel): boolean {
-    return loglevel >= this.currentLogLevel ? true : false;
+  private aboveLogLevel(logLevel: LogLevel): boolean {
+    return logLevel >= this.currentLogLevel ? true : false;
   }
 
   private formatMessage(name: string, msg: string) {
-    const currenttime = getCurrentTimeWithMilliseconds();
-    return `${currenttime} [${name}] ${msg}`;
+    const currentTime = formatTime(new Date());
+    return `${currentTime} [${name}] ${msg}`;
   }
 
   debug(name: string, msg: string): void {
@@ -44,7 +44,9 @@ export class ConsoleLogger implements Logging {
   error(name: string, msg: string): void {
     if (this.aboveLogLevel(LogLevel.Error)) {
       console.error(this.formatMessage(name, msg));
-      if (this.throwOnError) throw new Error(msg);
+      if (this.throwOnError) {
+        throw new Error(msg);
+      }
     }
   }
 

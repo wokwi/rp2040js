@@ -6,11 +6,24 @@ export function getCurrentMicroseconds() {
   }
 }
 
-export function getCurrentTimeWithMilliseconds() {
-  const currentDatetime = new Date();
-  const hours = currentDatetime.getHours();
-  const minutes = currentDatetime.getMinutes();
-  const seconds = currentDatetime.getSeconds();
-  const milliseconds = currentDatetime.getMilliseconds();
+function leftPad(value: string, minLength: number, padChar = ' ') {
+  if (value.length < minLength) {
+    value = padChar + value;
+  }
+  return value;
+}
+
+function rightPad(value: string, minLength: number, padChar = ' ') {
+  if (value.length < minLength) {
+    value += padChar;
+  }
+  return value;
+}
+
+export function formatTime(date: Date) {
+  const hours = leftPad(date.getHours().toString(), 2, '0');
+  const minutes = leftPad(date.getMinutes().toString(), 2, '0');
+  const seconds = leftPad(date.getSeconds().toString(), 2, '0');
+  const milliseconds = rightPad(date.getMilliseconds().toString(), 3);
   return `${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
