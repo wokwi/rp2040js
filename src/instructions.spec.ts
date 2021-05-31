@@ -1141,6 +1141,34 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should execute a `rsbs r0, r3` instruction', async () => {
+    // This instruction is also calledasync  `negs`
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeRSBS(r0, r3));
+    await cpu.setRegisters({ r3: 0x80000000 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x80000000);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should execute a `rsbs r0, r3` instruction', async () => {
+    // This instruction is also calledasync  `negs`
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeRSBS(r0, r3));
+    await cpu.setRegisters({ r3: 0x7fffffff });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x80000001);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(false);
+  });
+
   it('should execute a `sbcs r0, r3` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
@@ -1164,6 +1192,58 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.N).toEqual(false);
     expect(registers.Z).toEqual(true);
     expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(false);
+  });
+
+  it('should execute a `sbcs r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 0, r3: 0x80000000, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x7fffffff);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(false);
+  });
+
+  it('should execute a `sbcs r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 0, r3: 0x80000000, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x80000000);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should execute a `sbcs r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 0x80000000, r3: 0x0, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x7fffffff);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should execute a `sbcs r0, r3` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 0x80000000, r3: 0x0, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x80000000);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
     expect(registers.V).toEqual(false);
   });
 

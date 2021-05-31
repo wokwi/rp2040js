@@ -1475,12 +1475,16 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001001) {
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const value = this.registers[Rn] | 0;
-      this.registers[Rd] = -value;
-      this.N = value > 0;
-      this.Z = value === 0;
-      this.C = value === 0;
-      this.V = value === 0x7fffffff;
+      const leftValue = 0;
+      const rightValue = this.registers[Rn];
+      const result = leftValue - rightValue;
+      this.registers[Rd] = result;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // NOP
     else if (opcode === 0b1011111100000000) {
@@ -1490,15 +1494,18 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100000110) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
-      const operand1 = this.registers[Rdn];
-      const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
-      const result = (operand1 - operand2) | 0;
+      const leftValue = this.registers[Rdn];
+      const rightValue = this.registers[Rm] + (this.C ? 0 : 1);
+      const result = leftValue - rightValue;
       this.registers[Rdn] = result;
-      this.N = (operand1 | 0) < (operand2 | 0);
-      this.Z = (operand1 | 0) === (operand2 | 0);
-      this.C = operand1 >= operand2;
-      this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
+
     // SEV
     else if (opcode === 0b1011111101000000) {
       this.logger.info(LOG_NAME, 'SEV');
