@@ -1325,6 +1325,34 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(false);
   });
 
+  it('should execute a `subs r5, r3, r2` instruction and set N V flags', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSUBSreg(r5, r3, r2));
+    await cpu.setRegisters({ r3: 0 });
+    await cpu.setRegisters({ r2: 0x80000000 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r5).toEqual(0x80000000);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
+  it('should execute a `subs r5, r3, r2` instruction  and set Z C flags', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSUBSreg(r5, r3, r2));
+    await cpu.setRegisters({ r2: 0x80000000 });
+    await cpu.setRegisters({ r3: 0x80000000 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r5).toEqual(0);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(true);
+    expect(registers.V).toEqual(false);
+  });
+
   it('should raise an SVCALL exception when `svc` instruction runs', async () => {
     const SVCALL_HANDLER = 0x20002000;
     await cpu.setRegisters({ sp: 0x20004000 });
