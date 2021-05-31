@@ -1047,6 +1047,7 @@ export class RP2040 {
     // BKPT
     else if (opcode >> 8 === 0b10111110) {
       const imm8 = opcode & 0xff;
+      this.breakRewind = 2;
       this.onBreak(imm8);
     }
     // BL
