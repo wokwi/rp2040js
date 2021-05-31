@@ -1633,12 +1633,14 @@ export class RP2040 {
       const Rd = opcode & 0x7;
       const leftValue = this.registers[Rn];
       const rightValue = this.registers[Rm];
-      const result = (leftValue - rightValue) | 0;
+      const result = leftValue - rightValue;
       this.registers[Rd] = result;
-      this.N = (leftValue | 0) < (rightValue | 0);
+      this.N = !!(result & 0x80000000);
       this.Z = leftValue === rightValue;
       this.C = leftValue >= rightValue;
-      this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // SVC
     else if (opcode >> 8 === 0b11011111) {
