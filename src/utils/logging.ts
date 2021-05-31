@@ -1,10 +1,10 @@
 import { formatTime } from './time';
 
-export interface Logging {
-  debug(name: string, msg: string): void;
-  warn(name: string, msg: string): void;
-  error(name: string, msg: string): void;
-  info(name: string, msg: string): void;
+export interface Logger {
+  debug(componentName: string, message: string): void;
+  warn(componentName: string, message: string): void;
+  error(componentName: string, message: string): void;
+  info(componentName: string, message: string): void;
 }
 
 export enum LogLevel {
@@ -14,45 +14,42 @@ export enum LogLevel {
   Error,
 }
 
-export class ConsoleLogger implements Logging {
-  constructor(public currentLogLevel: LogLevel, private throwOnError: boolean) {
-    this.currentLogLevel = currentLogLevel;
-    this.throwOnError = throwOnError;
-  }
+export class ConsoleLogger implements Logger {
+  constructor(public currentLogLevel: LogLevel, private throwOnError = true) {}
 
   private aboveLogLevel(logLevel: LogLevel): boolean {
     return logLevel >= this.currentLogLevel ? true : false;
   }
 
-  private formatMessage(name: string, msg: string) {
+  private formatMessage(componentName: string, message: string) {
     const currentTime = formatTime(new Date());
-    return `${currentTime} [${name}] ${msg}`;
+    return `${currentTime} [${componentName}] ${message}`;
   }
 
-  debug(name: string, msg: string): void {
+  debug(componetName: string, message: string): void {
     if (this.aboveLogLevel(LogLevel.Debug)) {
-      console.debug(this.formatMessage(name, msg));
+      console.debug(this.formatMessage(componetName, message));
     }
   }
 
-  warn(name: string, msg: string): void {
+  warn(componetName: string, message: string): void {
     if (this.aboveLogLevel(LogLevel.Warn)) {
-      console.warn(this.formatMessage(name, msg));
+      console.warn(this.formatMessage(componetName, message));
     }
   }
 
-  error(name: string, msg: string): void {
+  error(componentName: string, message: string): void {
     if (this.aboveLogLevel(LogLevel.Error)) {
-      console.error(this.formatMessage(name, msg));
+      console.error(this.formatMessage(componentName, message));
       if (this.throwOnError) {
-        throw new Error(msg);
+        throw new Error(`[${componentName}] ${message}`);
       }
     }
   }
 
-  info(name: string, msg: string): void {
+  info(componentName: string, message: string): void {
     if (this.aboveLogLevel(LogLevel.Info)) {
-      console.info(this.formatMessage(name, msg));
+      console.info(this.formatMessage(componentName, message));
     }
   }
 }

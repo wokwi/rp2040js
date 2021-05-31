@@ -14,7 +14,7 @@ import {
   gdbChecksum,
   gdbMessage,
 } from './utils/gdb';
-import { ConsoleLogger, LogLevel } from './utils/logging';
+import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 
 const STOP_REPLY_SIGINT = 'S02';
 const STOP_REPLY_TRAP = 'S05';
@@ -52,13 +52,13 @@ const targetXML = `<?xml version="1.0"?>
 </feature>
 </target>`;
 
-const LOG_NAME = "GDBSERVER";
+const LOG_NAME = 'GDBServer';
 
 export class GDBTCPServer {
   private socketServer = createServer();
 
   // Console logger
-  public logger = new ConsoleLogger(LogLevel.Warn, true);
+  public logger: Logger = new ConsoleLogger(LogLevel.Warn, true);
 
   constructor(readonly rp2040: RP2040, readonly port: number = 3333) {
     this.socketServer.listen(port);
@@ -204,7 +204,10 @@ export class GDBTCPServer {
         const length = parseInt(params[1], 16);
         const data = decodeHexBuf(params[2].substr(0, length * 2));
         for (let i = 0; i < data.length; i++) {
-          this.logger.debug(LOG_NAME, `write ${data[i].toString(16)} to ${(address + i).toString(16)}`);
+          this.logger.debug(
+            LOG_NAME,
+            `Write ${data[i].toString(16)} to ${(address + i).toString(16)}`
+          );
           rp2040.writeUint8(address + i, data[i]);
         }
         return gdbMessage('OK');

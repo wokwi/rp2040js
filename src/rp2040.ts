@@ -10,7 +10,7 @@ import { RPSIO } from './sio';
 import { RPReset } from './peripherals/reset';
 import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
-import { ConsoleLogger, LogLevel } from './utils/logging';
+import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -166,8 +166,7 @@ export class RP2040 {
 
   private stopped = false;
 
-  // Console logger
-  public logger = new ConsoleLogger(LogLevel.Debug, true);
+  public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
 
   // APSR fields
   public N: boolean = false;
