@@ -1134,7 +1134,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.setRegisters({ r3: 0 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
-    expect(registers.r0 | 0).toEqual(0);
+    expect(registers.r0).toEqual(0);
     expect(registers.N).toEqual(false);
     expect(registers.Z).toEqual(true);
     expect(registers.C).toEqual(true);
@@ -1142,7 +1142,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   });
 
   it('should execute a `rsbs r0, r3` instruction', async () => {
-    // This instruction is also calledasync  `negs`
+    // This instruction is also called  `negs`
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeRSBS(r0, r3));
     await cpu.setRegisters({ r3: 0x80000000 });
@@ -1156,7 +1156,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   });
 
   it('should execute a `rsbs r0, r3` instruction', async () => {
-    // This instruction is also calledasync  `negs`
+    // This instruction is also called  `negs`
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeRSBS(r0, r3));
     await cpu.setRegisters({ r3: 0x7fffffff });

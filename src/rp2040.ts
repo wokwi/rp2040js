@@ -1093,12 +1093,15 @@ export class RP2040 {
     else if (opcode >> 11 === 0b00101) {
       const Rn = (opcode >> 8) & 0x7;
       const imm8 = opcode & 0xff;
-      const value = this.registers[Rn] | 0;
-      const result = (value - imm8) | 0;
-      this.N = value < imm8;
-      this.Z = value === imm8;
-      this.C = value >>> 0 >= imm8;
-      this.V = value < 0 && imm8 > 0 && result > 0;
+      const leftValue = this.registers[Rn];
+      const rightValue = imm8;
+      const result = leftValue - rightValue;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // CMP (register)
     else if (opcode >> 6 === 0b0100001010) {
@@ -1108,7 +1111,7 @@ export class RP2040 {
       const rightValue = this.registers[Rm];
       const result = leftValue - rightValue;
       this.N = !!(result & 0x80000000);
-      this.Z = leftValue === rightValue;
+      this.Z = (result & 0xffffffff) === 0;
       this.C = leftValue >= rightValue;
       this.V =
         (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
@@ -1122,7 +1125,7 @@ export class RP2040 {
       const rightValue = this.registers[Rm];
       const result = leftValue - rightValue;
       this.N = !!(result & 0x80000000);
-      this.Z = leftValue === rightValue;
+      this.Z = (result & 0xffffffff) === 0;
       this.C = leftValue >= rightValue;
       this.V =
         (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
@@ -1613,25 +1616,31 @@ export class RP2040 {
       const imm3 = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const value = this.registers[Rn];
-      const result = (value - imm3) | 0;
+      const leftValue = this.registers[Rn];
+      const rightValue = imm3;
+      const result = leftValue - rightValue;
       this.registers[Rd] = result;
-      this.N = value < imm3;
-      this.Z = value === imm3;
-      this.C = value >= imm3;
-      this.V = (value | 0) < 0 && imm3 > 0 && result > 0;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // SUBS (Encoding T2)
     else if (opcode >> 11 === 0b00111) {
       const imm8 = opcode & 0xff;
       const Rdn = (opcode >> 8) & 0x7;
-      const value = this.registers[Rdn];
-      const result = (value - imm8) | 0;
+      const leftValue = this.registers[Rdn];
+      const rightValue = imm8;
+      const result = leftValue - rightValue;
       this.registers[Rdn] = result;
-      this.N = value < imm8;
-      this.Z = value === imm8;
-      this.C = value >= imm8;
-      this.V = (value | 0) < 0 && imm8 > 0 && result > 0;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
+      this.C = leftValue >= rightValue;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // SUBS (register)
     else if (opcode >> 9 === 0b0001101) {
@@ -1640,12 +1649,14 @@ export class RP2040 {
       const Rd = opcode & 0x7;
       const leftValue = this.registers[Rn];
       const rightValue = this.registers[Rm];
-      const result = (leftValue - rightValue) | 0;
+      const result = leftValue - rightValue;
       this.registers[Rd] = result;
-      this.N = (leftValue | 0) < (rightValue | 0);
-      this.Z = leftValue === rightValue;
+      this.N = !!(result & 0x80000000);
+      this.Z = (result & 0xffffffff) === 0;
       this.C = leftValue >= rightValue;
-      this.V = (leftValue | 0) < 0 && rightValue > 0 && result > 0;
+      this.V =
+        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
+        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
     }
     // SVC
     else if (opcode >> 8 === 0b11011111) {
