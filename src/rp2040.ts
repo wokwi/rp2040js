@@ -880,7 +880,7 @@ export class RP2040 {
     }
   }
 
-  substractUpdateFlags(minuend: number, subtrahend: number) {
+  private substractUpdateFlags(minuend: number, subtrahend: number) {
     const result = minuend - subtrahend;
     this.N = !!(result & 0x80000000);
     this.Z = (result & 0xffffffff) === 0;
@@ -891,7 +891,7 @@ export class RP2040 {
     return result;
   }
 
-  additionUpdateFlags(addend1: number, addend2: number) {
+  private additionUpdateFlags(addend1: number, addend2: number) {
     const unsignedSum = (addend1 + addend2) >>> 0;
     const signedSum = (addend1 | 0) + (addend2 | 0);
     const result = addend1 + addend2;
