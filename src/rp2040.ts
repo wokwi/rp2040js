@@ -468,6 +468,7 @@ export class RP2040 {
   }
 
   readUint32(address: number) {
+    address = address >>> 0;
     const { bootrom } = this;
     if (address & 0x3) {
       this.logger.error(
@@ -516,6 +517,7 @@ export class RP2040 {
   }
 
   writeUint32(address: number, value: number) {
+    address = address >>> 0;
     const { bootrom } = this;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
@@ -544,7 +546,7 @@ export class RP2040 {
   }
 
   writeUint8(address: number, value: number) {
-    const alignedAddress = address & 0xfffffffc;
+    const alignedAddress = (address & 0xfffffffc) >>> 0;
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
@@ -566,7 +568,7 @@ export class RP2040 {
   writeUint16(address: number, value: number) {
     // we assume that addess is 16-bit aligned.
     // Ideally we should generate a fault if not!
-    const alignedAddress = address & 0xfffffffc;
+    const alignedAddress = (address & 0xfffffffc) >>> 0;
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
@@ -1657,6 +1659,7 @@ export class RP2040 {
   }
 
   slowIO(addr: number) {
+    addr = addr >>> 0;
     return addr < SIO_START_ADDRESS || addr > SIO_START_ADDRESS + 0x10000000;
   }
 

@@ -1210,6 +1210,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(await cpu.readUint8(0x20000000 + 13)).toEqual(0xaa);
   });
 
+  it('should execute a `str r2, [r3, r1]` instruction where r1 + r3 > 32 bits', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSTRreg(r2, r1, r3));
+    await cpu.setRegisters({ r1: -4, r3: 0x20041e50, r2: 0x4201337 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(await cpu.readUint32(0x20041e4c)).toEqual(0x4201337);
+    expect(registers.pc).toEqual(0x20000002);
+  });
+
   it('should execute a `strb r6, [r4, #20]` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeSTRB(r6, r4, 0x1));
