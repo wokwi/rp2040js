@@ -976,6 +976,19 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.C).toEqual(false);
   });
 
+  it('should execute a lsls r3, r4 instruction when shift >31', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeLSLSreg(r3, r4));
+    await cpu.setRegisters({ r3: 1, r4: 0x20, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0);
+    expect(registers.pc).toEqual(0x20000002);
+    expect(registers.N).toEqual(false);
+    expect(registers.C).toEqual(true);
+    expect(registers.Z).toEqual(true);
+  });
+
   it('should execute a `lsls r5, r5, #18` instruction with carry', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLSLSimm(r5, r5, 18));

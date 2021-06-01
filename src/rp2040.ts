@@ -1279,7 +1279,7 @@ export class RP2040 {
       const Rdn = opcode & 0x7;
       const input = this.registers[Rdn];
       const shiftCount = this.registers[Rm] & 0xff;
-      const result = input << shiftCount;
+      const result = shiftCount >= 32 ? 0 : input << shiftCount;
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
