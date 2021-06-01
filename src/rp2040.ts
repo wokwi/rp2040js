@@ -891,7 +891,7 @@ export class RP2040 {
     return result;
   }
 
-  private additionUpdateFlags(addend1: number, addend2: number) {
+  private addUpdateFlags(addend1: number, addend2: number) {
     const unsignedSum = (addend1 + addend2) >>> 0;
     const signedSum = (addend1 | 0) + (addend2 | 0);
     const result = addend1 + addend2;
@@ -916,7 +916,7 @@ export class RP2040 {
     if (opcode >> 6 === 0b0100000101) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
-      this.registers[Rdn] = this.additionUpdateFlags(
+      this.registers[Rdn] = this.addUpdateFlags(
         this.registers[Rm],
         this.registers[Rdn] + (this.C ? 1 : 0)
       );
@@ -937,20 +937,20 @@ export class RP2040 {
       const imm3 = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      this.registers[Rd] = this.additionUpdateFlags(this.registers[Rn], imm3);
+      this.registers[Rd] = this.addUpdateFlags(this.registers[Rn], imm3);
     }
     // ADDS (Encoding T2)
     else if (opcode >> 11 === 0b00110) {
       const imm8 = opcode & 0xff;
       const Rdn = (opcode >> 8) & 0x7;
-      this.registers[Rdn] = this.additionUpdateFlags(this.registers[Rdn], imm8);
+      this.registers[Rdn] = this.addUpdateFlags(this.registers[Rdn], imm8);
     }
     // ADDS (register)
     else if (opcode >> 9 === 0b0001100) {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      this.registers[Rd] = this.additionUpdateFlags(this.registers[Rn], this.registers[Rm]);
+      this.registers[Rd] = this.addUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // ADD (register)
     else if (opcode >> 8 === 0b01000100) {
@@ -1076,7 +1076,7 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001011) {
       const Rm = (opcode >> 3) & 0x7;
       const Rn = opcode & 0x7;
-      this.additionUpdateFlags(this.registers[Rn], this.registers[Rm]);
+      this.addUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
