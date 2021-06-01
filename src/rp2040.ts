@@ -880,6 +880,28 @@ export class RP2040 {
     }
   }
 
+  private substractUpdateFlags(minuend: number, subtrahend: number) {
+    const result = minuend - subtrahend;
+    this.N = !!(result & 0x80000000);
+    this.Z = (result & 0xffffffff) === 0;
+    this.C = minuend >= subtrahend;
+    this.V =
+      (!!(result & 0x80000000) && !(minuend & 0x80000000) && !!(subtrahend & 0x80000000)) ||
+      (!(result & 0x80000000) && !!(minuend & 0x80000000) && !(subtrahend & 0x80000000));
+    return result;
+  }
+
+  private addUpdateFlags(addend1: number, addend2: number) {
+    const unsignedSum = (addend1 + addend2) >>> 0;
+    const signedSum = (addend1 | 0) + (addend2 | 0);
+    const result = addend1 + addend2;
+    this.N = !!(result & 0x80000000);
+    this.Z = (result & 0xffffffff) === 0;
+    this.C = result === unsignedSum ? false : true;
+    this.V = (result | 0) === signedSum ? false : true;
+    return result & 0xffffffff;
+  }
+
   executeInstruction() {
     if (this.interruptsUpdated) {
       this.checkForInterrupts();
@@ -894,16 +916,10 @@ export class RP2040 {
     if (opcode >> 6 === 0b0100000101) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
-      const leftValue = this.registers[Rdn];
-      const rightValue = this.registers[Rm];
-      const unsignedSum = (leftValue + rightValue + (this.C ? 1 : 0)) >>> 0;
-      const signedSum = (leftValue | 0) + (rightValue | 0) + (this.C ? 1 : 0);
-      const result = leftValue + rightValue + (this.C ? 1 : 0);
-      this.registers[Rdn] = result & 0xffffffff;
-      this.N = !!(result & 0x80000000);
-      this.Z = (result & 0xffffffff) === 0;
-      this.C = result === unsignedSum ? false : true;
-      this.V = (result | 0) === signedSum ? false : true;
+      this.registers[Rdn] = this.addUpdateFlags(
+        this.registers[Rm],
+        this.registers[Rdn] + (this.C ? 1 : 0)
+      );
     }
     // ADD (register = SP plus immediate)
     else if (opcode >> 11 === 0b10101) {
@@ -921,41 +937,20 @@ export class RP2040 {
       const imm3 = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const leftValue = this.registers[Rn];
-      const result = leftValue + imm3;
-      this.registers[Rd] = result;
-      this.N = !!(result & 0x80000000);
-      this.Z = (result & 0xffffffff) === 0;
-      this.C = result > 0xffffffff;
-      this.V = (leftValue | 0) > 0 && imm3 < 0x80 && (result | 0) < 0;
+      this.registers[Rd] = this.addUpdateFlags(this.registers[Rn], imm3);
     }
     // ADDS (Encoding T2)
     else if (opcode >> 11 === 0b00110) {
       const imm8 = opcode & 0xff;
       const Rdn = (opcode >> 8) & 0x7;
-      const leftValue = this.registers[Rdn];
-      const result = leftValue + imm8;
-      this.registers[Rdn] = result;
-      this.N = !!(result & 0x80000000);
-      this.Z = (result & 0xffffffff) === 0;
-      this.C = result > 0xffffffff;
-      this.V = (leftValue | 0) > 0 && imm8 < 0x80 && (result | 0) < 0;
+      this.registers[Rdn] = this.addUpdateFlags(this.registers[Rdn], imm8);
     }
     // ADDS (register)
     else if (opcode >> 9 === 0b0001100) {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const leftValue = this.registers[Rn];
-      const rightValue = this.registers[Rm];
-      const unsignedSum = (leftValue + rightValue) >>> 0;
-      const signedSum = (leftValue | 0) + (rightValue | 0);
-      const result = leftValue + rightValue;
-      this.registers[Rd] = result & 0xffffffff;
-      this.N = (result | 0) < 0;
-      this.Z = (result & 0xffffffff) === 0;
-      this.C = result == unsignedSum ? false : true;
-      this.V = (result | 0) == signedSum ? false : true;
+      this.registers[Rd] = this.addUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // ADD (register)
     else if (opcode >> 8 === 0b01000100) {
@@ -1081,52 +1076,25 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001011) {
       const Rm = (opcode >> 3) & 0x7;
       const Rn = opcode & 0x7;
-      const leftValue = this.registers[Rn];
-      const rightValue = this.registers[Rm];
-      const result = leftValue + rightValue;
-      this.N = !!(result & 0x80000000);
-      this.Z = (result & 0xffffffff) === 0;
-      this.C = result > 0xffffffff;
-      this.V = (leftValue | 0) > 0 && rightValue < 0x80 && (result | 0) < 0;
+      this.addUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // CMP immediate
     else if (opcode >> 11 === 0b00101) {
       const Rn = (opcode >> 8) & 0x7;
       const imm8 = opcode & 0xff;
-      const value = this.registers[Rn] | 0;
-      const result = (value - imm8) | 0;
-      this.N = value < imm8;
-      this.Z = value === imm8;
-      this.C = value >>> 0 >= imm8;
-      this.V = value < 0 && imm8 > 0 && result > 0;
+      this.substractUpdateFlags(this.registers[Rn], imm8);
     }
     // CMP (register)
     else if (opcode >> 6 === 0b0100001010) {
       const Rm = (opcode >> 3) & 0x7;
       const Rn = opcode & 0x7;
-      const leftValue = this.registers[Rn];
-      const rightValue = this.registers[Rm];
-      const result = leftValue - rightValue;
-      this.N = !!(result & 0x80000000);
-      this.Z = leftValue === rightValue;
-      this.C = leftValue >= rightValue;
-      this.V =
-        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
-        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
+      this.substractUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // CMP (register) encoding T2
     else if (opcode >> 8 === 0b01000101) {
       const Rm = (opcode >> 3) & 0xf;
       const Rn = ((opcode >> 4) & 0x8) | (opcode & 0x7);
-      const leftValue = this.registers[Rn];
-      const rightValue = this.registers[Rm];
-      const result = leftValue - rightValue;
-      this.N = !!(result & 0x80000000);
-      this.Z = leftValue === rightValue;
-      this.C = leftValue >= rightValue;
-      this.V =
-        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
-        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
+      this.substractUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // CPSID i
     else if (opcode === 0xb672) {
@@ -1475,12 +1443,7 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100001001) {
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const value = this.registers[Rn] | 0;
-      this.registers[Rd] = -value;
-      this.N = value > 0;
-      this.Z = value === 0;
-      this.C = value === 0;
-      this.V = value === 0x7fffffff;
+      this.registers[Rd] = this.substractUpdateFlags(0, this.registers[Rn]);
     }
     // NOP
     else if (opcode === 0b1011111100000000) {
@@ -1490,14 +1453,10 @@ export class RP2040 {
     else if (opcode >> 6 === 0b0100000110) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
-      const operand1 = this.registers[Rdn];
-      const operand2 = this.registers[Rm] + (this.C ? 0 : 1);
-      const result = (operand1 - operand2) | 0;
-      this.registers[Rdn] = result;
-      this.N = (operand1 | 0) < (operand2 | 0);
-      this.Z = (operand1 | 0) === (operand2 | 0);
-      this.C = operand1 >= operand2;
-      this.V = (operand1 | 0) < 0 && operand2 > 0 && result > 0;
+      this.registers[Rdn] = this.substractUpdateFlags(
+        this.registers[Rdn],
+        this.registers[Rm] + (1 - (this.C ? 1 : 0))
+      );
     }
     // SEV
     else if (opcode === 0b1011111101000000) {
@@ -1606,41 +1565,20 @@ export class RP2040 {
       const imm3 = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const value = this.registers[Rn];
-      const result = (value - imm3) | 0;
-      this.registers[Rd] = result;
-      this.N = value < imm3;
-      this.Z = value === imm3;
-      this.C = value >= imm3;
-      this.V = (value | 0) < 0 && imm3 > 0 && result > 0;
+      this.registers[Rd] = this.substractUpdateFlags(this.registers[Rn], imm3);
     }
     // SUBS (Encoding T2)
     else if (opcode >> 11 === 0b00111) {
       const imm8 = opcode & 0xff;
       const Rdn = (opcode >> 8) & 0x7;
-      const value = this.registers[Rdn];
-      const result = (value - imm8) | 0;
-      this.registers[Rdn] = result;
-      this.N = value < imm8;
-      this.Z = value === imm8;
-      this.C = value >= imm8;
-      this.V = (value | 0) < 0 && imm8 > 0 && result > 0;
+      this.registers[Rdn] = this.substractUpdateFlags(this.registers[Rdn], imm8);
     }
     // SUBS (register)
     else if (opcode >> 9 === 0b0001101) {
       const Rm = (opcode >> 6) & 0x7;
       const Rn = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
-      const leftValue = this.registers[Rn];
-      const rightValue = this.registers[Rm];
-      const result = leftValue - rightValue;
-      this.registers[Rd] = result;
-      this.N = !!(result & 0x80000000);
-      this.Z = leftValue === rightValue;
-      this.C = leftValue >= rightValue;
-      this.V =
-        (!!(result & 0x80000000) && !(leftValue & 0x80000000) && !!(rightValue & 0x80000000)) ||
-        (!(result & 0x80000000) && !!(leftValue & 0x80000000) && !(rightValue & 0x80000000));
+      this.registers[Rd] = this.substractUpdateFlags(this.registers[Rn], this.registers[Rm]);
     }
     // SVC
     else if (opcode >> 8 === 0b11011111) {
