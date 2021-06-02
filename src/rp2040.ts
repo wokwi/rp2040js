@@ -1008,20 +1008,22 @@ export class RP2040 {
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = !!((input >>> (imm5 ? imm5 - 1 : 31)) & 0x1);
+      if (imm5) {
+        this.C = input & (1 << (imm5 - 1)) ? true : false;
+      }
     }
     // ASRS (register)
     else if (opcode >> 6 === 0b0100000100) {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
       const input = this.registers[Rdn];
-      const shiftN = this.registers[Rm] & 0xff;
-      const result = this.registers[Rdn] >> shiftN;
+      const shiftN = (this.registers[Rm] & 0xff) < 32 ? this.registers[Rm] & 0xff : 32;
+      const result = shiftN < 32 ? input >> shiftN : (input & 0x80000000) >> 31;
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
       if (shiftN) {
-        this.C = !!((input >>> (shiftN - 1)) & 0x1);
+        this.C = input & (1 << (shiftN - 1)) ? true : false;
       }
     }
     // B (with cond)

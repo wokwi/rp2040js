@@ -332,7 +332,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute an `asrs r3, r2, #31` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeASRS(r3, r2, 31));
-    await cpu.setRegisters({ r2: 0x80000000 });
+    await cpu.setRegisters({ r2: 0x80000000, C: true });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0xffffffff);
@@ -345,7 +345,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute an `asrs r3, r2, #0` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeASRS(r3, r2, 0));
-    await cpu.setRegisters({ r2: 0x80000000 });
+    await cpu.setRegisters({ r2: 0x80000000, C: true });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0xffffffff);
@@ -363,6 +363,58 @@ describe('Cortex-M0+ Instruction Set', () => {
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0xff000000);
+    expect(registers.pc).toEqual(0x20000002);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+  });
+
+  it('should execute an `asrs r3, r4` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeASRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x40000040, r4: 50, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0);
+    expect(registers.pc).toEqual(0x20000002);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(false);
+  });
+
+  it('should execute an `asrs r3, r4` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeASRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x40000040, r4: 31, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0);
+    expect(registers.pc).toEqual(0x20000002);
+    expect(registers.N).toEqual(false);
+    expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(true);
+  });
+
+  it('should execute an `asrs r3, r4` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeASRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x80000040, r4: 50, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0xffffffff);
+    expect(registers.pc).toEqual(0x20000002);
+    expect(registers.N).toEqual(true);
+    expect(registers.Z).toEqual(false);
+    expect(registers.C).toEqual(true);
+  });
+
+  it('should execute an `asrs r3, r4` instruction', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeASRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x80000040, r4: 0, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0x80000040);
     expect(registers.pc).toEqual(0x20000002);
     expect(registers.N).toEqual(true);
     expect(registers.Z).toEqual(false);
