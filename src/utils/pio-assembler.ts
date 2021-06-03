@@ -33,9 +33,9 @@ export const PIO_WAIT_SRC_IRQ = 2;
 
 export const PIO_COND_ALWAYS = 0;
 export const PIO_COND_NOTX = 1;
-export const PIO_COND_NOTXDEC = 2;
+export const PIO_COND_XDEC = 2;
 export const PIO_COND_NOTY = 3;
-export const PIO_COND_NOTYDEC = 4;
+export const PIO_COND_YDEC = 4;
 export const PIO_COND_XNEY = 5;
 export const PIO_COND_PIN = 6;
 export const PIO_COND_NOTEMPTYOSR = 7;
@@ -44,9 +44,9 @@ export function pioJMP(cond: number = 0, address: number, delay: number = 0) {
   return ((delay & 0x1f) << 8) | ((cond & 0x7) << 5) | (address & 0x1f);
 }
 
-export function pioWAIT(pol: number, src: number, index: number, delay: number = 0) {
+export function pioWAIT(pol: boolean, src: number, index: number, delay: number = 0) {
   return (
-    (1 << 13) | ((delay & 0x1f) << 8) | ((pol & 0x1) << 7) | ((src & 0x3) << 5) | (index & 0x1f)
+    (1 << 13) | ((delay & 0x1f) << 8) | ((pol ? 1 : 0) << 7) | ((src & 0x3) << 5) | (index & 0x1f)
   );
 }
 
@@ -58,20 +58,28 @@ export function pioOUT(Dest: number, bitCount: number, delay: number = 0) {
   return (3 << 13) | ((delay & 0x1f) << 8) | ((Dest & 0x7) << 5) | (bitCount & 0x1f);
 }
 
-export function pioPUSH(ifFull: number = 0, blk: number, delay: number = 0) {
-  return (4 << 13) | ((delay & 0x1f) << 8) | ((ifFull & 1) << 6) | ((blk & 1) << 5);
+export function pioPUSH(ifFull: boolean, blk: boolean, delay: number = 0) {
+  return (4 << 13) | ((delay & 0x1f) << 8) | ((ifFull ? 1 : 0) << 6) | ((blk ? 1 : 0) << 5);
 }
 
-export function pioPULL(ifEmpty: number = 0, blk: number, delay: number = 0) {
-  return (4 << 13) | ((delay & 0x1f) << 8) | (1 << 7) | ((ifEmpty & 1) << 6) | ((blk & 1) << 5);
+export function pioPULL(ifEmpty: boolean, blk: boolean, delay: number = 0) {
+  return (
+    (4 << 13) | ((delay & 0x1f) << 8) | (1 << 7) | ((ifEmpty ? 1 : 0) << 6) | ((blk ? 1 : 0) << 5)
+  );
 }
 
 export function pioMOV(dest: number, op: number = 0, src: number, delay: number = 0) {
   return (5 << 13) | ((delay & 0x1f) << 8) | ((dest & 0x7) << 5) | ((op & 0x3) << 3) | (src & 0x3);
 }
 
-export function pioIRQ(clr: number, wait: number, index: number, delay: number = 0) {
-  return (6 << 13) | ((delay & 0x1f) << 8) | ((clr & 1) << 6) | ((wait & 1) << 5) | (index & 0x1f);
+export function pioIRQ(clr: boolean, wait: boolean, index: number, delay: number = 0) {
+  return (
+    (6 << 13) |
+    ((delay & 0x1f) << 8) |
+    ((clr ? 1 : 0) << 6) |
+    ((wait ? 1 : 0) << 5) |
+    (index & 0x1f)
+  );
 }
 
 export function pioSET(dest: number, data: number, delay: number = 0) {
