@@ -1,4 +1,4 @@
-import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../rp2040';
+import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../src/rp2040';
 import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver';
 
 export class RP2040TestDriver implements ICortexTestDriver {

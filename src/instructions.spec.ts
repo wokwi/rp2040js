@@ -1,3 +1,6 @@
+import { createTestDriver } from '../test-utils/create-test-driver';
+import { ICortexTestDriver } from '../test-utils/test-driver';
+import { RP2040TestDriver } from '../test-utils/test-driver-rp2040';
 import { RAM_START_ADDRESS, RP2040 } from './rp2040';
 import {
   opcodeADCS,
@@ -80,10 +83,6 @@ import {
   opcodeWFI,
   opcodeYIELD,
 } from './utils/assembler';
-import { GDBClient } from './utils/gdbclient';
-import { ICortexTestDriver } from './utils/test-driver';
-import { GDBTestDriver } from './utils/test-driver-gdb';
-import { RP2040TestDriver } from './utils/test-driver-rp2040';
 
 const r0 = 0;
 const r1 = 1;
@@ -108,14 +107,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   let cpu: ICortexTestDriver;
 
   beforeEach(async () => {
-    if (process.env.TEST_GDB_SERVER) {
-      const client = new GDBClient();
-      await client.connect(process.env.TEST_GDB_SERVER);
-      cpu = new GDBTestDriver(client);
-      await cpu.init();
-    } else {
-      cpu = new RP2040TestDriver(new RP2040());
-    }
+    cpu = await createTestDriver();
   });
 
   afterEach(async () => {

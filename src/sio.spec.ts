@@ -1,8 +1,6 @@
-import { RP2040, SIO_START_ADDRESS } from './rp2040';
-import { GDBClient } from './utils/gdbclient';
-import { ICortexTestDriver } from './utils/test-driver';
-import { GDBTestDriver } from './utils/test-driver-gdb';
-import { RP2040TestDriver } from './utils/test-driver-rp2040';
+import { createTestDriver } from '../test-utils/create-test-driver';
+import { ICortexTestDriver } from '../test-utils/test-driver';
+import { SIO_START_ADDRESS } from './rp2040';
 
 //Hardware Divider registers absolute address
 const SIO_DIV_UDIVIDEND = SIO_START_ADDRESS + 0x060; //  Divider unsigned dividend
@@ -21,14 +19,7 @@ describe('RPSIO', () => {
   let cpu: ICortexTestDriver;
 
   beforeEach(async () => {
-    if (process.env.TEST_GDB_SERVER) {
-      const client = new GDBClient();
-      await client.connect(process.env.TEST_GDB_SERVER);
-      cpu = new GDBTestDriver(client);
-      await cpu.init();
-    } else {
-      cpu = new RP2040TestDriver(new RP2040());
-    }
+    cpu = await createTestDriver();
   });
 
   afterEach(async () => {
