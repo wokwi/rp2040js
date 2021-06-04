@@ -102,7 +102,8 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_ALWAYS, 0)); // Jump machine 0 to address 0
     // Clear FIFOs
     await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
-    await cpu.writeUint32(SM0_SHIFTCTRL, 0);
+    //values at reset
+    await cpu.writeUint32(SM0_SHIFTCTRL, (1 << 18) | (1 << 19));
     await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
   }
 
@@ -110,13 +111,17 @@ describe('PIO', () => {
   it('should execute a `SET PINS` instruction correctly', async () => {
     // SET PINS, 13
     // then check the debug register and verify that that output from the pins matches the PINS value
-    const shiftAmount = 5;
-    const pinValue = 25;
+    const shiftAmount = 0;
+    const pinsQty = 5;
+    const pinsValue = 13;
     await resetStateMachines();
-    await cpu.writeUint32(SM0_PINCTRL, (5 << SET_COUNT_SHIFT) | (shiftAmount << SET_COUNT_BASE));
-    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_PINS, pinValue));
-    expect((await cpu.readUint32(DBG_PADOUT)) & (pinValue << shiftAmount)).toBe(
-      pinValue << shiftAmount
+    await cpu.writeUint32(
+      SM0_PINCTRL,
+      (pinsQty << SET_COUNT_SHIFT) | (shiftAmount << SET_COUNT_BASE)
+    );
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_PINS, pinsValue));
+    expect((await cpu.readUint32(DBG_PADOUT)) & (((1 << pinsQty) - 1) << shiftAmount)).toBe(
+      pinsValue << shiftAmount
     );
   });
 
