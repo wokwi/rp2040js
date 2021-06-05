@@ -46,6 +46,8 @@ const INSTR_MEM1 = 0x5020004c;
 const INSTR_MEM2 = 0x50200050;
 const INSTR_MEM3 = 0x50200054;
 const SM0_SHIFTCTRL = 0x502000d0;
+const IN_SHIFTDIR = 18;
+const OUT_SHIFTDIR = 19;
 const SM0_ADDR = 0x502000d4;
 const SM0_INSTR = 0x502000d8;
 const SM0_PINCTRL = 0x502000dc;
@@ -103,11 +105,10 @@ describe('PIO', () => {
     // Clear FIFOs
     await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
     //values at reset
-    await cpu.writeUint32(SM0_SHIFTCTRL, (1 << 18) | (1 << 19));
+    await cpu.writeUint32(SM0_SHIFTCTRL, (1 << IN_SHIFTDIR) | (1 << OUT_SHIFTDIR));
     await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
   }
 
-  // TODO figure out why this specific test fails on silicone?
   it('should execute a `SET PINS` instruction correctly', async () => {
     // SET PINS, 13
     // then check the debug register and verify that that output from the pins matches the PINS value
