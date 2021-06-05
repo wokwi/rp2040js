@@ -46,6 +46,8 @@ const INSTR_MEM1 = 0x5020004c;
 const INSTR_MEM2 = 0x50200050;
 const INSTR_MEM3 = 0x50200054;
 const SM0_SHIFTCTRL = 0x502000d0;
+const IN_SHIFTDIR = 18;
+const OUT_SHIFTDIR = 19;
 const SM0_ADDR = 0x502000d4;
 const SM0_INSTR = 0x502000d8;
 const SM0_PINCTRL = 0x502000dc;
@@ -61,6 +63,7 @@ const FJOIN_RX = 1 << 30;
 const DBG_PADOUT = 0x5020003c;
 
 const SET_COUNT_SHIFT = 26;
+const SET_COUNT_BASE = 5;
 const OUT_COUNT_SHIFT = 20;
 
 const VALID_PINS_MASK = 0x3fffffff;
@@ -101,17 +104,26 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_ALWAYS, 0)); // Jump machine 0 to address 0
     // Clear FIFOs
     await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
-    await cpu.writeUint32(SM0_SHIFTCTRL, 0);
+    //values at reset
+    await cpu.writeUint32(SM0_SHIFTCTRL, (1 << IN_SHIFTDIR) | (1 << OUT_SHIFTDIR));
+    await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
   }
 
-  // TODO figure out why this specific test fails on silicone?
-  it.skip('should execute a `SET PINS` instruction correctly', async () => {
+  it('should execute a `SET PINS` instruction correctly', async () => {
     // SET PINS, 13
     // then check the debug register and verify that that output from the pins matches the PINS value
+    const shiftAmount = 0;
+    const pinsQty = 5;
+    const pinsValue = 13;
     await resetStateMachines();
-    await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
-    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_PINS, 13));
-    expect(await cpu.readUint32(DBG_PADOUT)).toBe(13);
+    await cpu.writeUint32(
+      SM0_PINCTRL,
+      (pinsQty << SET_COUNT_SHIFT) | (shiftAmount << SET_COUNT_BASE)
+    );
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_PINS, pinsValue));
+    expect((await cpu.readUint32(DBG_PADOUT)) & (((1 << pinsQty) - 1) << shiftAmount)).toBe(
+      pinsValue << shiftAmount
+    );
   });
 
   it('should execute a `MOV PINS, X` instruction correctly', async () => {
