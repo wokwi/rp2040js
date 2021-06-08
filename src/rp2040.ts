@@ -167,7 +167,7 @@ export class RP2040 {
     new GPIOPin(this, 5, 'SD3'),
   ];
 
-  readonly pio = [new RPPIO(this, 'PIO0'), new RPPIO(this, 'PIO1')];
+  readonly pio = [new RPPIO(this, 'PIO0', 7), new RPPIO(this, 'PIO1', 9)];
 
   private stopped = false;
 
@@ -731,6 +731,17 @@ export class RP2040 {
 
   get systickPriority() {
     return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
+  }
+
+  get gpioValues() {
+    const { gpio } = this;
+    let result = 0;
+    for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
+      if (gpio[gpioIndex].inputValue) {
+        result |= 1 << gpioIndex;
+      }
+    }
+    return result;
   }
 
   exceptionPriority(n: number) {

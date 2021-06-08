@@ -44,7 +44,6 @@ const IRQ = 0x50200030;
 const INSTR_MEM0 = 0x50200048;
 const INSTR_MEM1 = 0x5020004c;
 const INSTR_MEM2 = 0x50200050;
-const INSTR_MEM3 = 0x50200054;
 const SM0_SHIFTCTRL = 0x502000d0;
 const IN_SHIFTDIR = 18;
 const OUT_SHIFTDIR = 19;
@@ -104,7 +103,7 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_ALWAYS, 0)); // Jump machine 0 to address 0
     // Clear FIFOs
     await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
-    //values at reset
+    // Values at reset
     await cpu.writeUint32(SM0_SHIFTCTRL, (1 << IN_SHIFTDIR) | (1 << OUT_SHIFTDIR));
     await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
   }
@@ -310,7 +309,7 @@ describe('PIO', () => {
     expect(await cpu.readUint32(IRQ)).toEqual(0);
   });
 
-  it('should correctly execute a program with an `IRQ 0x13` instruction', async () => {
+  it('should correctly execute a program with an `IRQ 3 rel` instruction', async () => {
     await resetStateMachines();
     await cpu.writeUint32(IRQ, 0xff);
     await cpu.writeUint32(SM2_INSTR, pioIRQ(false, false, 0x13));

@@ -9,6 +9,8 @@ export enum GPIOPinState {
 }
 
 export const FUNCTION_SIO = 5;
+export const FUNCTION_PIO0 = 6;
+export const FUNCTION_PIO1 = 7;
 
 export type GPIOPinListener = (state: GPIOPinState, oldState: GPIOPinState) => void;
 
@@ -99,24 +101,36 @@ export class GPIOPin {
   }
 
   get rawOutputEnable() {
-    switch (this.functionSelect) {
-      case FUNCTION_SIO: {
-        const { index, rp2040 } = this;
-        const bitmask = 1 << index;
+    const { index, rp2040, functionSelect } = this;
+    const bitmask = 1 << index;
+    switch (functionSelect) {
+      case FUNCTION_SIO:
         return !!(rp2040.sio.gpioOutputEnable & bitmask);
-      }
+
+      case FUNCTION_PIO0:
+        return !!(rp2040.pio[0].pinDirections & bitmask);
+
+      case FUNCTION_PIO1:
+        return !!(rp2040.pio[1].pinDirections & bitmask);
+
       default:
         return false;
     }
   }
 
   get rawOutputValue() {
-    switch (this.functionSelect) {
-      case FUNCTION_SIO: {
-        const { index, rp2040 } = this;
-        const bitmask = 1 << index;
+    const { index, rp2040, functionSelect } = this;
+    const bitmask = 1 << index;
+    switch (functionSelect) {
+      case FUNCTION_SIO:
         return !!(rp2040.sio.gpioValue & bitmask);
-      }
+
+      case FUNCTION_PIO0:
+        return !!(rp2040.pio[0].pinValues & bitmask);
+
+      case FUNCTION_PIO1:
+        return !!(rp2040.pio[1].pinValues & bitmask);
+
       default:
         return false;
     }

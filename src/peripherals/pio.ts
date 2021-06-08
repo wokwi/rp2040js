@@ -62,6 +62,18 @@ const FDEBUG_RXSTALL = 1 << 0;
 const SHIFTCTRL_IN_SHIFTDIR = 1 << 18; // 1 = shift input shift register to right (data enters from left). 0 = to left
 const SHIFTCTRL_OUT_SHIFTDIR = 1 << 19; // 1 = shift out of output shift register to right. 0 = to left
 
+// PINCTRL bits
+const PINCTRL_SIDE_PINDIR = 1 << 29;
+const PINCTRL_SIDE_EN = 1 << 30;
+
+enum WaitType {
+  None,
+  Pin,
+  rxFIFO,
+  txFIFO,
+  IRQ,
+}
+
 function bitReverse(x: number) {
   x = ((x & 0x55555555) << 1) | ((x & 0xaaaaaaaa) >> 1);
   x = ((x & 0x33333333) << 2) | ((x & 0xcccccccc) >> 2);
@@ -69,6 +81,11 @@ function bitReverse(x: number) {
   x = ((x & 0x00ff00ff) << 8) | ((x & 0xff00ff00) >> 8);
   x = ((x & 0x0000ffff) << 16) | ((x & 0xffff0000) >> 16);
   return x >>> 0;
+}
+
+function irqIndex(irq: number, machineIndex: number): number {
+  const rel = !!(irq & 0x10);
+  return rel ? (irq & 0x4) | (((irq & 0x3) + machineIndex) & 0x3) : irq & 0x7;
 }
 
 export class StateMachine {
@@ -82,8 +99,9 @@ export class StateMachine {
   inputShiftCount = 0;
   outputShiftReg = 0;
   outputShiftCount = 0;
+  cycles = 0;
 
-  exec: number = 0;
+  execOpcode: number = 0;
   execValid = false;
   updatePC = true;
 
@@ -94,6 +112,15 @@ export class StateMachine {
   pinCtrl = 0x5 << 26;
   readonly rxFIFO = new FIFO(4);
   readonly txFIFO = new FIFO(4);
+
+  outPinValues: number = 0;
+  outPinDirection: number = 0;
+
+  waiting = false;
+  waitType = WaitType.None;
+  waitIndex = 0;
+  waitPolarity = false;
+  waitDelay = -1;
 
   constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {}
 
@@ -153,28 +180,32 @@ export class StateMachine {
         return this.x != this.y;
 
       // PIN: branch on input pin
-      case 0b110:
-        return false; // TODO
+      case 0b110: {
+        const { gpio } = this.rp2040;
+        const { jmpPin } = this;
+        return jmpPin < gpio.length ? gpio[jmpPin].value : false;
+      }
 
       // !OSRE: output shift register not empty
       case 0b111:
-        return this.outputShiftCount > 0;
+        return this.outputShiftCount < this.pullThreshold;
     }
 
     this.pio.error(`jmpCondition with unsupported condition: ${condition}`);
     return false;
   }
 
-  get pins() {
-    // TODO
-    return 0;
+  get inPins() {
+    const { gpioValues } = this.rp2040;
+    const { inBase } = this;
+    return inBase ? (gpioValues << (32 - inBase)) | (gpioValues >>> inBase) : gpioValues;
   }
 
   inSourceValue(source: number) {
     switch (source) {
       // PINS
       case 0b000:
-        return this.pins;
+        return this.inPins;
 
       // X (scratch register X)
       case 0b001:
@@ -249,7 +280,7 @@ export class StateMachine {
 
       // EXEC (Execute OSR shift data as instruction)
       case 0b111:
-        this.exec = value;
+        this.execOpcode = value;
         this.execValid = true;
         break;
     }
@@ -265,18 +296,50 @@ export class StateMachine {
     return value ? value : 32;
   }
 
+  get sidesetCount() {
+    return (this.pinCtrl >> 29) & 0x7;
+  }
+
+  get setCount() {
+    return (this.pinCtrl >> 26) & 0x7;
+  }
+
+  get outCount() {
+    return (this.pinCtrl >> 20) & 0x3f;
+  }
+
+  get inBase() {
+    return (this.pinCtrl >> 15) & 0x1f;
+  }
+
+  get sidesetBase() {
+    return (this.pinCtrl >> 10) & 0x1f;
+  }
+
+  get setBase() {
+    return (this.pinCtrl >> 5) & 0x1f;
+  }
+
+  get outBase() {
+    return (this.pinCtrl >> 0) & 0x1f;
+  }
+
+  get jmpPin() {
+    return (this.execCtrl >> 24) & 0x1f;
+  }
+
   setOutPinDirs(value: number) {
-    throw new Error('Method not implemented.');
+    this.outPinDirection = value;
+    this.pio.pinDirectionsChanged(value, this.outBase, this.outCount);
   }
 
   setOutPins(value: number) {
-    throw new Error('Method not implemented.');
+    this.outPinValues = value;
+    this.pio.pinValuesChanged(value, this.outBase, this.outCount);
   }
 
   executeInstruction(opcode: number) {
-    const delaySideset = (opcode >> 8) & 0x1f;
     const arg = opcode & 0xff;
-    this.updatePC = true;
     switch (opcode >>> 13) {
       /* JMP */
       case 0b000:
@@ -287,17 +350,38 @@ export class StateMachine {
         break;
 
       /* WAIT */
-      case 0b001:
+      case 0b001: {
+        const polarity = !!(arg & 0x80);
+        const source = (arg >> 5) & 0x3;
+        const index = arg & 0x1f;
+        switch (source) {
+          // GPIO:
+          case 0b00:
+            this.wait(WaitType.Pin, polarity, index);
+            break;
+
+          // PIN:
+          case 0b01:
+            this.wait(WaitType.Pin, polarity, (index + this.inBase) % 32);
+            break;
+
+          // IRQ:
+          case 0b10:
+            this.wait(WaitType.IRQ, polarity, irqIndex(index, this.index));
+            break;
+        }
         break;
+      }
 
       /* IN */
       case 0b010: {
         const bitCount = arg & 0x1f;
-        const sourceValue = this.inSourceValue(arg >> 5) & ((1 << bitCount) - 1);
+        let sourceValue = this.inSourceValue(arg >> 5);
         if (bitCount == 0) {
           this.inputShiftReg = sourceValue;
           this.inputShiftCount = 32;
         } else {
+          sourceValue &= (1 << bitCount) - 1;
           if (this.shiftCtrl & SHIFTCTRL_IN_SHIFTDIR) {
             this.inputShiftReg >>>= bitCount;
             this.inputShiftReg |= sourceValue << (32 - bitCount);
@@ -349,8 +433,8 @@ export class StateMachine {
 
       /* PUSH/PULL */
       case 0b100: {
-        const block = !(arg & (1 << 5));
-        const ifFullOrEmpty = !(arg & (1 << 6));
+        const block = !!(arg & (1 << 5));
+        const ifFullOrEmpty = !!(arg & (1 << 6));
         if (arg & 0x1f) {
           // Unknown instruction
           break;
@@ -366,8 +450,7 @@ export class StateMachine {
             this.outputShiftReg = this.txFIFO.pull();
           } else {
             if (block) {
-              // TODO stall!
-              break;
+              this.wait(WaitType.txFIFO, false, 0);
             } else {
               // TODO set FDEBUG_RXSTALL
               this.outputShiftReg = this.x;
@@ -383,8 +466,7 @@ export class StateMachine {
             this.rxFIFO.push(this.inputShiftReg);
           } else {
             if (block) {
-              // TODO stall!
-              break;
+              this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
             } else {
               // TODO set FDEBUG_RXSTALL
             }
@@ -407,12 +489,26 @@ export class StateMachine {
       }
 
       /* IRQ */
-      case 0b110:
+      case 0b110: {
         if (arg & 0x80) {
           // Unknown instruction
           break;
         }
+        const clear = !!(arg & 0x40);
+        const wait = !!(arg & 0x20);
+        const irq = irqIndex(arg & 0x1f, this.index);
+        if (clear) {
+          this.pio.irq &= ~(1 << irq);
+          this.pio.irqUpdated();
+        } else {
+          this.pio.irq |= 1 << irq;
+          this.pio.irqUpdated();
+          if (wait) {
+            this.wait(WaitType.IRQ, false, irq);
+          }
+        }
         break;
+      }
 
       /* SET */
       case 0b111: {
@@ -436,20 +532,70 @@ export class StateMachine {
       }
     }
 
+    this.cycles++;
+
+    const { sidesetCount, pinCtrl } = this;
+    const delaySideset = (opcode >> 8) & 0x1f;
+    const sideEn = !!(pinCtrl & PINCTRL_SIDE_EN);
+    const delay = delaySideset & (1 << (5 - sidesetCount - 1));
+
+    if (sidesetCount && (!sideEn || delaySideset & 0x10)) {
+      const sideset = delaySideset >> (5 - sidesetCount);
+      this.setSideset(sideset, sideEn ? sidesetCount - 1 : sidesetCount);
+    }
+
+    if (this.execValid) {
+      this.execValid = false;
+      this.executeInstruction(this.execOpcode);
+    } else if (this.waiting) {
+      if (this.waitDelay < 0) {
+        this.waitDelay = delay;
+      }
+      this.checkWait();
+    } else {
+      this.cycles += delay;
+    }
+  }
+
+  wait(type: WaitType, polarity: boolean, index: number) {
+    this.waiting = true;
+    this.waitType = type;
+    this.waitPolarity = polarity;
+    this.waitIndex = index;
+    this.waitDelay = -1;
+    this.updatePC = false;
+  }
+
+  step() {
+    if (this.waiting) {
+      this.checkWait();
+      if (this.waiting) {
+        return;
+      }
+    }
+
+    this.updatePC = true;
+    this.executeInstruction(this.pio.instructions[this.pc]);
     if (this.updatePC) {
       this.pc = (this.pc + 1) & 0x1f;
       // TODO wrap
     }
-
-    // TODO delay, but skip the delay if execValid
   }
 
-  setSetPinDirs(data: number) {
-    throw new Error('Method not implemented.');
+  setSetPinDirs(value: number) {
+    this.pio.pinDirectionsChanged(value, this.setBase, this.setCount);
   }
 
-  setSetPins(data: number) {
-    throw new Error('Method not implemented.');
+  setSetPins(value: number) {
+    this.pio.pinValuesChanged(value, this.setBase, this.setCount);
+  }
+
+  setSideset(value: number, count: number) {
+    if (this.pinCtrl & PINCTRL_SIDE_PINDIR) {
+      this.pio.pinDirectionsChanged(value, this.sidesetBase, count);
+    } else {
+      this.pio.pinValuesChanged(value, this.sidesetBase, count);
+    }
   }
 
   transformMovValue(value: number, op: number) {
@@ -489,7 +635,7 @@ export class StateMachine {
 
       // EXEC
       case 0b100:
-        this.exec = value;
+        this.execOpcode = value;
         this.execValid = true;
         break;
 
@@ -571,8 +717,7 @@ export class StateMachine {
     this.inputShiftCount = 0;
     this.outputShiftCount = 0;
     this.inputShiftReg = 0;
-    // TODO the delay counter; the waiting-on-IRQ state;
-    // TODO any stalled instruction written to SMx_INSTR or run by OUT/MOV EXEC
+    this.waiting = false;
     // TODO any pin write left asserted due to OUT_STICKY.
     this.pio.warn('restart not implemented');
   }
@@ -580,11 +725,59 @@ export class StateMachine {
   clkDivRestart() {
     this.pio.warn('clkDivRestart not implemented');
   }
+
+  checkWait() {
+    if (!this.waiting) {
+      return;
+    }
+
+    switch (this.waitType) {
+      case WaitType.IRQ: {
+        const irqValue = !!(this.pio.irq & (1 << this.waitIndex));
+        if (irqValue === this.waitPolarity) {
+          this.waiting = false;
+          if (irqValue) {
+            this.pio.irq &= ~(1 << this.waitIndex);
+          }
+        }
+        break;
+      }
+
+      case WaitType.Pin: {
+        if (
+          this.waitIndex < this.rp2040.gpio.length &&
+          this.rp2040.gpio[this.waitIndex].inputValue === this.waitPolarity
+        ) {
+          this.waiting = false;
+        }
+        break;
+      }
+
+      case WaitType.rxFIFO: {
+        if (!this.rxFIFO.full) {
+          this.rxFIFO.push(this.waitIndex);
+          this.waiting = false;
+        }
+        break;
+      }
+
+      case WaitType.txFIFO: {
+        if (!this.txFIFO.empty) {
+          this.outputShiftReg = this.txFIFO.pull();
+          this.waiting = false;
+        }
+        break;
+      }
+    }
+
+    if (!this.waiting) {
+      this.pc++;
+      this.cycles += this.waitDelay;
+    }
+  }
 }
 
 export class RPPIO extends BasePeripheral implements Peripheral {
-  fdebug = 0;
-
   readonly instructions = new Uint32Array(32);
   readonly machines = [
     new StateMachine(this.rp2040, this, 0),
@@ -593,8 +786,43 @@ export class RPPIO extends BasePeripheral implements Peripheral {
     new StateMachine(this.rp2040, this, 3),
   ];
 
-  constructor(rp2040: RP2040, name: string) {
+  stopped = true;
+  fdebug = 0;
+  inputSyncBypass = 0;
+  irq = 0;
+  pinValues = 0;
+  pinDirections = 0;
+  private runTimer: NodeJS.Timeout | null = null;
+
+  irq0IntEnable = 0;
+  irq0IntForce = 0;
+  irq1IntEnable = 0;
+  irq1IntForce = 0;
+
+  constructor(rp2040: RP2040, name: string, readonly firstIrq: number) {
     super(rp2040, name);
+  }
+
+  get intRaw() {
+    return (
+      ((this.irq & 0xf) >> 8) |
+      (!this.machines[3].txFIFO.full ? 0x80 : 0) |
+      (!this.machines[2].txFIFO.full ? 0x40 : 0) |
+      (!this.machines[1].txFIFO.full ? 0x20 : 0) |
+      (!this.machines[0].txFIFO.full ? 0x10 : 0) |
+      (!this.machines[3].rxFIFO.empty ? 0x08 : 0) |
+      (!this.machines[2].rxFIFO.empty ? 0x04 : 0) |
+      (!this.machines[1].rxFIFO.empty ? 0x02 : 0) |
+      (!this.machines[0].rxFIFO.empty ? 0x01 : 0)
+    );
+  }
+
+  get irq0IntStatus() {
+    return (this.intRaw & this.irq0IntEnable) | this.irq0IntForce;
+  }
+
+  get irq1IntStatus() {
+    return (this.intRaw & this.irq0IntEnable) | this.irq0IntForce;
   }
 
   readUint32(offset: number) {
@@ -639,6 +867,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
           ((this.machines[3].txFIFO.itemCount & 0xf) << 24) |
           ((this.machines[3].rxFIFO.itemCount & 0xf) << 28)
         );
+
       case RXF0:
         return this.machines[0].readFifo();
       case RXF1:
@@ -647,6 +876,32 @@ export class RPPIO extends BasePeripheral implements Peripheral {
         return this.machines[2].readFifo();
       case RXF3:
         return this.machines[3].readFifo();
+      case IRQ:
+        return this.irq;
+      case IRQ_FORCE:
+        return 0;
+      case INPUT_SYNC_BYPASS:
+        return this.inputSyncBypass;
+      case DBG_PADOUT:
+        return this.pinValues;
+      case DBG_PADOE:
+        return this.pinDirections;
+      case DBG_CFGINFO:
+        return 0x200404;
+      case INTR:
+        return this.intRaw;
+      case IRQ0_INTE:
+        return this.irq0IntEnable;
+      case IRQ0_INTF:
+        return this.irq0IntForce;
+      case IRQ0_INTS:
+        return this.irq0IntStatus;
+      case IRQ1_INTE:
+        return this.irq1IntEnable;
+      case IRQ1_INTF:
+        return this.irq1IntForce;
+      case IRQ1_INTS:
+        return this.irq1IntStatus;
     }
     return super.readUint32(offset);
   }
@@ -674,7 +929,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
       return;
     }
     switch (offset) {
-      case CTRL:
+      case CTRL: {
         for (let index = 0; index < 4; index++) {
           this.machines[index].enabled = value & (1 << index) ? true : false;
           if (value & (1 << (4 + index))) {
@@ -684,7 +939,16 @@ export class RPPIO extends BasePeripheral implements Peripheral {
             this.machines[index].clkDivRestart();
           }
         }
+        const shouldRun = value & 0xf;
+        if (this.stopped && shouldRun) {
+          this.stopped = false;
+          this.run();
+        }
+        if (!shouldRun) {
+          this.stopped = true;
+        }
         break;
+      }
       case FDEBUG:
         this.fdebug &= ~value;
         break;
@@ -700,9 +964,103 @@ export class RPPIO extends BasePeripheral implements Peripheral {
       case TXF3:
         this.machines[3].writeFifo(value);
         break;
-
+      case IRQ:
+        this.irq &= ~value;
+        this.irqUpdated();
+        break;
+      case INPUT_SYNC_BYPASS:
+        this.inputSyncBypass = value;
+        break;
+      case IRQ_FORCE:
+        this.irq |= value;
+        this.irqUpdated();
+        break;
+      case IRQ0_INTE:
+        this.irq0IntEnable = value & 0xfff;
+        this.checkInterrupts();
+        break;
+      case IRQ0_INTF:
+        this.irq0IntForce = value & 0xfff;
+        this.checkInterrupts();
+        break;
+      case IRQ1_INTE:
+        this.irq1IntEnable = value & 0xfff;
+        this.checkInterrupts();
+        break;
+      case IRQ1_INTF:
+        this.irq1IntForce = value & 0xfff;
+        this.checkInterrupts();
+        break;
       default:
         super.writeUint32(offset, value);
+    }
+  }
+
+  notifyGPIOUpdate(updatedPins: number) {
+    if (updatedPins) {
+      const { gpio } = this.rp2040;
+      for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
+        if (updatedPins & (1 << gpioIndex)) {
+          gpio[gpioIndex].checkForUpdates();
+        }
+      }
+    }
+  }
+
+  pinValuesChanged(value: number, firstPin: number, count: number) {
+    // TODO: wrapping after pin 31
+    const mask = count > 31 ? 0xffffffff : ((1 << count) - 1) << firstPin;
+    const { pinValues } = this;
+    const newValue = ((pinValues & ~mask) | ((value << firstPin) & mask)) & 0x3fffffff;
+    this.pinValues = newValue;
+    this.notifyGPIOUpdate(pinValues ^ newValue);
+  }
+
+  pinDirectionsChanged(value: number, firstPin: number, count: number) {
+    // TODO: wrapping after pin 31
+    const mask = count > 31 ? 0xffffffff : ((1 << count) - 1) << firstPin;
+    const { pinDirections } = this;
+    const newValue = ((this.pinDirections & ~mask) | ((value << firstPin) & mask)) & 0x3fffffff;
+    this.pinDirections = newValue;
+    this.notifyGPIOUpdate(pinDirections ^ newValue);
+  }
+
+  checkInterrupts() {
+    const { firstIrq } = this;
+    this.rp2040.setInterrupt(firstIrq, !!this.irq0IntStatus);
+    this.rp2040.setInterrupt(firstIrq + 1, !!this.irq1IntStatus);
+  }
+
+  irqUpdated() {
+    for (const machine of this.machines) {
+      machine.checkWait();
+    }
+    this.checkInterrupts();
+  }
+
+  step() {
+    for (const machine of this.machines) {
+      machine.step();
+    }
+  }
+
+  run() {
+    for (let i = 0; i < 1000 && !this.stopped; i++) {
+      this.step();
+    }
+    if (!this.stopped) {
+      this.runTimer = setTimeout(() => this.run(), 0);
+    }
+  }
+
+  stop() {
+    for (const machine of this.machines) {
+      machine.enabled = false;
+    }
+    this.stopped = true;
+    if (this.runTimer) {
+      clearTimeout(this.runTimer);
+      this.runTimer = null;
     }
   }
 }

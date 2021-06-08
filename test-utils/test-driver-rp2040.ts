@@ -9,7 +9,8 @@ export class RP2040TestDriver implements ICortexTestDriver {
   }
 
   async tearDown() {
-    /* this page intentionally left blank ! */
+    this.rp2040.pio[0].stop();
+    this.rp2040.pio[1].stop();
   }
 
   async setPC(pcValue: number) {
