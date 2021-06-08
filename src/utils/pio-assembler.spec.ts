@@ -23,7 +23,7 @@ describe('pio-assembler', () => {
   });
 
   it('should correctly encode an `wait 1 gpio 12` pio instruction', () => {
-    expect(pioWAIT(1, PIO_WAIT_SRC_GPIO, 12)).toEqual(0x208c);
+    expect(pioWAIT(true, PIO_WAIT_SRC_GPIO, 12)).toEqual(0x208c);
   });
 
   it('should correctly encode an `in X, 12` pio instruction', () => {
@@ -35,11 +35,11 @@ describe('pio-assembler', () => {
   });
 
   it('should correctly encode an `push iffull noblock` pio instruction', () => {
-    expect(pioPUSH(1, 1, 12)).toEqual(0x8c60);
+    expect(pioPUSH(true, true, 12)).toEqual(0x8c60);
   });
 
   it('should correctly encode an `pull block` pio instruction', () => {
-    expect(pioPULL(1, 0)).toEqual(0x80c0);
+    expect(pioPULL(true, false)).toEqual(0x80c0);
   });
 
   it('should correctly encode an `mov X, !STATUS` pio instruction', () => {
@@ -47,7 +47,7 @@ describe('pio-assembler', () => {
   });
 
   it('should correctly encode an `irq set 4` pio instruction', () => {
-    expect(pioIRQ(0, 0, 4)).toEqual(0xc004);
+    expect(pioIRQ(false, false, 4)).toEqual(0xc004);
   });
 
   it('should correctly encode an `set X, 12` pio instruction', () => {
