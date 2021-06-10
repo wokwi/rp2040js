@@ -537,7 +537,7 @@ export class StateMachine {
     const { sidesetCount, pinCtrl } = this;
     const delaySideset = (opcode >> 8) & 0x1f;
     const sideEn = !!(pinCtrl & PINCTRL_SIDE_EN);
-    const delay = delaySideset & (1 << (5 - sidesetCount - 1));
+    const delay = delaySideset & ((1 << (5 - sidesetCount)) - 1);
 
     if (sidesetCount && (!sideEn || delaySideset & 0x10)) {
       const sideset = delaySideset >> (5 - sidesetCount);
