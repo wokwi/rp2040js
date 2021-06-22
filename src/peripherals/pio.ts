@@ -805,7 +805,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
 
   get intRaw() {
     return (
-      ((this.irq & 0xf) >> 8) |
+      ((this.irq & 0xf) << 8) |
       (!this.machines[3].txFIFO.full ? 0x80 : 0) |
       (!this.machines[2].txFIFO.full ? 0x40 : 0) |
       (!this.machines[1].txFIFO.full ? 0x20 : 0) |

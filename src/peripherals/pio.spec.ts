@@ -51,6 +51,7 @@ const SM0_ADDR = 0x502000d4;
 const SM0_INSTR = 0x502000d8;
 const SM0_PINCTRL = 0x502000dc;
 const SM2_INSTR = 0x50200108;
+const INTR = 0x50200128;
 
 // SHIFTs for FLEVEL
 const TX0_SHIFT = 0;
@@ -346,5 +347,12 @@ describe('PIO', () => {
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
     await cpu.writeUint32(IRQ, 1 << 7); // Clear IRQ 7
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(2);
+  });
+
+  it('should update INTR after executing an `IRQ 2` instruction', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(IRQ, 0xff); // Clear all IRQs
+    await cpu.writeUint32(SM2_INSTR, pioIRQ(false, false, 0x2));
+    expect((await cpu.readUint32(INTR)) & 0xf00).toEqual(1 << 10);
   });
 });
