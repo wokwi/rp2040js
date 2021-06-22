@@ -62,9 +62,9 @@ const FDEBUG_RXSTALL = 1 << 0;
 const SHIFTCTRL_IN_SHIFTDIR = 1 << 18; // 1 = shift input shift register to right (data enters from left). 0 = to left
 const SHIFTCTRL_OUT_SHIFTDIR = 1 << 19; // 1 = shift out of output shift register to right. 0 = to left
 
-// PINCTRL bits
-const PINCTRL_SIDE_PINDIR = 1 << 29;
-const PINCTRL_SIDE_EN = 1 << 30;
+// EXECCTRL bits
+const EXECCTRL_SIDE_PINDIR = 1 << 29;
+const EXECCTRL_SIDE_EN = 1 << 30;
 
 enum WaitType {
   None,
@@ -534,9 +534,9 @@ export class StateMachine {
 
     this.cycles++;
 
-    const { sidesetCount, pinCtrl } = this;
+    const { sidesetCount, execCtrl } = this;
     const delaySideset = (opcode >> 8) & 0x1f;
-    const sideEn = !!(pinCtrl & PINCTRL_SIDE_EN);
+    const sideEn = !!(execCtrl & EXECCTRL_SIDE_EN);
     const delay = delaySideset & ((1 << (5 - sidesetCount)) - 1);
 
     if (sidesetCount && (!sideEn || delaySideset & 0x10)) {
@@ -591,7 +591,7 @@ export class StateMachine {
   }
 
   setSideset(value: number, count: number) {
-    if (this.pinCtrl & PINCTRL_SIDE_PINDIR) {
+    if (this.execCtrl & EXECCTRL_SIDE_PINDIR) {
       this.pio.pinDirectionsChanged(value, this.sidesetBase, count);
     } else {
       this.pio.pinValuesChanged(value, this.sidesetBase, count);
