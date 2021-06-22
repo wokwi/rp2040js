@@ -65,6 +65,7 @@ const SHIFTCTRL_IN_SHIFTDIR = 1 << 18; // 1 = shift input shift register to righ
 const SHIFTCTRL_OUT_SHIFTDIR = 1 << 19; // 1 = shift out of output shift register to right. 0 = to left
 
 // EXECCTRL bits
+const EXECCTRL_STATUS_SEL = 1 << 4;
 const EXECCTRL_SIDE_PINDIR = 1 << 29;
 const EXECCTRL_SIDE_EN = 1 << 30;
 const EXECCTRL_EXEC_STALLED = 1 << 31;
@@ -148,10 +149,12 @@ export class StateMachine {
   }
 
   get status() {
-    // TODO
-    // The STATUS source has a value of all-ones or all-zeroes, depending on some state machine status such as FIFO
-    // full/empty, configured by EXECCTRL_STATUS_SEL.
-    return 0;
+    const statusN = this.execCtrl & 0xf;
+    if (this.execCtrl & EXECCTRL_STATUS_SEL) {
+      return this.rxFIFO.itemCount < statusN ? 0xffffffff : 0;
+    } else {
+      return this.txFIFO.itemCount < statusN ? 0xffffffff : 0;
+    }
   }
 
   jmpCondition(condition: number) {

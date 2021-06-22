@@ -23,6 +23,7 @@ import {
   PIO_DEST_PINS,
   PIO_DEST_X,
   PIO_DEST_Y,
+  PIO_MOV_DEST_ISR,
   PIO_MOV_DEST_OSR,
   PIO_MOV_DEST_PC,
   PIO_MOV_DEST_X,
@@ -31,6 +32,7 @@ import {
   PIO_OP_INVERT,
   PIO_OP_NONE,
   PIO_SRC_NULL,
+  PIO_SRC_STATUS,
   PIO_SRC_X,
   PIO_SRC_Y,
   PIO_WAIT_SRC_IRQ,
@@ -68,8 +70,10 @@ const SHIFTCTRL_PUSH_THRESH_SHIFT = 20;
 
 // EXECCTRL bits:
 const EXECCTRL_EXEC_STALLED = 1 << 31;
+const EXECCTRL_STATUS_SEL = 1 << 4;
 const EXECCTRL_WRAP_BOTTOM_SHIFT = 7;
 const EXECCTRL_WRAP_TOP_SHIFT = 12;
+const EXECCTRL_STATUS_N_SHIFT = 0;
 
 const DBG_PADOUT = 0x5020003c;
 
@@ -156,6 +160,32 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_Y, 23));
     await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_MOV_DEST_PC, PIO_OP_NONE, PIO_SRC_Y));
     expect(await cpu.readUint32(SM0_ADDR)).toBe(23);
+  });
+
+  it('should correctly a `MOV ISR, STATUS` instruction when the STATUS_SEL is 0 (TX FIFO)', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(SM0_EXECCTRL, 2 << EXECCTRL_STATUS_N_SHIFT);
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_MOV_DEST_ISR, PIO_OP_NONE, PIO_SRC_STATUS));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+    expect(await cpu.readUint32(RXF0)).toBe(0xffffffff);
+
+    await cpu.writeUint32(TXF0, 1);
+    await cpu.writeUint32(TXF0, 2);
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_MOV_DEST_ISR, PIO_OP_NONE, PIO_SRC_STATUS));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+    expect(await cpu.readUint32(RXF0)).toBe(0);
+  });
+
+  it('should correctly a `MOV ISR, STATUS` instruction when the STATUS_SEL is 1 (RX FIFO)', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(SM0_EXECCTRL, (1 << EXECCTRL_STATUS_N_SHIFT) | EXECCTRL_STATUS_SEL);
+
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_MOV_DEST_ISR, PIO_OP_NONE, PIO_SRC_STATUS));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_MOV_DEST_ISR, PIO_OP_NONE, PIO_SRC_STATUS));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+    expect(await cpu.readUint32(RXF0)).toBe(0xffffffff);
+    expect(await cpu.readUint32(RXF0)).toBe(0);
   });
 
   it('should correctly execute a `JMP` (always) instruction', async () => {

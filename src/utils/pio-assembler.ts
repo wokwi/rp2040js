@@ -77,7 +77,7 @@ export function pioPULL(ifEmpty: boolean, noBlock: boolean, delay: number = 0) {
 }
 
 export function pioMOV(dest: number, op: number = 0, src: number, delay: number = 0) {
-  return (5 << 13) | ((delay & 0x1f) << 8) | ((dest & 0x7) << 5) | ((op & 0x3) << 3) | (src & 0x3);
+  return (5 << 13) | ((delay & 0x1f) << 8) | ((dest & 0x7) << 5) | ((op & 0x3) << 3) | (src & 0x7);
 }
 
 export function pioIRQ(clear: boolean, wait: boolean, index: number, delay: number = 0) {

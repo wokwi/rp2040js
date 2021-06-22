@@ -43,7 +43,7 @@ describe('pio-assembler', () => {
   });
 
   it('should correctly encode an `mov X, !STATUS` pio instruction', () => {
-    expect(pioMOV(PIO_MOV_DEST_X, PIO_OP_INVERT, PIO_SRC_STATUS)).toEqual(0xa029);
+    expect(pioMOV(PIO_MOV_DEST_X, PIO_OP_INVERT, PIO_SRC_STATUS)).toEqual(0xa02d);
   });
 
   it('should correctly encode an `irq set 4` pio instruction', () => {
