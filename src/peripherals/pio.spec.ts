@@ -46,8 +46,6 @@ const INSTR_MEM1 = 0x5020004c;
 const INSTR_MEM2 = 0x50200050;
 const INSTR_MEM3 = 0x50200054;
 const SM0_SHIFTCTRL = 0x502000d0;
-const IN_SHIFTDIR = 18;
-const OUT_SHIFTDIR = 19;
 const SM0_EXECCTRL = 0x502000cc;
 const SM0_ADDR = 0x502000d4;
 const SM0_INSTR = 0x502000d8;
@@ -61,8 +59,15 @@ const RX0_SHIFT = 4;
 
 // SM0_SHIFTCTRL bits:
 const FJOIN_RX = 1 << 30;
+const IN_SHIFTDIR = 1 << 18;
+const OUT_SHIFTDIR = 1 << 19;
+const SHIFTCTRL_AUTOPULL = 1 << 17;
+const SHIFTCTRL_AUTOPUSH = 1 << 16;
+const SHIFTCTRL_PULL_THRESH_SHIFT = 25;
+const SHIFTCTRL_PUSH_THRESH_SHIFT = 20;
 
-// EXECCTRL shifts:
+// EXECCTRL bits:
+const EXECCTRL_EXEC_STALLED = 1 << 31;
 const EXECCTRL_WRAP_BOTTOM_SHIFT = 7;
 const EXECCTRL_WRAP_TOP_SHIFT = 12;
 
@@ -73,26 +78,6 @@ const SET_COUNT_BASE = 5;
 const OUT_COUNT_SHIFT = 20;
 
 const VALID_PINS_MASK = 0x3fffffff;
-
-// TODO:
-//
-// Instructions:
-// - JMP PIN
-// - SET PINDIRS
-// - MOV EXEC
-// - MOV ISR
-// - some more
-//
-// Behaviors:
-// - FIFO joinning (FJOIN_RX / FJOIN_TX)
-// - Shift direction (OUT_SHIFTDIR / IN_SHIFTDIR)
-// - Auto pull/push (PULL_THRESH / PUSH_THRESH / AUTOPULL / AUTOPUSH)
-// - Sidepins (SIDE_EN / SIDE_PINDIR)
-// - Inline OUT enable (OUT_EN_SEL / INLINE_OUT_EN)
-// - Out sticky (OUT_STICKY)
-// - Wrapping (WRAP_TOP/WRAP_BOTTOM)
-// - STATUS (STATUS_SEL / STATUS_N)
-// - Delay bits
 
 describe('PIO', () => {
   let cpu: ICortexTestDriver;
@@ -111,7 +96,7 @@ describe('PIO', () => {
     // Clear FIFOs
     await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
     // Values at reset
-    await cpu.writeUint32(SM0_SHIFTCTRL, (1 << IN_SHIFTDIR) | (1 << OUT_SHIFTDIR));
+    await cpu.writeUint32(SM0_SHIFTCTRL, IN_SHIFTDIR | OUT_SHIFTDIR);
     await cpu.writeUint32(SM0_PINCTRL, 5 << SET_COUNT_SHIFT);
   }
 
@@ -398,5 +383,116 @@ describe('PIO', () => {
 
     await cpu.writeUint32(CTRL, 1); // Starts State Machine #0
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
+  });
+
+  it('should automatically pull when Autopull is enabled', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+    await cpu.writeUint32(TXF0, 0x5);
+    await cpu.writeUint32(TXF0, 0x6);
+    await cpu.writeUint32(TXF0, 0x7);
+
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 4)); // 5
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 4));
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 4)); // 6
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 4));
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 4)); // 7
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 4));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+
+    expect(await cpu.readUint32(RXF0)).toEqual(0x567);
+  });
+
+  it('should not Autopull in the middle of OUT instruction', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+    await cpu.writeUint32(TXF0, 0x25);
+    await cpu.writeUint32(TXF0, 0x36);
+
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+
+    expect(await cpu.readUint32(RXF0)).toEqual(0x25);
+  });
+
+  it('should stall until the TX FIFO fills when executing an OUT instruction with Autopull', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 4));
+
+    expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(
+      EXECCTRL_EXEC_STALLED
+    );
+
+    console.log('now writing to TXF0');
+    await cpu.writeUint32(TXF0, 0x36); // Unstalls the machine
+    expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(0);
+  });
+
+  it('should automatically push when Autopush is enabled', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 0x13));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+
+    expect(await cpu.readUint32(RXF0)).toEqual(0x13);
+  });
+
+  it('should only Autopush at the end the the IN instruction', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_DEST_X, PIO_OP_INVERT, PIO_SRC_NULL));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 16));
+
+    expect(await cpu.readUint32(RXF0)).toEqual(0xffff);
+  });
+
+  it('should stall until the RX FIFO has capacity when executing an IN instruction with Autopush', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_SHIFTCTRL,
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+    );
+
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 15));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 16));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 17));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 18));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8));
+    await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 19));
+    await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8)); // Should fill the RX FIFO and stall!
+
+    expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(
+      EXECCTRL_EXEC_STALLED
+    );
+
+    expect(await cpu.readUint16(RXF0)).toEqual(15); // Unstalls the machine
+    expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(0);
+    expect(await cpu.readUint16(RXF0)).toEqual(16);
+    expect(await cpu.readUint16(RXF0)).toEqual(17);
+    expect(await cpu.readUint16(RXF0)).toEqual(18);
+    expect(await cpu.readUint16(RXF0)).toEqual(19);
   });
 });

@@ -59,12 +59,15 @@ const FDEBUG_RXUNDER = 1 << 8;
 const FDEBUG_RXSTALL = 1 << 0;
 
 // SHIFTCTRL bits
+const SHIFTCTRL_AUTOPUSH = 1 << 16;
+const SHIFTCTRL_AUTOPULL = 1 << 17;
 const SHIFTCTRL_IN_SHIFTDIR = 1 << 18; // 1 = shift input shift register to right (data enters from left). 0 = to left
 const SHIFTCTRL_OUT_SHIFTDIR = 1 << 19; // 1 = shift out of output shift register to right. 0 = to left
 
 // EXECCTRL bits
 const EXECCTRL_SIDE_PINDIR = 1 << 29;
 const EXECCTRL_SIDE_EN = 1 << 30;
+const EXECCTRL_EXEC_STALLED = 1 << 31;
 
 enum WaitType {
   None,
@@ -72,6 +75,7 @@ enum WaitType {
   rxFIFO,
   txFIFO,
   IRQ,
+  Out, // Out instruction
 }
 
 function bitReverse(x: number) {
@@ -124,20 +128,23 @@ export class StateMachine {
 
   constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {}
 
-  writeFifo(value: number) {
+  writeFIFO(value: number) {
     if (!this.txFIFO.full) {
       this.txFIFO.push(value);
     } else {
       this.pio.fdebug |= FDEBUG_TXOVER << this.index;
     }
+    this.checkWait();
   }
 
-  readFifo() {
+  readFIFO() {
     if (this.rxFIFO.empty) {
       this.pio.fdebug |= FDEBUG_RXUNDER << this.index;
       return 0;
     }
-    return this.rxFIFO.pull();
+    const result = this.rxFIFO.pull();
+    this.checkWait();
+    return result;
   }
 
   get status() {
@@ -346,6 +353,30 @@ export class StateMachine {
     this.pio.pinValuesChanged(value, this.outBase, this.outCount);
   }
 
+  outInstruction(arg: number) {
+    const bitCount = arg & 0x1f;
+    const destination = arg >> 5;
+
+    if (bitCount === 0) {
+      this.writeOutValue(destination, this.outputShiftReg, 32);
+      this.outputShiftCount = 32;
+    } else {
+      if (this.shiftCtrl & SHIFTCTRL_OUT_SHIFTDIR) {
+        const value = this.outputShiftReg & ((1 << bitCount) - 1);
+        this.outputShiftReg >>>= bitCount;
+        this.writeOutValue(destination, value, bitCount);
+      } else {
+        const value = this.outputShiftReg >>> (32 - bitCount);
+        this.outputShiftReg <<= bitCount;
+        this.writeOutValue(destination, value, bitCount);
+      }
+      this.outputShiftCount += bitCount;
+      if (this.outputShiftCount > 32) {
+        this.outputShiftCount = 32;
+      }
+    }
+  }
+
   executeInstruction(opcode: number) {
     const arg = opcode & 0xff;
     switch (opcode >>> 13) {
@@ -385,6 +416,7 @@ export class StateMachine {
       case 0b010: {
         const bitCount = arg & 0x1f;
         let sourceValue = this.inSourceValue(arg >> 5);
+
         if (bitCount == 0) {
           this.inputShiftReg = sourceValue;
           this.inputShiftCount = 32;
@@ -402,40 +434,36 @@ export class StateMachine {
             this.inputShiftCount = 32;
           }
         }
-        // TODO
-        // If automatic push is enabled, IN will also push the ISR contents to the RX FIFO if the push threshold is reached
-        // (SHIFTCTRL_PUSH_THRESH). IN still executes in one cycle, whether an automatic push takes place or not. The state machine
-        // will stall if the RX FIFO is full when an automatic push occurs. An automatic push clears the ISR contents to all-zeroes,
-        // and clears the input shift count. See Section 3.5.4.
+
+        if (this.shiftCtrl & SHIFTCTRL_AUTOPUSH && this.inputShiftCount >= this.pushThreshold) {
+          if (!this.rxFIFO.full) {
+            this.rxFIFO.push(this.inputShiftReg);
+          } else {
+            this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
+            this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
+          }
+          this.inputShiftCount = 0;
+          this.inputShiftReg = 0;
+        }
+
         break;
       }
 
       /* OUT */
       case 0b011: {
-        const bitCount = arg & 0x1f;
-        const destination = arg >> 5;
-        if (bitCount === 0) {
-          this.writeOutValue(destination, this.outputShiftReg, 32);
-          this.outputShiftCount = 32;
-        } else {
-          if (this.shiftCtrl & SHIFTCTRL_OUT_SHIFTDIR) {
-            const value = this.outputShiftReg & ((1 << bitCount) - 1);
-            this.outputShiftReg >>>= bitCount;
-            this.writeOutValue(destination, value, bitCount);
+        if (this.shiftCtrl & SHIFTCTRL_AUTOPULL && this.outputShiftCount >= this.pullThreshold) {
+          this.outputShiftCount = 0;
+          if (!this.txFIFO.empty) {
+            this.outputShiftReg = this.txFIFO.pull();
           } else {
-            const value = this.outputShiftReg >>> (32 - bitCount);
-            this.outputShiftReg <<= bitCount;
-            this.writeOutValue(destination, value, bitCount);
-          }
-          this.outputShiftCount += bitCount;
-          if (this.outputShiftCount > 32) {
-            this.outputShiftCount = 32;
+            this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
+            this.wait(WaitType.Out, false, arg);
           }
         }
-        // TODO
-        // If automatic pull is enabled, the OSR is automatically refilled from the TX FIFO if the pull threshold, SHIFTCTRL_PULL_THRESH,
-        // is reached. The output shift count is simultaneously cleared to 0. In this case, the OUT will stall if the TX FIFO is empty,
-        // but otherwise still executes in one cycle. The specifics are given in Section 3.5.4.
+
+        if (!this.waiting) {
+          this.outInstruction(arg);
+        }
         break;
       }
 
@@ -449,34 +477,39 @@ export class StateMachine {
         }
         if (arg & 0x80) {
           // PULL
-          if (ifFullOrEmpty && this.outputShiftCount < this.pullThreshold) {
+          if (
+            ifFullOrEmpty &&
+            this.shiftCtrl & SHIFTCTRL_AUTOPULL &&
+            this.outputShiftCount < this.pullThreshold
+          ) {
             break;
           }
-          // TODO When autopull is enabled, any PULL instruction is a no-op when the OSR is full, so that the PULL instruction behaves as
-          // a barrier. OUT NULL, 32 can be used to explicitly discard the OSR contents
           if (!this.txFIFO.empty) {
             this.outputShiftReg = this.txFIFO.pull();
           } else {
+            this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
             if (block) {
               this.wait(WaitType.txFIFO, false, 0);
             } else {
-              // TODO set FDEBUG_RXSTALL
               this.outputShiftReg = this.x;
             }
           }
           this.outputShiftCount = 0;
         } else {
           // PUSH
-          if (ifFullOrEmpty && this.inputShiftCount < this.pushThreshold) {
+          if (
+            ifFullOrEmpty &&
+            this.shiftCtrl & SHIFTCTRL_AUTOPUSH &&
+            this.inputShiftCount < this.pushThreshold
+          ) {
             break;
           }
           if (!this.rxFIFO.full) {
             this.rxFIFO.push(this.inputShiftReg);
           } else {
+            this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
             if (block) {
               this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
-            } else {
-              // TODO set FDEBUG_RXSTALL
             }
           }
           this.inputShiftReg = 0;
@@ -710,6 +743,9 @@ export class StateMachine {
         break;
       case SM0_INSTR:
         this.executeInstruction(value & 0xffff);
+        if (this.waiting) {
+          this.execCtrl |= EXECCTRL_EXEC_STALLED;
+        }
         break;
       case SM0_PINCTRL:
         this.pinCtrl = value;
@@ -730,7 +766,7 @@ export class StateMachine {
 
   restart() {
     this.inputShiftCount = 0;
-    this.outputShiftCount = 0;
+    this.outputShiftCount = 32;
     this.inputShiftReg = 0;
     this.waiting = false;
     // TODO any pin write left asserted due to OUT_STICKY.
@@ -770,6 +806,7 @@ export class StateMachine {
 
       case WaitType.rxFIFO: {
         if (!this.rxFIFO.full) {
+          console.log('push', this.waitIndex);
           this.rxFIFO.push(this.waitIndex);
           this.waiting = false;
         }
@@ -783,11 +820,21 @@ export class StateMachine {
         }
         break;
       }
+
+      case WaitType.Out: {
+        if (!this.txFIFO.empty) {
+          this.outputShiftReg = this.txFIFO.pull();
+          this.outInstruction(this.waitIndex);
+          this.waiting = false;
+        }
+        break;
+      }
     }
 
     if (!this.waiting) {
       this.nextPC();
       this.cycles += this.waitDelay;
+      this.execCtrl &= ~EXECCTRL_EXEC_STALLED;
     }
   }
 }
@@ -884,13 +931,13 @@ export class RPPIO extends BasePeripheral implements Peripheral {
         );
 
       case RXF0:
-        return this.machines[0].readFifo();
+        return this.machines[0].readFIFO();
       case RXF1:
-        return this.machines[1].readFifo();
+        return this.machines[1].readFIFO();
       case RXF2:
-        return this.machines[2].readFifo();
+        return this.machines[2].readFIFO();
       case RXF3:
-        return this.machines[3].readFifo();
+        return this.machines[3].readFIFO();
       case IRQ:
         return this.irq;
       case IRQ_FORCE:
@@ -968,16 +1015,16 @@ export class RPPIO extends BasePeripheral implements Peripheral {
         this.fdebug &= ~value;
         break;
       case TXF0:
-        this.machines[0].writeFifo(value);
+        this.machines[0].writeFIFO(value);
         break;
       case TXF1:
-        this.machines[1].writeFifo(value);
+        this.machines[1].writeFIFO(value);
         break;
       case TXF2:
-        this.machines[2].writeFifo(value);
+        this.machines[2].writeFIFO(value);
         break;
       case TXF3:
-        this.machines[3].writeFifo(value);
+        this.machines[3].writeFIFO(value);
         break;
       case IRQ:
         this.irq &= ~value;
