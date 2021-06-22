@@ -857,6 +857,8 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   irq = 0;
   pinValues = 0;
   pinDirections = 0;
+  oldPinValues = 0;
+  oldPinDirections = 0;
   private runTimer: NodeJS.Timeout | null = null;
 
   irq0IntEnable = 0;
@@ -1061,33 +1063,18 @@ export class RPPIO extends BasePeripheral implements Peripheral {
     }
   }
 
-  notifyGPIOUpdate(updatedPins: number) {
-    if (updatedPins) {
-      const { gpio } = this.rp2040;
-      for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
-        if (updatedPins & (1 << gpioIndex)) {
-          gpio[gpioIndex].checkForUpdates();
-        }
-      }
-    }
-  }
-
   pinValuesChanged(value: number, firstPin: number, count: number) {
     // TODO: wrapping after pin 31
     const mask = count > 31 ? 0xffffffff : ((1 << count) - 1) << firstPin;
-    const { pinValues } = this;
-    const newValue = ((pinValues & ~mask) | ((value << firstPin) & mask)) & 0x3fffffff;
+    const newValue = ((this.pinValues & ~mask) | ((value << firstPin) & mask)) & 0x3fffffff;
     this.pinValues = newValue;
-    this.notifyGPIOUpdate(pinValues ^ newValue);
   }
 
   pinDirectionsChanged(value: number, firstPin: number, count: number) {
     // TODO: wrapping after pin 31
     const mask = count > 31 ? 0xffffffff : ((1 << count) - 1) << firstPin;
-    const { pinDirections } = this;
     const newValue = ((this.pinDirections & ~mask) | ((value << firstPin) & mask)) & 0x3fffffff;
     this.pinDirections = newValue;
-    this.notifyGPIOUpdate(pinDirections ^ newValue);
   }
 
   checkInterrupts() {
@@ -1103,10 +1090,28 @@ export class RPPIO extends BasePeripheral implements Peripheral {
     this.checkInterrupts();
   }
 
+  checkChangedPins() {
+    const changedPins =
+      (this.oldPinDirections ^ this.pinDirections) | (this.oldPinValues ^ this.pinValues);
+    if (changedPins) {
+      this.oldPinDirections = this.pinDirections;
+      this.oldPinValues = this.pinValues;
+
+      // Notify GPIO about the changed pins
+      const { gpio } = this.rp2040;
+      for (let gpioIndex = 0; gpioIndex < gpio.length; gpioIndex++) {
+        if (changedPins & (1 << gpioIndex)) {
+          gpio[gpioIndex].checkForUpdates();
+        }
+      }
+    }
+  }
+
   step() {
     for (const machine of this.machines) {
       machine.step();
     }
+    this.checkChangedPins();
   }
 
   run() {
