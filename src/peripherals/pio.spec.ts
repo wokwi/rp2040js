@@ -44,9 +44,11 @@ const IRQ = 0x50200030;
 const INSTR_MEM0 = 0x50200048;
 const INSTR_MEM1 = 0x5020004c;
 const INSTR_MEM2 = 0x50200050;
+const INSTR_MEM3 = 0x50200054;
 const SM0_SHIFTCTRL = 0x502000d0;
 const IN_SHIFTDIR = 18;
 const OUT_SHIFTDIR = 19;
+const SM0_EXECCTRL = 0x502000cc;
 const SM0_ADDR = 0x502000d4;
 const SM0_INSTR = 0x502000d8;
 const SM0_PINCTRL = 0x502000dc;
@@ -59,6 +61,10 @@ const RX0_SHIFT = 4;
 
 // SM0_SHIFTCTRL bits:
 const FJOIN_RX = 1 << 30;
+
+// EXECCTRL shifts:
+const EXECCTRL_WRAP_BOTTOM_SHIFT = 7;
+const EXECCTRL_WRAP_TOP_SHIFT = 12;
 
 const DBG_PADOUT = 0x5020003c;
 
@@ -365,5 +371,32 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_ALWAYS, 8));
     await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_XNEY, 16)); // Shouldn't take the jump
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(8); // Assert that the 2nd jump wasn't taken
+  });
+
+  it('should wrap the program when it gets to EXECCTRL_WRAP_TOP', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(
+      SM0_EXECCTRL,
+      (1 << EXECCTRL_WRAP_BOTTOM_SHIFT) | (2 << EXECCTRL_WRAP_TOP_SHIFT)
+    );
+
+    // State machine Pseudo code:
+    //   jmp .label2
+    // .wrap_target
+    // label1:
+    //   jmp label1
+    // label2:
+    //   mov x, null
+    // .wrap
+    // label3:
+    //   jmp label3
+
+    await cpu.writeUint32(INSTR_MEM0, pioJMP(PIO_COND_ALWAYS, 2));
+    await cpu.writeUint32(INSTR_MEM1, pioJMP(PIO_COND_ALWAYS, 1)); // infinite loop
+    await cpu.writeUint32(INSTR_MEM2, pioMOV(PIO_DEST_X, PIO_OP_NONE, PIO_SRC_X));
+    await cpu.writeUint32(INSTR_MEM3, pioJMP(PIO_COND_ALWAYS, 3)); // infinite loop
+
+    await cpu.writeUint32(CTRL, 1); // Starts State Machine #0
+    expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
   });
 });

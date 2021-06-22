@@ -328,6 +328,14 @@ export class StateMachine {
     return (this.execCtrl >> 24) & 0x1f;
   }
 
+  get wrapTop() {
+    return (this.execCtrl >> 12) & 0x1f;
+  }
+
+  get wrapBottom() {
+    return (this.execCtrl >> 7) & 0x1f;
+  }
+
   setOutPinDirs(value: number) {
     this.outPinDirection = value;
     this.pio.pinDirectionsChanged(value, this.outBase, this.outCount);
@@ -566,6 +574,14 @@ export class StateMachine {
     this.updatePC = false;
   }
 
+  nextPC() {
+    if (this.pc === this.wrapTop) {
+      this.pc = this.wrapBottom;
+    } else {
+      this.pc = (this.pc + 1) & 0x1f;
+    }
+  }
+
   step() {
     if (this.waiting) {
       this.checkWait();
@@ -577,8 +593,7 @@ export class StateMachine {
     this.updatePC = true;
     this.executeInstruction(this.pio.instructions[this.pc]);
     if (this.updatePC) {
-      this.pc = (this.pc + 1) & 0x1f;
-      // TODO wrap
+      this.nextPC();
     }
   }
 
@@ -771,7 +786,7 @@ export class StateMachine {
     }
 
     if (!this.waiting) {
-      this.pc++;
+      this.nextPC();
       this.cycles += this.waitDelay;
     }
   }
