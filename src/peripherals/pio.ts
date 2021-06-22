@@ -177,7 +177,7 @@ export class StateMachine {
 
       // X!=Y: scratch X not equal scratch Y
       case 0b101:
-        return this.x != this.y;
+        return this.x >>> 0 !== this.y >>> 0;
 
       // PIN: branch on input pin
       case 0b110: {
@@ -483,7 +483,7 @@ export class StateMachine {
         const op = (arg >> 3) & 0x3;
         const destination = (arg >> 5) & 0x7;
         const value = this.inSourceValue(source);
-        const transformedValue = this.transformMovValue(value, op);
+        const transformedValue = this.transformMovValue(value, op) >>> 0;
         this.setMovDestination(destination, transformedValue);
         break;
       }

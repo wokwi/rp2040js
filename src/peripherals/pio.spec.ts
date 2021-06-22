@@ -355,4 +355,15 @@ describe('PIO', () => {
     await cpu.writeUint32(SM2_INSTR, pioIRQ(false, false, 0x2));
     expect((await cpu.readUint32(INTR)) & 0xf00).toEqual(1 << 10);
   });
+
+  it('should correctly compare X to 0xffffffff after executing a `mov x, ~null` instruction', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(TXF0, 0xffffffff);
+    await cpu.writeUint32(SM0_INSTR, pioPULL(false, false));
+    await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_DEST_X, PIO_OP_INVERT, PIO_SRC_NULL)); // X <- ~0 = 0xffffffff
+    await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_Y, 32)); // Y <- 0xffffffff
+    await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_ALWAYS, 8));
+    await cpu.writeUint32(SM0_INSTR, pioJMP(PIO_COND_XNEY, 16)); // Shouldn't take the jump
+    expect(await cpu.readUint32(SM0_ADDR)).toEqual(8); // Assert that the 2nd jump wasn't taken
+  });
 });
