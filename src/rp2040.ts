@@ -12,10 +12,12 @@ import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
 import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 import { RPPIO } from './peripherals/pio';
+import { RPUSBController } from './peripherals/usb';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
+export const DPRAM_START_ADDRESS = 0x50100000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -33,7 +35,6 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
-const USBCTRL_BASE = 0x50100000;
 const PIO0_BASE = 0x50200000;
 const PIO1_BASE = 0x50300000;
 
@@ -107,13 +108,18 @@ enum StackPointerBank {
 
 const LOG_NAME = 'RP2040';
 
+const KB = 1024;
+const MB = 1024 * KB;
+
 export class RP2040 {
-  readonly bootrom = new Uint32Array(4 * 1024);
-  readonly sram = new Uint8Array(264 * 1024);
+  readonly bootrom = new Uint32Array(4 * KB);
+  readonly sram = new Uint8Array(264 * KB);
   readonly sramView = new DataView(this.sram.buffer);
-  readonly flash = new Uint8Array(16 * 1024 * 1024);
+  readonly flash = new Uint8Array(16 * MB);
   readonly flash16 = new Uint16Array(this.flash.buffer);
   readonly flashView = new DataView(this.flash.buffer);
+  readonly usbDPRAM = new Uint8Array(4 * KB);
+  readonly usbDPRAMView = new DataView(this.usbDPRAM.buffer);
   readonly registers = new Uint32Array(16);
   bankedSP: number = 0;
   cycles: number = 0;
@@ -168,6 +174,7 @@ export class RP2040 {
   ];
 
   readonly pio = [new RPPIO(this, 'PIO0', 7), new RPPIO(this, 'PIO1', 9)];
+  readonly usbCtrl = new RPUSBController(this, 'USB');
 
   private stopped = false;
 
@@ -240,6 +247,7 @@ export class RP2040 {
     0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
     0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
+    0x50110: this.usbCtrl,
   };
 
   // Debugging
@@ -493,6 +501,11 @@ export class RP2040 {
       return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
+    } else if (
+      address >= DPRAM_START_ADDRESS &&
+      address < DPRAM_START_ADDRESS + this.usbDPRAM.length
+    ) {
+      return this.usbDPRAMView.getUint32(address - DPRAM_START_ADDRESS, true);
     } else if (address >= PIO0_BASE && address < PIO0_BASE + 0x100000) {
       return this.pio[0].readUint32(address - PIO0_BASE);
     } else if (address >= PIO1_BASE && address < PIO1_BASE + 0x100000) {
@@ -540,11 +553,13 @@ export class RP2040 {
       this.flashView.setUint32(address - FLASH_START_ADDRESS, value, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
+    } else if (
+      address >= DPRAM_START_ADDRESS &&
+      address < DPRAM_START_ADDRESS + this.usbDPRAM.length
+    ) {
+      return this.usbDPRAMView.setUint32(address - DPRAM_START_ADDRESS, value, true);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
-    } else if (address >= USBCTRL_BASE && address < USBCTRL_BASE + 0x100000) {
-      // Ignore these USB writes for now
-      this.logger.info(LOG_NAME, 'USB write ignored for now');
     } else if (address >= PIO0_BASE && address < PIO0_BASE + 0x100000) {
       this.pio[0].writeUint32(address - PIO0_BASE, value);
     } else if (address >= PIO1_BASE && address < PIO1_BASE + 0x100000) {
@@ -806,8 +821,6 @@ export class RP2040 {
       if (levelInterrupts) {
         for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
           if (levelInterrupts & (1 << interruptNumber)) {
-            // TODO: should this also apply for some of the hardware
-            // interrupts? see issue #22
             if (interruptNumber > MAX_HARDWARE_IRQ) {
               this.pendingInterrupts &= ~(1 << interruptNumber);
             }
