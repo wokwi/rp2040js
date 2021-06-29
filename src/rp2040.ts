@@ -286,7 +286,8 @@ export class RP2040 {
       this.interruptsUpdated = true;
     });
     this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, (newValue) => {
-      this.pendingInterrupts &= ~newValue;
+      const hardwareInterruptMask = (1 << MAX_HARDWARE_IRQ) - 1;
+      this.pendingInterrupts &= ~newValue | hardwareInterruptMask;
     });
     this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ISER, (newValue) => {
       this.enabledInterrupts |= newValue;
