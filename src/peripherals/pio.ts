@@ -889,7 +889,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   }
 
   get irq1IntStatus() {
-    return (this.intRaw & this.irq0IntEnable) | this.irq0IntForce;
+    return (this.intRaw & this.irq1IntEnable) | this.irq1IntForce;
   }
 
   readUint32(offset: number) {
