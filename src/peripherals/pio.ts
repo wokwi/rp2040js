@@ -1029,7 +1029,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
         break;
       }
       case FDEBUG:
-        this.fdebug &= ~value;
+        this.fdebug &= ~this.rawWriteValue;
         break;
       case TXF0:
         this.machines[0].writeFIFO(value);
@@ -1044,7 +1044,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
         this.machines[3].writeFIFO(value);
         break;
       case IRQ:
-        this.irq &= ~value;
+        this.irq &= ~this.rawWriteValue;
         this.irqUpdated();
         break;
       case INPUT_SYNC_BYPASS:

@@ -35,9 +35,6 @@ const CLOCKS_BASE = 0x40008000;
 const CLK_REF_SELECTED = 0x38;
 const CLK_SYS_SELECTED = 0x44;
 
-const PIO0_BASE = 0x50200000;
-const PIO1_BASE = 0x50300000;
-
 const PPB_BASE = 0xe0000000;
 const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
 const OFFSET_SYST_RVR = 0xe014; // SysTick Reload Value Register
@@ -248,6 +245,8 @@ export class RP2040 {
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
     0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
     0x50110: this.usbCtrl,
+    0x50200: this.pio[0],
+    0x50300: this.pio[1],
   };
 
   // Debugging
@@ -506,10 +505,6 @@ export class RP2040 {
       address < DPRAM_START_ADDRESS + this.usbDPRAM.length
     ) {
       return this.usbDPRAMView.getUint32(address - DPRAM_START_ADDRESS, true);
-    } else if (address >= PIO0_BASE && address < PIO0_BASE + 0x100000) {
-      return this.pio[0].readUint32(address - PIO0_BASE);
-    } else if (address >= PIO1_BASE && address < PIO1_BASE + 0x100000) {
-      return this.pio[1].readUint32(address - PIO1_BASE);
     } else {
       const hook = this.readHooks.get(address);
       if (hook) {
@@ -562,10 +557,6 @@ export class RP2040 {
       this.usbCtrl.DPRAMUpdated(offset, value);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
-    } else if (address >= PIO0_BASE && address < PIO0_BASE + 0x100000) {
-      this.pio[0].writeUint32(address - PIO0_BASE, value);
-    } else if (address >= PIO1_BASE && address < PIO1_BASE + 0x100000) {
-      this.pio[1].writeUint32(address - PIO1_BASE, value);
     } else {
       const hook = this.writeHooks.get(address);
       if (hook) {
