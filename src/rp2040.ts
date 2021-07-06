@@ -306,10 +306,10 @@ export class RP2040 {
     });
 
     /* NVIC */
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, () => this.pendingInterrupts);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, () => this.pendingInterrupts);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISER, () => this.enabledInterrupts);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICER, () => this.enabledInterrupts);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, () => this.pendingInterrupts >>> 0);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, () => this.pendingInterrupts >>> 0);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISER, () => this.enabledInterrupts >>> 0);
+    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICER, () => this.enabledInterrupts >>> 0);
     for (let regIndex = 0; regIndex < 8; regIndex++) {
       this.writeHooks.set(PPB_BASE + OFFSET_NVIC_IPRn[regIndex], (newValue) => {
         for (let byteIndex = 0; byteIndex < 4; byteIndex++) {

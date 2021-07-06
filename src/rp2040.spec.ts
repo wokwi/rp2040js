@@ -7,6 +7,10 @@ const r4 = 4;
 const lr = 14;
 
 const VTOR = 0xe000ed08;
+const NVIC_ISER = 0xe000e100;
+const NVIC_ICER = 0xe000e180;
+const NVIC_ISPR = 0xe000e200;
+const NVIC_ICPR = 0xe000e280;
 
 describe('RP2040', () => {
   it(`should initialize PC and SP according to bootrom's vector table`, () => {
@@ -107,7 +111,6 @@ describe('RP2040', () => {
       const INT31 = 1 << 31;
       const INT31_HANDLER = 0x10003100;
       const EXC_INT31 = 16 + 31;
-      const NVIC_ISPR = 0xe000e200;
       const rp2040 = new RP2040();
       rp2040.SP = 0x20004000;
       rp2040.PC = 0x10004001;
@@ -129,43 +132,44 @@ describe('RP2040', () => {
     it('writing to NVIC_ISPR should set the corresponding pending interrupt bits', () => {
       const rp2040 = new RP2040();
       rp2040.pendingInterrupts = 0x1;
-      rp2040.writeUint32(0xe000e200, 0x10);
+      rp2040.writeUint32(NVIC_ISPR, 0x10);
       expect(rp2040.pendingInterrupts).toBe(0x11);
     });
 
     it('writing to NVIC_ICPR should clear corresponding pending interrupt bits', () => {
       const rp2040 = new RP2040();
-      rp2040.pendingInterrupts = 0xff;
-      rp2040.writeUint32(0xe000e280, 0x10);
-      expect(rp2040.pendingInterrupts).toBe(0xef);
+      rp2040.pendingInterrupts = 0xff00000f;
+      rp2040.writeUint32(NVIC_ICPR, 0x1000000f);
+      // Only the high 6 bits are actually cleared (see commit 5bc96994 for details)
+      expect(rp2040.readUint32(NVIC_ISPR)).toBe(0xef00000f);
     });
 
     it('writing to NVIC_ISER should set the corresponding enabled interrupt bits', () => {
       const rp2040 = new RP2040();
       rp2040.enabledInterrupts = 0x1;
-      rp2040.writeUint32(0xe000e100, 0x10);
+      rp2040.writeUint32(NVIC_ISER, 0x10);
       expect(rp2040.enabledInterrupts).toBe(0x11);
     });
 
     it('writing to NVIC_ICER should clear corresponding enabled interrupt bits', () => {
       const rp2040 = new RP2040();
       rp2040.enabledInterrupts = 0xff;
-      rp2040.writeUint32(0xe000e180, 0x10);
+      rp2040.writeUint32(NVIC_ICER, 0x10);
       expect(rp2040.enabledInterrupts).toBe(0xef);
     });
 
     it('reading from NVIC_ISER/NVIC_ICER should return the current enabled interrupt bits', () => {
       const rp2040 = new RP2040();
       rp2040.enabledInterrupts = 0x1;
-      expect(rp2040.readUint32(0xe000e100)).toEqual(0x1);
-      expect(rp2040.readUint32(0xe000e180)).toEqual(0x1);
+      expect(rp2040.readUint32(NVIC_ISER)).toEqual(0x1);
+      expect(rp2040.readUint32(NVIC_ICER)).toEqual(0x1);
     });
 
     it('reading from NVIC_ISPR/NVIC_ICPR should return the current enabled interrupt bits', () => {
       const rp2040 = new RP2040();
       rp2040.pendingInterrupts = 0x2;
-      expect(rp2040.readUint32(0xe000e200)).toEqual(0x2);
-      expect(rp2040.readUint32(0xe000e280)).toEqual(0x2);
+      expect(rp2040.readUint32(NVIC_ISPR)).toEqual(0x2);
+      expect(rp2040.readUint32(NVIC_ICPR)).toEqual(0x2);
     });
 
     it('should update the interrupt levels correctly when writing to NVIC_IPR3', () => {
