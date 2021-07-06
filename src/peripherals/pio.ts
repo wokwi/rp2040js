@@ -130,12 +130,15 @@ export class StateMachine {
   constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {}
 
   writeFIFO(value: number) {
-    if (!this.txFIFO.full) {
-      this.txFIFO.push(value);
-    } else {
+    if (this.txFIFO.full) {
       this.pio.fdebug |= FDEBUG_TXOVER << this.index;
+      return;
     }
+    this.txFIFO.push(value);
     this.checkWait();
+    if (this.txFIFO.full) {
+      this.pio.checkInterrupts();
+    }
   }
 
   readFIFO() {
@@ -145,6 +148,9 @@ export class StateMachine {
     }
     const result = this.rxFIFO.pull();
     this.checkWait();
+    if (this.rxFIFO.empty) {
+      this.pio.checkInterrupts();
+    }
     return result;
   }
 
@@ -441,6 +447,7 @@ export class StateMachine {
         if (this.shiftCtrl & SHIFTCTRL_AUTOPUSH && this.inputShiftCount >= this.pushThreshold) {
           if (!this.rxFIFO.full) {
             this.rxFIFO.push(this.inputShiftReg);
+            this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
             this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
@@ -458,6 +465,7 @@ export class StateMachine {
           this.outputShiftCount = 0;
           if (!this.txFIFO.empty) {
             this.outputShiftReg = this.txFIFO.pull();
+            this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
             this.wait(WaitType.Out, false, arg);
@@ -489,6 +497,7 @@ export class StateMachine {
           }
           if (!this.txFIFO.empty) {
             this.outputShiftReg = this.txFIFO.pull();
+            this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
             if (block) {
@@ -509,6 +518,7 @@ export class StateMachine {
           }
           if (!this.rxFIFO.full) {
             this.rxFIFO.push(this.inputShiftReg);
+            this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
             if (block) {
@@ -811,6 +821,7 @@ export class StateMachine {
         if (!this.rxFIFO.full) {
           this.rxFIFO.push(this.waitIndex);
           this.waiting = false;
+          this.pio.checkInterrupts();
         }
         break;
       }
@@ -819,6 +830,7 @@ export class StateMachine {
         if (!this.txFIFO.empty) {
           this.outputShiftReg = this.txFIFO.pull();
           this.waiting = false;
+          this.pio.checkInterrupts();
         }
         break;
       }
@@ -828,6 +840,7 @@ export class StateMachine {
           this.outputShiftReg = this.txFIFO.pull();
           this.outInstruction(this.waitIndex);
           this.waiting = false;
+          this.pio.checkInterrupts();
         }
         break;
       }

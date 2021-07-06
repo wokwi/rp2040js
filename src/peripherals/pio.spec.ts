@@ -54,6 +54,15 @@ const SM0_INSTR = 0x502000d8;
 const SM0_PINCTRL = 0x502000dc;
 const SM2_INSTR = 0x50200108;
 const INTR = 0x50200128;
+const IRQ0_INTE = 0x5020012c;
+
+const NVIC_ISPR = 0xe000e200;
+const NVIC_ICPR = 0xe000e280;
+
+// Interrupt flags
+const PIO_IRQ0 = 1 << 7;
+const INTR_SM0_RXNEMPTY = 1 << 0;
+const INTR_SM0_TXNFULL = 1 << 4;
 
 // SHIFTs for FLEVEL
 const TX0_SHIFT = 0;
@@ -524,5 +533,49 @@ describe('PIO', () => {
     expect(await cpu.readUint16(RXF0)).toEqual(17);
     expect(await cpu.readUint16(RXF0)).toEqual(18);
     expect(await cpu.readUint16(RXF0)).toEqual(19);
+  });
+
+  it('should update TXNFULL flag in INTR according to the level of the TX FIFO (issue #73)', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(IRQ0_INTE, INTR_SM0_TXNFULL);
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_TXNFULL).toEqual(INTR_SM0_TXNFULL);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(PIO_IRQ0);
+    await cpu.writeUint32(TXF0, 1);
+    await cpu.writeUint32(TXF0, 2);
+    await cpu.writeUint32(TXF0, 3);
+    await cpu.writeUint32(NVIC_ICPR, PIO_IRQ0);
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_TXNFULL).toEqual(INTR_SM0_TXNFULL);
+    await cpu.writeUint32(TXF0, 3);
+    await cpu.writeUint32(NVIC_ICPR, PIO_IRQ0);
+
+    // At this point, TX FIFO should be full and the flag/interrupt will be cleared
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_TXNFULL).toEqual(0);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(0);
+
+    // Pull an item, so TX FIFO should be "not empty" again
+    await cpu.writeUint32(SM0_INSTR, pioPULL(false, false));
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_TXNFULL).toEqual(INTR_SM0_TXNFULL);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(PIO_IRQ0);
+  });
+
+  it('should update RXFNEMPTY flag in INTR according to the level of the RX FIFO (issue #73)', async () => {
+    await resetStateMachines();
+    await cpu.writeUint32(IRQ0_INTE, INTR_SM0_RXNEMPTY);
+    await cpu.writeUint32(NVIC_ICPR, PIO_IRQ0);
+
+    // RX FIFO starts empty
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_RXNEMPTY).toEqual(0);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(0);
+
+    // Push an item so it's no longer empty...
+    await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_RXNEMPTY).toEqual(INTR_SM0_RXNEMPTY);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(PIO_IRQ0);
+
+    // Read the item and it should be empty again
+    await cpu.readUint32(RXF0);
+    await cpu.writeUint32(NVIC_ICPR, PIO_IRQ0);
+    expect((await cpu.readUint32(INTR)) & INTR_SM0_RXNEMPTY).toEqual(0);
+    expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(0);
   });
 });
