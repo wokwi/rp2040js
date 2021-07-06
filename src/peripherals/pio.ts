@@ -809,7 +809,6 @@ export class StateMachine {
 
       case WaitType.rxFIFO: {
         if (!this.rxFIFO.full) {
-          console.log('push', this.waitIndex);
           this.rxFIFO.push(this.waitIndex);
           this.waiting = false;
         }
