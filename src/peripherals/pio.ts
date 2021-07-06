@@ -778,12 +778,12 @@ export class StateMachine {
   }
 
   restart() {
+    this.cycles = 0;
     this.inputShiftCount = 0;
     this.outputShiftCount = 32;
     this.inputShiftReg = 0;
     this.waiting = false;
     // TODO any pin write left asserted due to OUT_STICKY.
-    this.pio.warn('restart not implemented');
   }
 
   clkDivRestart() {
