@@ -557,7 +557,9 @@ export class RP2040 {
       address >= DPRAM_START_ADDRESS &&
       address < DPRAM_START_ADDRESS + this.usbDPRAM.length
     ) {
-      return this.usbDPRAMView.setUint32(address - DPRAM_START_ADDRESS, value, true);
+      const offset = address - DPRAM_START_ADDRESS;
+      this.usbDPRAMView.setUint32(offset, value, true);
+      this.usbCtrl.DPRAMUpdated(offset, value);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
     } else if (address >= PIO0_BASE && address < PIO0_BASE + 0x100000) {
