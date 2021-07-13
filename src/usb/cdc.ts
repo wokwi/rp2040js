@@ -17,6 +17,7 @@ export class USBCDC {
   readonly txFIFO = new FIFO(TX_FIFO_SIZE);
 
   onSerialData?: (buffer: Uint8Array) => void;
+  onDeviceConnected?: () => void;
 
   private initialized = false;
   private deviceConfigured = false;
@@ -38,6 +39,7 @@ export class USBCDC {
           this.deviceConfigured = true;
         } else if (!this.initialized) {
           this.cdcSetControlLineState();
+          this.onDeviceConnected?.();
         }
       }
       if (endpoint === CDC_ENDPOINT) {
