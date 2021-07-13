@@ -63,58 +63,6 @@ const SIE_WRITECLEAR_MASK =
   SIE_SETUP_REC |
   SIE_RESUME;
 
-// USB Protocol stuff
-enum DataDirection {
-  HostToDevice,
-  DeviceToHost,
-}
-
-enum SetupType {
-  Standard,
-  Class,
-  Vendor,
-  Reserved,
-}
-
-enum SetupRecipient {
-  Device,
-  Interface,
-  Endpoint,
-  Other,
-}
-
-enum SetupRequest {
-  GetStatus,
-  ClearFeature,
-  Reserved1,
-  SetFeature,
-  Reserved2,
-  SetAddress,
-  GetDescriptor,
-  SetDescriptor,
-  GetConfiguration,
-  SetDeviceConfiguration,
-  GetInterface,
-  SetInterface,
-  SynchFrame,
-}
-
-interface ISetupPacketParams {
-  dataDirection: DataDirection;
-  type: SetupType;
-  recipient: SetupRecipient;
-  bRequest: SetupRequest;
-  wValue: number /* 16 bits */;
-  wIndex: number /* 16 bits */;
-  wLength: number /* 16 bits */;
-}
-
-// CDC stuff
-const CDC_REQUEST_SET_CONTROL_LINE_STATE = 0x22;
-
-const CDC_DTR = 1 << 0;
-const CDC_RTS = 1 << 1;
-
 export class RPUSBController extends BasePeripheral {
   private mainCtrl = 0;
   private intRaw = 0;
@@ -122,10 +70,10 @@ export class RPUSBController extends BasePeripheral {
   private intForce = 0;
   private sieStatus = 0;
   private buffStatus = 0;
-  private deviceConfigured = false;
-  private cdcInitialized = false;
 
-  onSerialData?: (buffer: Uint8Array) => void;
+  onUSBEnabled?: () => void;
+  onResetReceived?: () => void;
+  onEndpointWrite?: (endpoint: number, buffer: Uint8Array) => void;
 
   get intStatus() {
     return (this.intRaw & this.intEnable) | this.intForce;
@@ -158,7 +106,7 @@ export class RPUSBController extends BasePeripheral {
       case MAIN_CTRL:
         this.mainCtrl = value & (SIM_TIMING | CONTROLLER_EN | HOST_NDEVICE);
         if (value & CONTROLLER_EN && !(value & HOST_NDEVICE)) {
-          this.resetDevice();
+          this.onUSBEnabled?.();
         }
         break;
       case BUFF_STATUS:
@@ -169,14 +117,7 @@ export class RPUSBController extends BasePeripheral {
         this.sieStatus &= ~(this.rawWriteValue & SIE_WRITECLEAR_MASK);
         this.sieStatusUpdated();
         if (this.rawWriteValue & SIE_BUS_RESET) {
-          this.setDeviceAddress(1);
-        }
-        if (this.rawWriteValue & SIE_SETUP_REC) {
-          if (!this.deviceConfigured) {
-            this.setDeviceConfiguration(1);
-          } else if (!this.cdcInitialized) {
-            this.cdcSetControlLineState();
-          }
+          this.onResetReceived?.();
         }
         break;
       case INTE:
@@ -213,15 +154,14 @@ export class RPUSBController extends BasePeripheral {
       );
       value &= ~USB_BUF_CTRL_AVAILABLE;
       this.rp2040.usbDPRAMView.setUint32(offset, value, true);
-      if ((endpoint === 0 || endpoint === 2) && !bufferOut) {
+      if (!bufferOut) {
         value &= ~USB_BUF_CTRL_FULL;
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);
         this.indicateBufferReady(endpoint, false);
-        if (endpoint === 2) {
-          this.onSerialData?.(buffer);
-        }
+        this.onEndpointWrite?.(endpoint, buffer);
       }
       if (endpoint === 2 && bufferOut) {
+        console.log('read from endpoint', endpoint);
         value |= USB_BUF_CTRL_FULL;
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);
         this.indicateBufferReady(endpoint, true);
@@ -235,22 +175,12 @@ export class RPUSBController extends BasePeripheral {
     this.rp2040.setInterrupt(USBCTRL_IRQ, !!intStatus);
   }
 
-  private resetDevice() {
-    this.deviceConfigured = false;
+  resetDevice() {
     this.sieStatus |= SIE_BUS_RESET;
     this.sieStatusUpdated();
   }
 
-  private sendSetupPacket(params: ISetupPacketParams) {
-    const setupPacket = new Uint8Array(8);
-    setupPacket[0] = (params.dataDirection << 7) | (params.type << 5) | params.recipient;
-    setupPacket[1] = params.bRequest;
-    setupPacket[2] = params.wValue & 0xff;
-    setupPacket[3] = (params.wValue >> 8) & 0xff;
-    setupPacket[4] = params.wIndex & 0xff;
-    setupPacket[5] = (params.wIndex >> 8) & 0xff;
-    setupPacket[6] = params.wLength & 0xff;
-    setupPacket[7] = (params.wLength >> 8) & 0xff;
+  sendSetupPacket(setupPacket: Uint8Array) {
     this.rp2040.usbDPRAM.set(setupPacket);
     this.sieStatus |= SIE_SETUP_REC;
     this.sieStatusUpdated();
@@ -259,44 +189,6 @@ export class RPUSBController extends BasePeripheral {
   private indicateBufferReady(endpoint: number, out: boolean) {
     this.buffStatus |= 1 << (endpoint * 2 + (out ? 1 : 0));
     this.buffStatusUpdated();
-  }
-
-  private setDeviceAddress(address: number) {
-    this.sendSetupPacket({
-      dataDirection: DataDirection.HostToDevice,
-      type: SetupType.Standard,
-      recipient: SetupRecipient.Device,
-      bRequest: SetupRequest.SetAddress,
-      wValue: address,
-      wIndex: 0,
-      wLength: 0,
-    });
-  }
-
-  private setDeviceConfiguration(configurationNumber: number) {
-    this.sendSetupPacket({
-      dataDirection: DataDirection.HostToDevice,
-      type: SetupType.Standard,
-      recipient: SetupRecipient.Device,
-      bRequest: SetupRequest.SetDeviceConfiguration,
-      wValue: configurationNumber,
-      wIndex: 0,
-      wLength: 0,
-    });
-    this.deviceConfigured = true;
-  }
-
-  private cdcSetControlLineState(value = CDC_DTR | CDC_RTS, interfaceNumber = 0) {
-    this.sendSetupPacket({
-      dataDirection: DataDirection.HostToDevice,
-      type: SetupType.Class,
-      recipient: SetupRecipient.Device,
-      bRequest: CDC_REQUEST_SET_CONTROL_LINE_STATE,
-      wValue: value,
-      wIndex: interfaceNumber,
-      wLength: 0,
-    });
-    this.cdcInitialized = true;
   }
 
   private buffStatusUpdated() {
