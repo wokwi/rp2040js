@@ -5,11 +5,13 @@ const USBCTRL_IRQ = 5;
 // USB DPSRAM Registers
 const EP1_IN_CONTROL = 0x8;
 const EP0_IN_BUFFER_CONTROL = 0x80;
+const EP0_OUT_BUFFER_CONTROL = 0x84;
 const EP15_OUT_BUFFER_CONTROL = 0xfc;
 
 // Buffer Control bits
 const USB_BUF_CTRL_AVAILABLE = 1 << 10;
 const USB_BUF_CTRL_FULL = 1 << 15;
+const USB_BUF_CTRL_LEN_MASK = 0x3ff;
 
 // USB Peripheral Register
 const MAIN_CTRL = 0x40;
@@ -74,6 +76,7 @@ export class RPUSBController extends BasePeripheral {
   onUSBEnabled?: () => void;
   onResetReceived?: () => void;
   onEndpointWrite?: (endpoint: number, buffer: Uint8Array) => void;
+  onEndpointRead?: (endpoint: number, byteCount: number) => void;
 
   get intStatus() {
     return (this.intRaw & this.intEnable) | this.intForce;
@@ -134,6 +137,18 @@ export class RPUSBController extends BasePeripheral {
     }
   }
 
+  private readEndpointControlReg(endpoint: number, out: boolean) {
+    const controlRegOffset = EP1_IN_CONTROL + 8 * (endpoint - 1) + (out ? 4 : 0);
+    return this.rp2040.usbDPRAMView.getUint32(controlRegOffset, true);
+  }
+
+  private getEndpointBufferOffset(endpoint: number, out: boolean) {
+    if (endpoint === 0) {
+      return 0x100;
+    }
+    return this.readEndpointControlReg(endpoint, out) & 0xffc0;
+  }
+
   DPRAMUpdated(offset: number, value: number) {
     if (
       value & USB_BUF_CTRL_AVAILABLE &&
@@ -142,11 +157,8 @@ export class RPUSBController extends BasePeripheral {
     ) {
       const endpoint = (offset - EP0_IN_BUFFER_CONTROL) >> 3;
       const bufferOut = offset & 4 ? true : false;
-      const bufferLength = value & 0x3ff;
-      const controlRegOffset = EP1_IN_CONTROL + 8 * (endpoint - 1) + (bufferOut ? 4 : 0);
-      const controlRegValue = this.rp2040.usbDPRAMView.getUint32(controlRegOffset, true);
-      const bufferOffset = endpoint ? controlRegValue & 0xffc0 : 0x100;
-      const buffer = this.rp2040.usbDPRAM.slice(bufferOffset, bufferOffset + bufferLength);
+      const bufferLength = value & USB_BUF_CTRL_LEN_MASK;
+      const bufferOffset = this.getEndpointBufferOffset(endpoint, bufferOut);
       this.debug(
         `Start USB transfer, endPoint=${endpoint}, direction=${
           bufferOut ? 'out' : 'in'
@@ -154,20 +166,29 @@ export class RPUSBController extends BasePeripheral {
       );
       value &= ~USB_BUF_CTRL_AVAILABLE;
       this.rp2040.usbDPRAMView.setUint32(offset, value, true);
-      if (!bufferOut) {
+      if (bufferOut) {
+        this.onEndpointRead?.(endpoint, bufferLength) || 0;
+      } else {
         value &= ~USB_BUF_CTRL_FULL;
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);
+        const buffer = this.rp2040.usbDPRAM.slice(bufferOffset, bufferOffset + bufferLength);
         this.indicateBufferReady(endpoint, false);
         this.onEndpointWrite?.(endpoint, buffer);
       }
-      if (endpoint === 2 && bufferOut) {
-        console.log('read from endpoint', endpoint);
-        value |= USB_BUF_CTRL_FULL;
-        this.rp2040.usbDPRAMView.setUint32(offset, value, true);
-        this.indicateBufferReady(endpoint, true);
-        // TODO: Write incoming data to the endpoint buffer
-      }
     }
+  }
+
+  endpointReadDone(endpoint: number, buffer: Uint8Array) {
+    const bufferOffset = this.getEndpointBufferOffset(endpoint, true);
+    const bufControlReg = EP0_OUT_BUFFER_CONTROL + endpoint * 8;
+    let bufControl = this.rp2040.usbDPRAMView.getUint32(bufControlReg, true);
+    const requestedLength = bufControl & USB_BUF_CTRL_LEN_MASK;
+    const newLength = Math.min(buffer.length, requestedLength);
+    bufControl |= USB_BUF_CTRL_FULL;
+    bufControl = (bufControl & ~USB_BUF_CTRL_LEN_MASK) | (newLength & USB_BUF_CTRL_LEN_MASK);
+    this.rp2040.usbDPRAMView.setUint32(bufControlReg, bufControl, true);
+    this.rp2040.usbDPRAM.set(buffer.subarray(0, newLength), bufferOffset);
+    this.indicateBufferReady(endpoint, true);
   }
 
   private checkInterrupts() {
