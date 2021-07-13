@@ -45,11 +45,20 @@ const SIE_RESUME = 1 << 11;
 const SIE_VBUS_OVER_CURR = 1 << 10;
 const SIE_SPEED = 1 << 9;
 const SIE_SUSPENDED = 1 << 4;
-const SIE_LINE_STATE = 1 << 3;
+const SIE_LINE_STATE_MASK = 0x3;
+const SIE_LINE_STATE_SHIFT = 2;
 const SIE_VBUS_DETECTED = 1 << 0;
 
 // INTR bits
 const INTR_BUFF_STATUS = 1 << 4;
+
+// SIE Line states
+enum SIELineState {
+  SE0 = 0b00,
+  J = 0b01,
+  K = 0b10,
+  SE1 = 0b11,
+}
 
 const SIE_WRITECLEAR_MASK =
   SIE_DATA_SEQ_ERROR |
@@ -59,6 +68,7 @@ const SIE_WRITECLEAR_MASK =
   SIE_RX_TIMEOUT |
   SIE_RX_OVERFLOW |
   SIE_BIT_STUFF_ERROR |
+  SIE_CONNECTED |
   SIE_CRC_ERROR |
   SIE_BUS_RESET |
   SIE_TRANS_COMPLETE |
@@ -118,10 +128,12 @@ export class RPUSBController extends BasePeripheral {
         break;
       case SIE_STATUS:
         this.sieStatus &= ~(this.rawWriteValue & SIE_WRITECLEAR_MASK);
-        this.sieStatusUpdated();
         if (this.rawWriteValue & SIE_BUS_RESET) {
           this.onResetReceived?.();
+          this.sieStatus &= ~(SIE_LINE_STATE_MASK << SIE_LINE_STATE_SHIFT);
+          this.sieStatus |= (SIELineState.J << SIE_LINE_STATE_SHIFT) | SIE_CONNECTED;
         }
+        this.sieStatusUpdated();
         break;
       case INTE:
         this.intEnable = value & 0xfffff;
