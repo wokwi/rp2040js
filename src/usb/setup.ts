@@ -1,5 +1,6 @@
 import {
   DataDirection,
+  DescriptorType,
   ISetupPacketParams,
   SetupRecipient,
   SetupRequest,
@@ -28,6 +29,18 @@ export function setDeviceAddressPacket(address: number) {
     wValue: address,
     wIndex: 0,
     wLength: 0,
+  });
+}
+
+export function getDescriptorPacket(type: DescriptorType, length: number, index = 0) {
+  return createSetupPacket({
+    dataDirection: DataDirection.DeviceToHost,
+    type: SetupType.Standard,
+    recipient: SetupRecipient.Device,
+    bRequest: SetupRequest.GetDescriptor,
+    wValue: type << 8,
+    wIndex: index,
+    wLength: length,
   });
 }
 

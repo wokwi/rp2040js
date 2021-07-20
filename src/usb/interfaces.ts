@@ -33,6 +33,14 @@ export enum SetupRequest {
   SynchFrame,
 }
 
+export enum DescriptorType {
+  Device = 1,
+  Configration = 2,
+  String = 3,
+  Interface = 4,
+  Endpoint = 5,
+}
+
 export interface ISetupPacketParams {
   dataDirection: DataDirection;
   type: SetupType;

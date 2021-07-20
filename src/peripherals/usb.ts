@@ -88,6 +88,8 @@ export class RPUSBController extends BasePeripheral {
   onEndpointWrite?: (endpoint: number, buffer: Uint8Array) => void;
   onEndpointRead?: (endpoint: number, byteCount: number) => void;
 
+  writeDelayMicroseconds = 1;
+
   get intStatus() {
     return (this.intRaw & this.intEnable) | this.intForce;
   }
@@ -185,7 +187,13 @@ export class RPUSBController extends BasePeripheral {
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);
         const buffer = this.rp2040.usbDPRAM.slice(bufferOffset, bufferOffset + bufferLength);
         this.indicateBufferReady(endpoint, false);
-        this.onEndpointWrite?.(endpoint, buffer);
+        if (this.writeDelayMicroseconds) {
+          this.rp2040.clock.createTimer(this.writeDelayMicroseconds, () => {
+            this.onEndpointWrite?.(endpoint, buffer);
+          });
+        } else {
+          this.onEndpointWrite?.(endpoint, buffer);
+        }
       }
     }
   }
