@@ -8,6 +8,7 @@ import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RPPIO } from './peripherals/pio';
 import { RPReset } from './peripherals/reset';
 import { RP2040RTC } from './peripherals/rtc';
+import { RPSSI } from './peripherals/ssi';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
@@ -22,17 +23,6 @@ export const DPRAM_START_ADDRESS = 0x50100000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
-const XIP_SSI_BASE = 0x18000000;
-const SSI_TXFLR_OFFSET = 0x00000020;
-const SSI_RXFLR_OFFSET = 0x00000024;
-const SSI_SR_OFFSET = 0x00000028;
-const SSI_DR0_OFFSET = 0x00000060;
-const SSI_SR_BUSY_BITS = 0x00000001;
-const SSI_SR_TFNF_BITS = 0x00000002;
-const SSI_SR_TFE_BITS = 0x00000004;
-const SSI_SR_RFNE_BITS = 0x00000008;
-
 const PPB_BASE = 0xe0000000;
 const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
 const OFFSET_SYST_RVR = 0xe014; // SysTick Reload Value Register
@@ -215,6 +205,7 @@ export class RP2040 {
   private executeTimer: NodeJS.Timeout | null = null;
 
   readonly peripherals: { [index: number]: Peripheral } = {
+    0x18000: new RPSSI(this, 'SSI'),
     0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
     0x40008: new RPClocks(this, 'CLOCKS_BASE'),
@@ -258,23 +249,8 @@ export class RP2040 {
   constructor(readonly clock: IClock = new RealtimeClock()) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
-    this.readHooks.set(XIP_SSI_BASE + SSI_TXFLR_OFFSET, () => 0);
-    this.readHooks.set(XIP_SSI_BASE + SSI_RXFLR_OFFSET, () => 0);
-    this.readHooks.set(XIP_SSI_BASE + SSI_SR_OFFSET, () => {
-      return SSI_SR_TFE_BITS | SSI_SR_RFNE_BITS | SSI_SR_TFNF_BITS;
-    });
 
-    let dr0 = 0;
-    this.writeHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, (value) => {
-      const CMD_READ_STATUS = 0x05;
-      if (value === CMD_READ_STATUS) {
-        dr0 = 0; // tell stage2 that we completed a write
-      }
-    });
-    this.readHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, () => {
-      return dr0;
-    });
-
+    /* NVIC */
     let VTOR = 0;
     this.writeHooks.set(PPB_BASE + OFFSET_VTOR, (newValue) => {
       VTOR = newValue;
@@ -299,7 +275,6 @@ export class RP2040 {
       this.enabledInterrupts &= ~newValue;
     });
 
-    /* NVIC */
     this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, () => this.pendingInterrupts >>> 0);
     this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, () => this.pendingInterrupts >>> 0);
     this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISER, () => this.enabledInterrupts >>> 0);
