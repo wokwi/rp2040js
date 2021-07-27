@@ -13,6 +13,7 @@ import { RPPADS } from './peripherals/pads';
 import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 import { RPPIO } from './peripherals/pio';
 import { RPUSBController } from './peripherals/usb';
+import { RPClocks } from './peripherals/clocks';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -31,9 +32,6 @@ const SSI_SR_BUSY_BITS = 0x00000001;
 const SSI_SR_TFNF_BITS = 0x00000002;
 const SSI_SR_TFE_BITS = 0x00000004;
 const SSI_SR_RFNE_BITS = 0x00000008;
-const CLOCKS_BASE = 0x40008000;
-const CLK_REF_SELECTED = 0x38;
-const CLK_SYS_SELECTED = 0x44;
 
 const PPB_BASE = 0xe0000000;
 const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
@@ -219,7 +217,7 @@ export class RP2040 {
   readonly peripherals: { [index: number]: Peripheral } = {
     0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
-    0x40008: new UnimplementedPeripheral(this, 'CLOCKS_BASE'),
+    0x40008: new RPClocks(this, 'CLOCKS_BASE'),
     0x4000c: new RPReset(this, 'RESETS_BASE'),
     0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
     0x40014: new RPIO(this, 'IO_BANK0_BASE'),
@@ -276,9 +274,6 @@ export class RP2040 {
     this.readHooks.set(XIP_SSI_BASE + SSI_DR0_OFFSET, () => {
       return dr0;
     });
-
-    this.readHooks.set(CLOCKS_BASE + CLK_REF_SELECTED, () => 1);
-    this.readHooks.set(CLOCKS_BASE + CLK_SYS_SELECTED, () => 1);
 
     let VTOR = 0;
     this.writeHooks.set(PPB_BASE + OFFSET_VTOR, (newValue) => {
