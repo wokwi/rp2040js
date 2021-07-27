@@ -1,19 +1,19 @@
 import { IClock, IClockTimer } from './clock/clock';
 import { RealtimeClock } from './clock/realtime-clock';
 import { GPIOPin } from './gpio-pin';
+import { RPClocks } from './peripherals/clocks';
+import { RPIO } from './peripherals/io';
+import { RPPADS } from './peripherals/pads';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
+import { RPPIO } from './peripherals/pio';
+import { RPReset } from './peripherals/reset';
 import { RP2040RTC } from './peripherals/rtc';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
-import { RPSIO } from './sio';
-import { RPReset } from './peripherals/reset';
-import { RPIO } from './peripherals/io';
-import { RPPADS } from './peripherals/pads';
-import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
-import { RPPIO } from './peripherals/pio';
 import { RPUSBController } from './peripherals/usb';
-import { RPClocks } from './peripherals/clocks';
+import { RPSIO } from './sio';
+import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
