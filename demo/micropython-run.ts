@@ -1,4 +1,5 @@
-import { GDBTCPServer, RP2040 } from '../src';
+import { RP2040 } from '../src';
+import { GDBTCPServer } from '../src/gdb/gdb-tcp-server';
 import { USBCDC } from '../src/usb/cdc';
 import { ConsoleLogger, LogLevel } from '../src/utils/logging';
 import { bootromB1 } from './bootrom';

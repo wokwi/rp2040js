@@ -141,7 +141,7 @@ export class RP2040 {
   readonly pio = [new RPPIO(this, 'PIO0', IRQ.PIO0_IRQ0), new RPPIO(this, 'PIO1', IRQ.PIO1_IRQ0)];
   readonly usbCtrl = new RPUSBController(this, 'USB');
 
-  private stopped = false;
+  private stopped = true;
 
   public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
 
@@ -1543,5 +1543,9 @@ export class RP2040 {
       this.executeTimer = null;
     }
     this.clock.pause();
+  }
+
+  get executing() {
+    return !this.stopped;
   }
 }

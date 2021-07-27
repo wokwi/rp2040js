@@ -1,5 +1,7 @@
-export { GDBTCPServer } from './gdbserver';
+export { GDBConnection } from './gdb/gdb-connection';
+export { GDBServer } from './gdb/gdb-server';
 export { GPIOPin, GPIOPinState } from './gpio-pin';
+export { BasePeripheral, Peripheral } from './peripherals/peripheral';
 export { RPUSBController } from './peripherals/usb';
 export { RP2040 } from './rp2040';
 export { USBCDC } from './usb/cdc';

@@ -4,20 +4,19 @@
  * Copyright (C) 2021, Uri Shaked
  */
 
-import { createServer, Socket } from 'net';
-import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from './rp2040';
+import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../rp2040';
+import { ConsoleLogger, Logger, LogLevel } from '../utils/logging';
+import { GDBConnection } from './gdb-connection';
 import {
   decodeHexBuf,
   encodeHexBuf,
   encodeHexByte,
   encodeHexUint32,
-  gdbChecksum,
   gdbMessage,
-} from './utils/gdb';
-import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
+} from './gdb-utils';
 
-const STOP_REPLY_SIGINT = 'S02';
-const STOP_REPLY_TRAP = 'S05';
+export const STOP_REPLY_SIGINT = 'S02';
+export const STOP_REPLY_TRAP = 'S05';
 
 const targetXML = `<?xml version="1.0"?>
 <!DOCTYPE target SYSTEM "gdb-target.dtd">
@@ -54,16 +53,12 @@ const targetXML = `<?xml version="1.0"?>
 
 const LOG_NAME = 'GDBServer';
 
-export class GDBTCPServer {
-  private socketServer = createServer();
-
-  // Console logger
+export class GDBServer {
   public logger: Logger = new ConsoleLogger(LogLevel.Warn, true);
 
-  constructor(readonly rp2040: RP2040, readonly port: number = 3333) {
-    this.socketServer.listen(port);
-    this.socketServer.on('connection', (socket) => this.handleConnection(socket));
-  }
+  private readonly connections = new Set<GDBConnection>();
+
+  constructor(readonly rp2040: RP2040) {}
 
   processGDBMessage(cmd: string) {
     const { rp2040 } = this;
@@ -93,7 +88,9 @@ export class GDBTCPServer {
           return gdbMessage('vCont;c;C;s;S');
         }
         if (cmd.startsWith('vCont;c')) {
-          rp2040.execute();
+          if (!rp2040.executing) {
+            rp2040.execute();
+          }
           return;
         }
         if (cmd.startsWith('vCont;s')) {
@@ -103,7 +100,9 @@ export class GDBTCPServer {
         break;
 
       case 'c':
-        rp2040.execute();
+        if (!rp2040.executing) {
+          rp2040.execute();
+        }
         break;
 
       case 'g': {
@@ -204,10 +203,7 @@ export class GDBTCPServer {
         const length = parseInt(params[1], 16);
         const data = decodeHexBuf(params[2].substr(0, length * 2));
         for (let i = 0; i < data.length; i++) {
-          this.logger.debug(
-            LOG_NAME,
-            `Write ${data[i].toString(16)} to ${(address + i).toString(16)}`
-          );
+          this.debug(`Write ${data[i].toString(16)} to ${(address + i).toString(16)}`);
           rp2040.writeUint8(address + i, data[i]);
         }
         return gdbMessage('OK');
@@ -217,59 +213,34 @@ export class GDBTCPServer {
     return gdbMessage('');
   }
 
-  handleConnection(socket: Socket) {
-    console.log('GDB connected\n');
-    socket.setNoDelay(true);
-    const { rp2040 } = this;
-
-    rp2040.onBreak = () => {
-      rp2040.stop();
-      rp2040.PC -= rp2040.breakRewind;
-      socket.write(gdbMessage(STOP_REPLY_TRAP));
+  addConnection(connection: GDBConnection) {
+    this.connections.add(connection);
+    this.rp2040.onBreak = () => {
+      this.rp2040.stop();
+      this.rp2040.PC -= this.rp2040.breakRewind;
+      for (const connection of this.connections) {
+        connection.onBreakpoint();
+      }
     };
+  }
 
-    let buf = '';
-    socket.on('data', (data) => {
-      if (data[0] === 3) {
-        this.logger.info(LOG_NAME, 'BREAK');
-        rp2040.stop();
-        socket.write(gdbMessage(STOP_REPLY_SIGINT));
-        data = data.slice(1);
-      }
+  removeConnection(connection: GDBConnection) {
+    this.connections.delete(connection);
+  }
 
-      buf += data.toString('utf-8');
-      for (;;) {
-        const dolla = buf.indexOf('$');
-        const hash = buf.indexOf('#', dolla + 1);
-        if (dolla < 0 || hash < 0 || hash + 2 > buf.length) {
-          return;
-        }
-        const cmd = buf.substring(dolla + 1, hash);
-        const cksum = buf.substr(hash + 1, 2);
-        buf = buf.substr(hash + 2);
-        if (gdbChecksum(cmd) !== cksum) {
-          this.logger.warn(LOG_NAME, `GDB checksum error in message: ${cmd}`);
-          socket.write('-');
-        } else {
-          socket.write('+');
-          this.logger.debug(LOG_NAME, `>${cmd}`);
-          const response = this.processGDBMessage(cmd);
-          if (response) {
-            this.logger.debug(LOG_NAME, `<${response}`);
-            socket.write(response);
-          }
-        }
-      }
-    });
+  debug(msg: string) {
+    this.logger.debug(LOG_NAME, msg);
+  }
 
-    socket.on('error', (err) => {
-      this.logger.error(LOG_NAME, `GDB socket error ${err}`);
-    });
+  info(msg: string) {
+    this.logger.info(LOG_NAME, msg);
+  }
 
-    socket.on('close', () => {
-      console.log('GDB disconnected');
-    });
+  warn(msg: string) {
+    this.logger.warn(LOG_NAME, msg);
+  }
 
-    socket.write('+');
+  error(msg: string) {
+    this.logger.error(LOG_NAME, msg);
   }
 }
