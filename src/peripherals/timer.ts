@@ -1,4 +1,5 @@
 import { IClock, IClockTimer } from '../clock/clock';
+import { IRQ } from '../irq';
 import { RP2040 } from '../rp2040';
 import { BasePeripheral, Peripheral } from './peripheral';
 
@@ -23,6 +24,8 @@ const ALARM_1 = 1 << 1;
 const ALARM_2 = 1 << 2;
 const ALARM_3 = 1 << 3;
 /* eslint-enable @typescript-eslint/no-unused-vars */
+
+const timerInterrupts = [IRQ.TIMER_0, IRQ.TIMER_1, IRQ.TIMER_2, IRQ.TIMER_3];
 
 class RPTimerAlarm {
   armed = false;
@@ -160,7 +163,7 @@ export class RPTimer extends BasePeripheral implements Peripheral {
   private checkInterrupts() {
     const { intStatus } = this;
     for (let i = 0; i < this.alarms.length; i++) {
-      this.rp2040.setInterrupt(i, !!(intStatus & (1 << i)));
+      this.rp2040.setInterrupt(timerInterrupts[i], !!(intStatus & (1 << i)));
     }
   }
 

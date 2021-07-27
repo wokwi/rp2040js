@@ -1,6 +1,5 @@
+import { IRQ } from '../irq';
 import { BasePeripheral } from './peripheral';
-
-const USBCTRL_IRQ = 5;
 
 // USB DPSRAM Registers
 const EP1_IN_CONTROL = 0x8;
@@ -213,7 +212,7 @@ export class RPUSBController extends BasePeripheral {
 
   private checkInterrupts() {
     const { intStatus } = this;
-    this.rp2040.setInterrupt(USBCTRL_IRQ, !!intStatus);
+    this.rp2040.setInterrupt(IRQ.USBCTRL, !!intStatus);
   }
 
   resetDevice() {

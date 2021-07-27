@@ -138,7 +138,7 @@ export class RP2040 {
     new GPIOPin(this, 5, 'SD3'),
   ];
 
-  readonly pio = [new RPPIO(this, 'PIO0', 7), new RPPIO(this, 'PIO1', 9)];
+  readonly pio = [new RPPIO(this, 'PIO0', IRQ.PIO0_IRQ0), new RPPIO(this, 'PIO1', IRQ.PIO1_IRQ0)];
   readonly usbCtrl = new RPUSBController(this, 'USB');
 
   private stopped = false;
