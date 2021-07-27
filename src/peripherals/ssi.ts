@@ -33,7 +33,9 @@ export class RPSSI extends BasePeripheral implements Peripheral {
         if (value === CMD_READ_STATUS) {
           this.dr0 = 0; // tell stage2 that we completed a write
         }
-        break;
+        return;
+      default:
+        super.writeUint32(offset, value);
     }
   }
 }

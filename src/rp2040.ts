@@ -1,11 +1,13 @@
-import { IClock, IClockTimer } from './clock/clock';
+import { IClock } from './clock/clock';
 import { RealtimeClock } from './clock/realtime-clock';
 import { GPIOPin } from './gpio-pin';
+import { IRQ, MAX_HARDWARE_IRQ } from './irq';
 import { RPClocks } from './peripherals/clocks';
 import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RPPIO } from './peripherals/pio';
+import { RPPPB } from './peripherals/ppb';
 import { RPReset } from './peripherals/reset';
 import { RP2040RTC } from './peripherals/rtc';
 import { RPSSI } from './peripherals/ssi';
@@ -23,21 +25,6 @@ export const DPRAM_START_ADDRESS = 0x50100000;
 export const SIO_START_ADDRESS = 0xd0000000;
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-const PPB_BASE = 0xe0000000;
-const OFFSET_SYST_CSR = 0xe010; // SysTick Control and Status Register
-const OFFSET_SYST_RVR = 0xe014; // SysTick Reload Value Register
-const OFFSET_SYST_CVR = 0xe018; // SysTick Current Value Register
-const OFFSET_SYST_CALIB = 0xe01c; // SysTick Calibration Value Register
-const OFFSET_NVIC_ISER = 0xe100; // Interrupt Set-Enable Register
-const OFFSET_NVIC_ICER = 0xe180; // Interrupt Clear-Enable Register
-const OFFSET_NVIC_ISPR = 0xe200; // Interrupt Set-Pending Register
-const OFFSET_NVIC_ICPR = 0xe280; // Interrupt Clear-Pending Register
-// Interrupt priority registers
-const OFFSET_NVIC_IPRn = [0xe400, 0xe404, 0xe408, 0xe40c, 0xe410, 0xe414, 0xe418, 0xe41c];
-const OFFSET_VTOR = 0xed08;
-const OFFSET_SHPR2 = 0xed1c;
-const OFFSET_SHPR3 = 0xed20;
-
 const EXC_RESET = 1;
 const EXC_NMI = 2;
 const EXC_HARDFAULT = 3;
@@ -56,11 +43,6 @@ export const SYSM_MSP = 8;
 export const SYSM_PSP = 9;
 export const SYSM_PRIMASK = 16;
 export const SYSM_CONTROL = 20;
-
-const IO_IRQ_BANK0 = 13;
-const UART0_IRQ = 20;
-const UART1_IRQ = 21;
-const MAX_HARDWARE_IRQ = 25; // That's RTC_IRQ
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -109,12 +91,10 @@ export class RP2040 {
   bankedSP: number = 0;
   cycles: number = 0;
 
-  readonly writeHooks = new Map<number, CPUWriteCallback>();
-  readonly readHooks = new Map<number, CPUReadCallback>();
-
+  readonly ppb = new RPPPB(this, 'PPB');
   readonly sio = new RPSIO(this);
 
-  readonly uart = [new RPUART(this, 'UART0', UART0_IRQ), new RPUART(this, 'UART1', UART1_IRQ)];
+  readonly uart = [new RPUART(this, 'UART0', IRQ.UART0), new RPUART(this, 'UART1', IRQ.UART1)];
 
   readonly gpio = [
     new GPIOPin(this, 0),
@@ -190,17 +170,9 @@ export class RP2040 {
   pendingSVCall: boolean = false;
   pendingSystick: boolean = false;
   interruptsUpdated = false;
-
-  // M0Plus built-in registers
+  VTOR = 0;
   SHPR2 = 0;
   SHPR3 = 0;
-
-  // Systick
-  systickCountFlag = false;
-  systickControl = 0;
-  systickLastZero = 0;
-  systickReload = 0;
-  systickTimer: IClockTimer | null = null;
 
   private executeTimer: NodeJS.Timeout | null = null;
 
@@ -249,112 +221,6 @@ export class RP2040 {
   constructor(readonly clock: IClock = new RealtimeClock()) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
-
-    /* NVIC */
-    let VTOR = 0;
-    this.writeHooks.set(PPB_BASE + OFFSET_VTOR, (newValue) => {
-      VTOR = newValue;
-    });
-    this.readHooks.set(PPB_BASE + OFFSET_VTOR, () => {
-      return VTOR;
-    });
-
-    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, (newValue) => {
-      this.pendingInterrupts |= newValue;
-      this.interruptsUpdated = true;
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, (newValue) => {
-      const hardwareInterruptMask = (1 << MAX_HARDWARE_IRQ) - 1;
-      this.pendingInterrupts &= ~newValue | hardwareInterruptMask;
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ISER, (newValue) => {
-      this.enabledInterrupts |= newValue;
-      this.interruptsUpdated = true;
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_NVIC_ICER, (newValue) => {
-      this.enabledInterrupts &= ~newValue;
-    });
-
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISPR, () => this.pendingInterrupts >>> 0);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICPR, () => this.pendingInterrupts >>> 0);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ISER, () => this.enabledInterrupts >>> 0);
-    this.readHooks.set(PPB_BASE + OFFSET_NVIC_ICER, () => this.enabledInterrupts >>> 0);
-    for (let regIndex = 0; regIndex < 8; regIndex++) {
-      this.writeHooks.set(PPB_BASE + OFFSET_NVIC_IPRn[regIndex], (newValue) => {
-        for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
-          const interruptNumber = regIndex * 4 + byteIndex;
-          const newPriority = (newValue >> (8 * byteIndex + 6)) & 0x3;
-          for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
-            this.interruptPriorities[priority] &= ~(1 << interruptNumber);
-          }
-          this.interruptPriorities[newPriority] |= 1 << interruptNumber;
-        }
-        this.interruptsUpdated = true;
-      });
-      this.readHooks.set(PPB_BASE + OFFSET_NVIC_IPRn[regIndex], () => {
-        let result = 0;
-        for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
-          const interruptNumber = regIndex * 4 + byteIndex;
-          for (let priority = 0; priority < this.interruptPriorities.length; priority++) {
-            if (this.interruptPriorities[priority] & (1 << interruptNumber)) {
-              result |= priority << (8 * byteIndex + 6);
-            }
-          }
-        }
-        return result;
-      });
-    }
-
-    this.readHooks.set(PPB_BASE + OFFSET_SHPR2, () => this.SHPR2);
-    this.readHooks.set(PPB_BASE + OFFSET_SHPR3, () => this.SHPR3);
-    this.writeHooks.set(PPB_BASE + OFFSET_SHPR2, (value) => {
-      this.SHPR2 = value;
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_SHPR3, (value) => {
-      this.SHPR3 = value;
-    });
-
-    // SysTick
-    this.readHooks.set(PPB_BASE + OFFSET_SYST_CSR, () => {
-      const countFlagValue = this.systickCountFlag ? 1 << 16 : 0;
-      this.systickCountFlag = false;
-      return countFlagValue | (this.systickControl & 0x7);
-    });
-    this.readHooks.set(PPB_BASE + OFFSET_SYST_CVR, () => {
-      const delta = (this.clock.micros - this.systickLastZero) % (this.systickReload + 1);
-      if (!delta) {
-        return 0;
-      }
-      return this.systickReload - (delta - 1);
-    });
-    this.readHooks.set(PPB_BASE + OFFSET_SYST_RVR, () => this.systickReload);
-    this.readHooks.set(PPB_BASE + OFFSET_SYST_CALIB, () => 0x0000270f);
-    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CSR, (value) => {
-      const prevInterrupt = this.systickControl === 0x7;
-      const interrupt = value === 0x7;
-      if (interrupt && !prevInterrupt) {
-        // TODO: adjust the timer based on the current systick value
-        const systickCallback = () => {
-          this.pendingSystick = true;
-          this.interruptsUpdated = true;
-          this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
-        };
-        this.systickTimer = this.clock.createTimer(this.systickReload + 1, systickCallback);
-      }
-      if (prevInterrupt && interrupt) {
-        if (this.systickTimer) {
-          this.clock.deleteTimer(this.systickTimer);
-        }
-        this.systickTimer = null;
-      }
-      this.systickControl = value & 0x7;
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_SYST_CVR, (value) => {
-      this.logger.warn(LOG_NAME, `SYSTICK CVR: not implemented yet, value=${value}`);
-    });
-    this.writeHooks.set(PPB_BASE + OFFSET_SYST_RVR, (value) => {
-      this.systickReload = value;
-    });
   }
 
   loadBootrom(bootromData: Uint32Array) {
@@ -475,15 +341,10 @@ export class RP2040 {
       address < DPRAM_START_ADDRESS + this.usbDPRAM.length
     ) {
       return this.usbDPRAMView.getUint32(address - DPRAM_START_ADDRESS, true);
-    } else {
-      const hook = this.readHooks.get(address);
-      if (hook) {
-        return hook(address);
-      } else {
-        if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
-          return this.sio.readUint32(address - SIO_START_ADDRESS);
-        }
-      }
+    } else if (address >>> 12 === 0xe000e) {
+      return this.ppb.readUint32(address & 0xfff);
+    } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
+      return this.sio.readUint32(address - SIO_START_ADDRESS);
     }
     this.logger.warn(LOG_NAME, `Read from invalid memory address: ${address.toString(16)}`);
     return 0xffffffff;
@@ -527,13 +388,10 @@ export class RP2040 {
       this.usbCtrl.DPRAMUpdated(offset, value);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       this.sio.writeUint32(address - SIO_START_ADDRESS, value);
+    } else if (address >>> 12 === 0xe000e) {
+      this.ppb.writeUint32(address & 0xfff, value);
     } else {
-      const hook = this.writeHooks.get(address);
-      if (hook) {
-        hook(value, address);
-      } else {
-        this.logger.warn(LOG_NAME, `Write to undefined address: ${address.toString(16)}`);
-      }
+      this.logger.warn(LOG_NAME, `Write to undefined address: ${address.toString(16)}`);
     }
   }
 
@@ -644,7 +502,7 @@ export class RP2040 {
     this.IPSR = exceptionNumber;
     this.switchStack(StackPointerBank.SPmain);
     // SetEventRegister(); // See WFE instruction for details
-    const vectorTable = this.readUint32(PPB_BASE + OFFSET_VTOR);
+    const vectorTable = this.VTOR;
     this.PC = this.readUint32(vectorTable + 4 * exceptionNumber);
   }
 
@@ -705,11 +563,11 @@ export class RP2040 {
   }
 
   get svCallPriority() {
-    return this.readUint32(PPB_BASE + OFFSET_SHPR2) >>> 30;
+    return this.SHPR2 >>> 30;
   }
 
   get systickPriority() {
-    return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
+    return this.SHPR3 >>> 30;
   }
 
   get gpioValues() {
@@ -734,9 +592,9 @@ export class RP2040 {
       case EXC_SVCALL:
         return this.svCallPriority;
       case EXC_PENDSV:
-        return (this.readUint32(PPB_BASE + OFFSET_SHPR3) >> 22) & 0x3;
+        return (this.readUint32(this.SHPR3) >> 22) & 0x3;
       case EXC_SYSTICK:
-        return this.readUint32(PPB_BASE + OFFSET_SHPR3) >>> 30;
+        return this.readUint32(this.SHPR3) >>> 30;
       default: {
         if (n < 16) {
           return LOWEST_PRIORITY;
@@ -803,7 +661,7 @@ export class RP2040 {
         interruptValue = true;
       }
     }
-    this.setInterrupt(IO_IRQ_BANK0, interruptValue);
+    this.setInterrupt(IRQ.IO_BANK0, interruptValue);
   }
 
   readSpecialRegister(sysm: number) {
