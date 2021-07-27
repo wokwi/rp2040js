@@ -20,6 +20,10 @@
     ".": {
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./gdb-tcp-server": {
+      "import": "./dist/esm/gdb/gdb-tcp-server.js",
+      "require": "./dist/cjs/gdb/gdb-tcp-server.js"
     }
   },
   "scripts": {
