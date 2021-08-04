@@ -166,6 +166,9 @@ export class RPPPB extends BasePeripheral implements Peripheral {
             const systickCallback = () => {
               rp2040.pendingSystick = true;
               rp2040.interruptsUpdated = true;
+              if (rp2040.waiting && rp2040.checkForInterrupts()) {
+                rp2040.waiting = false;
+              }
               this.systickTimer = rp2040.clock.createTimer(this.systickReload + 1, systickCallback);
             };
             this.systickTimer = rp2040.clock.createTimer(this.systickReload + 1, systickCallback);

@@ -142,6 +142,8 @@ export class RP2040 {
   readonly usbCtrl = new RPUSBController(this, 'USB');
 
   private stopped = true;
+  eventRegistered = false;
+  waiting = false;
 
   public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
 
@@ -501,7 +503,7 @@ export class RP2040 {
     this.currentMode = ExecutionMode.Mode_Handler; // Enter Handler Mode, now Privileged
     this.IPSR = exceptionNumber;
     this.switchStack(StackPointerBank.SPmain);
-    // SetEventRegister(); // See WFE instruction for details
+    this.eventRegistered = true;
     const vectorTable = this.VTOR;
     this.PC = this.readUint32(vectorTable + 4 * exceptionNumber);
   }
@@ -557,7 +559,7 @@ export class RP2040 {
     this.IPSR = forceThread ? 0 : psr & 0x3f;
     this.interruptsUpdated = true;
     // Thumb bit should always be one! EPSR<24> = psr<24>; // Load valid EPSR bits from memory
-    // SetEventRegister(); // See WFE instruction for more details
+    this.eventRegistered = true;
     // if CurrentMode == Mode_Thread && SCR.SLEEPONEXIT == '1' then
     // SleepOnExit(); // IMPLEMENTATION DEFINED
   }
@@ -615,6 +617,9 @@ export class RP2040 {
     if (value && !(this.pendingInterrupts & irqBit)) {
       this.pendingInterrupts |= irqBit;
       this.interruptsUpdated = true;
+      if (this.waiting && this.checkForInterrupts()) {
+        this.waiting = false;
+      }
     } else if (!value) {
       this.pendingInterrupts &= ~irqBit;
     }
@@ -632,12 +637,12 @@ export class RP2040 {
       if (this.pendingSVCall && priority === svCallPriority) {
         this.pendingSVCall = false;
         this.exceptionEntry(EXC_SVCALL);
-        return;
+        return true;
       }
       if (this.pendingSystick && priority === systickPriority) {
         this.pendingSystick = false;
         this.exceptionEntry(EXC_SYSTICK);
-        return;
+        return true;
       }
       if (levelInterrupts) {
         for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
@@ -646,12 +651,13 @@ export class RP2040 {
               this.pendingInterrupts &= ~(1 << interruptNumber);
             }
             this.exceptionEntry(16 + interruptNumber);
-            return;
+            return true;
           }
         }
       }
     }
     this.interruptsUpdated = false;
+    return false;
   }
 
   updateIOInterrupt() {
@@ -765,7 +771,9 @@ export class RP2040 {
 
   executeInstruction() {
     if (this.interruptsUpdated) {
-      this.checkForInterrupts();
+      if (this.checkForInterrupts()) {
+        this.waiting = false;
+      }
     }
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcodePC = this.PC & ~1; //ensure no LSB set PC are executed
@@ -1496,15 +1504,17 @@ export class RP2040 {
     }
     // WFE
     else if (opcode === 0b1011111100100000) {
-      // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info(LOG_NAME, 'WFE');
+      if (this.eventRegistered) {
+        this.eventRegistered = false;
+      } else {
+        this.waiting = true;
+      }
     }
     // WFI
     else if (opcode === 0b1011111100110000) {
-      // do nothing for now. Wait for event!
       this.cycles++;
-      this.logger.info(LOG_NAME, 'WFI');
+      this.waiting = true;
     }
     // YIELD
     else if (opcode === 0b1011111100010000) {
@@ -1528,7 +1538,7 @@ export class RP2040 {
     this.clock.resume();
     this.executeTimer = null;
     this.stopped = false;
-    for (let i = 0; i < 100000 && !this.stopped; i++) {
+    for (let i = 0; i < 100000 && !this.stopped && !this.waiting; i++) {
       this.executeInstruction();
     }
     if (!this.stopped) {
