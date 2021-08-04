@@ -319,15 +319,15 @@ export class RP2040 {
   }
 
   readUint32(address: number) {
-    address = address >>> 0;
-    const { bootrom } = this;
+    address = address >>> 0; // round to 32-bits, unsigned
     if (address & 0x3) {
       this.logger.error(
         LOG_NAME,
         `read from address ${address.toString(16)}, which is not 32 bit aligned`
       );
     }
-    address = address >>> 0; // round to 32-bits, unsigned
+
+    const { bootrom } = this;
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
