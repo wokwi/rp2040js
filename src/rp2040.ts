@@ -328,10 +328,6 @@ export class RP2040 {
       );
     }
     address = address >>> 0; // round to 32-bits, unsigned
-    const peripheral = this.findPeripheral(address);
-    if (peripheral) {
-      return peripheral.readUint32(address & 0x3fff);
-    }
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
@@ -348,6 +344,12 @@ export class RP2040 {
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
       return this.sio.readUint32(address - SIO_START_ADDRESS);
     }
+
+    const peripheral = this.findPeripheral(address);
+    if (peripheral) {
+      return peripheral.readUint32(address & 0x3fff);
+    }
+
     this.logger.warn(LOG_NAME, `Read from invalid memory address: ${address.toString(16)}`);
     return 0xffffffff;
   }
