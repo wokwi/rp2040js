@@ -18,12 +18,10 @@ const INTE = 0x38;
 const INTF = 0x3c;
 const INTS = 0x40;
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
 const ALARM_0 = 1 << 0;
 const ALARM_1 = 1 << 1;
 const ALARM_2 = 1 << 2;
 const ALARM_3 = 1 << 3;
-/* eslint-enable @typescript-eslint/no-unused-vars */
 
 const timerInterrupts = [IRQ.TIMER_0, IRQ.TIMER_1, IRQ.TIMER_2, IRQ.TIMER_3];
 
