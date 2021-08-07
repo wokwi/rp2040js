@@ -23,4 +23,29 @@ describe('FIFO', () => {
     expect(fifo.full).toBe(false);
     expect(fifo.empty).toBe(true);
   });
+
+  describe('peek()', () => {
+    it(`should return the next item in the FIFO without affecting the FIFO's content`, () => {
+      const fifo = new FIFO(3);
+      expect(fifo.empty).toBe(true);
+      fifo.push(10);
+      expect(fifo.empty).toBe(false);
+      fifo.push(20);
+      expect(fifo.peek()).toBe(10);
+      expect(fifo.itemCount).toBe(2);
+      expect(fifo.pull()).toBe(10);
+    });
+  });
+
+  describe('items', () => {
+    it(`should return an array with all the FIFO's content`, () => {
+      const fifo = new FIFO(3);
+      expect(fifo.empty).toBe(true);
+      fifo.push(10);
+      fifo.push(20);
+      fifo.push(30);
+      fifo.pull();
+      expect(fifo.items).toEqual([20, 30]);
+    });
+  });
 });

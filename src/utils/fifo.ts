@@ -36,6 +36,10 @@ export class FIFO {
     return 0;
   }
 
+  peek() {
+    return this.used ? this.buffer[this.start] : 0;
+  }
+
   reset() {
     this.used = 0;
   }
@@ -46,5 +50,15 @@ export class FIFO {
 
   get full() {
     return this.used === this.buffer.length;
+  }
+
+  get items() {
+    const { start, used, buffer } = this;
+    const { length } = buffer;
+    const result = [];
+    for (let i = 0; i < used; i++) {
+      result[i] = buffer[(start + i) % length];
+    }
+    return result;
   }
 }
