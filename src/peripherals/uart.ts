@@ -88,8 +88,14 @@ export class RPUART extends BasePeripheral implements Peripheral {
 
   readUint32(offset: number) {
     switch (offset) {
-      case UARTDR:
-        return this.rxFIFO.pull();
+      case UARTDR: {
+        const value = this.rxFIFO.pull();
+        if (!this.rxFIFO.empty) {
+          this.interruptStatus |= UARTRXINTR;
+          this.checkInterrupts();
+        }
+        return value;
+      }
       case UARTFR:
         return this.flags;
       case UARTLCR_H:
