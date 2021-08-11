@@ -317,7 +317,11 @@ export class RPI2C extends BasePeripheral implements Peripheral {
     this.setInterrupts(R_STOP_DET);
     this.busy = false;
     this.pendingRestart = false;
-    this.enable &= ~ABORT; // Clean the abort bit, in case user aborted
+    if (this.enable & ABORT) {
+      this.enable &= ~ABORT;
+    } else {
+      this.nextCommand();
+    }
   }
 
   arbitrationLost() {
