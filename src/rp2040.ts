@@ -2,6 +2,7 @@ import { IClock } from './clock/clock';
 import { RealtimeClock } from './clock/realtime-clock';
 import { GPIOPin } from './gpio-pin';
 import { IRQ, MAX_HARDWARE_IRQ } from './irq';
+import { RPADC } from './peripherals/adc';
 import { RPClocks } from './peripherals/clocks';
 import { RPI2C } from './peripherals/i2c';
 import { RPIO } from './peripherals/io';
@@ -97,6 +98,7 @@ export class RP2040 {
 
   readonly uart = [new RPUART(this, 'UART0', IRQ.UART0), new RPUART(this, 'UART1', IRQ.UART1)];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
+  readonly adc = new RPADC(this, 'ADC');
 
   readonly gpio = [
     new GPIOPin(this, 0),
@@ -201,7 +203,7 @@ export class RP2040 {
     0x40040: new UnimplementedPeripheral(this, 'SPI1_BASE'),
     0x40044: this.i2c[0],
     0x40048: this.i2c[1],
-    0x4004c: new UnimplementedPeripheral(this, 'ADC_BASE'),
+    0x4004c: this.adc,
     0x40050: new UnimplementedPeripheral(this, 'PWM_BASE'),
     0x40054: new RPTimer(this, 'TIMER_BASE'),
     0x40058: new UnimplementedPeripheral(this, 'WATCHDOG_BASE'),
