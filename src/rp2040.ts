@@ -12,6 +12,7 @@ import { RPPIO } from './peripherals/pio';
 import { RPPPB } from './peripherals/ppb';
 import { RPReset } from './peripherals/reset';
 import { RP2040RTC } from './peripherals/rtc';
+import { RPSPI } from './peripherals/spi';
 import { RPSSI } from './peripherals/ssi';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RPTimer } from './peripherals/timer';
@@ -79,6 +80,7 @@ const LOG_NAME = 'RP2040';
 
 const KB = 1024;
 const MB = 1024 * KB;
+const MHz = 1_000_000;
 
 export class RP2040 {
   readonly bootrom = new Uint32Array(4 * KB);
@@ -93,11 +95,16 @@ export class RP2040 {
   bankedSP: number = 0;
   cycles: number = 0;
 
+  /* Clocks */
+  clkSys = 125 * MHz;
+  clkPeri = 125 * MHz;
+
   readonly ppb = new RPPPB(this, 'PPB');
   readonly sio = new RPSIO(this);
 
   readonly uart = [new RPUART(this, 'UART0', IRQ.UART0), new RPUART(this, 'UART1', IRQ.UART1)];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
+  readonly spi = [new RPSPI(this, 'SPI0', IRQ.SPI0), new RPSPI(this, 'SPI1', IRQ.SPI1)];
   readonly adc = new RPADC(this, 'ADC');
 
   readonly gpio = [
@@ -199,8 +206,8 @@ export class RP2040 {
     0x40030: new UnimplementedPeripheral(this, 'BUSCTRL_BASE'),
     0x40034: this.uart[0],
     0x40038: this.uart[1],
-    0x4003c: new UnimplementedPeripheral(this, 'SPI0_BASE'),
-    0x40040: new UnimplementedPeripheral(this, 'SPI1_BASE'),
+    0x4003c: this.spi[0],
+    0x40040: this.spi[1],
     0x40044: this.i2c[0],
     0x40048: this.i2c[1],
     0x4004c: this.adc,
