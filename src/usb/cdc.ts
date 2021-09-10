@@ -67,8 +67,6 @@ export class USBCDC {
   private descriptors: number[] = [];
   private outEndpoint = -1;
   private inEndpoint = -1;
-  private deviceWaitingForData = false;
-  private outBufferSize = 0;
 
   constructor(readonly usb: RPUSBController) {
     this.usb.onUSBEnabled = () => {
@@ -118,26 +116,13 @@ export class USBCDC {
     };
     this.usb.onEndpointRead = (endpoint, size) => {
       if (endpoint === this.outEndpoint) {
-        this.deviceWaitingForData = true;
-        this.outBufferSize = size;
-        if (!this.txFIFO.empty) {
-          this.sendDataToDevice();
+        const buffer = new Uint8Array(Math.min(size, this.txFIFO.itemCount));
+        for (let i = 0; i < buffer.length; i++) {
+          buffer[i] = this.txFIFO.pull();
         }
+        this.usb.endpointReadDone(this.outEndpoint, buffer);
       }
     };
-  }
-
-  protected sendDataToDevice() {
-    if (!this.deviceWaitingForData) {
-      return;
-    }
-
-    const buffer = new Uint8Array(Math.min(this.outBufferSize, this.txFIFO.itemCount));
-    for (let i = 0; i < buffer.length; i++) {
-      buffer[i] = this.txFIFO.pull();
-    }
-    this.usb.endpointReadDone(this.outEndpoint, buffer);
-    this.deviceWaitingForData = false;
   }
 
   private cdcSetControlLineState(value = CDC_DTR | CDC_RTS, interfaceNumber = 0) {
@@ -157,6 +142,5 @@ export class USBCDC {
 
   sendSerialByte(data: number) {
     this.txFIFO.push(data);
-    this.sendDataToDevice();
   }
 }

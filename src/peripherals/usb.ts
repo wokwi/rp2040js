@@ -87,6 +87,7 @@ export class RPUSBController extends BasePeripheral {
   onEndpointWrite?: (endpoint: number, buffer: Uint8Array) => void;
   onEndpointRead?: (endpoint: number, byteCount: number) => void;
 
+  readDelayMicroseconds = 1;
   writeDelayMicroseconds = 1;
 
   get intStatus() {
@@ -197,7 +198,17 @@ export class RPUSBController extends BasePeripheral {
     }
   }
 
-  endpointReadDone(endpoint: number, buffer: Uint8Array) {
+  endpointReadDone(endpoint: number, buffer: Uint8Array, delay = this.readDelayMicroseconds) {
+    if (delay) {
+      this.rp2040.clock.createTimer(delay, () => {
+        this.finishRead(endpoint, buffer);
+      });
+    } else {
+      this.finishRead(endpoint, buffer);
+    }
+  }
+
+  private finishRead(endpoint: number, buffer: Uint8Array) {
     const bufferOffset = this.getEndpointBufferOffset(endpoint, true);
     const bufControlReg = EP0_OUT_BUFFER_CONTROL + endpoint * 8;
     let bufControl = this.rp2040.usbDPRAMView.getUint32(bufControlReg, true);
