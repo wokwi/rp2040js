@@ -371,11 +371,23 @@ export class RP2040 {
 
   /** We assume the address is 16-bit aligned */
   readUint16(address: number) {
+    if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+      return this.flashView.getUint16(address - FLASH_START_ADDRESS, true);
+    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      return this.sramView.getUint16(address - RAM_START_ADDRESS, true);
+    }
+
     const value = this.readUint32(address & 0xfffffffc);
     return address & 0x2 ? (value & 0xffff0000) >>> 16 : value & 0xffff;
   }
 
   readUint8(address: number) {
+    if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+      return this.flash[address - FLASH_START_ADDRESS];
+    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      return this.sram[address - RAM_START_ADDRESS];
+    }
+
     const value = this.readUint16(address & 0xfffffffe);
     return (address & 0x1 ? (value & 0xff00) >>> 8 : value & 0xff) >>> 0;
   }
@@ -411,6 +423,11 @@ export class RP2040 {
   }
 
   writeUint8(address: number, value: number) {
+    if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      this.sram[address - RAM_START_ADDRESS] = value;
+      return;
+    }
+
     const alignedAddress = (address & 0xfffffffc) >>> 0;
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
@@ -433,6 +450,12 @@ export class RP2040 {
   writeUint16(address: number, value: number) {
     // we assume that addess is 16-bit aligned.
     // Ideally we should generate a fault if not!
+
+    if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      this.sramView.setUint16(address - RAM_START_ADDRESS, value, true);
+      return;
+    }
+
     const alignedAddress = (address & 0xfffffffc) >>> 0;
     const offset = address & 0x3;
     const peripheral = this.findPeripheral(address);
@@ -791,7 +814,8 @@ export class RP2040 {
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcodePC = this.PC & ~1; //ensure no LSB set PC are executed
     const opcode = this.readUint16(opcodePC);
-    const opcode2 = this.readUint16(opcodePC + 2);
+    const wideInstruction = opcode >> 12 === 0b1111 || opcode >> 13 === 0b11101;
+    const opcode2 = wideInstruction ? this.readUint16(opcodePC + 2) : 0;
     this.PC += 2;
     this.cycles++;
     // ADCS
