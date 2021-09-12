@@ -15,7 +15,7 @@ export class MockClockTimer implements IClockTimer {
 export class MockClock implements IClock {
   micros: number = 0;
 
-  private readonly timers: MockClockTimer[] = [];
+  readonly timers: MockClockTimer[] = [];
 
   pause() {
     /* intentionally empty */
@@ -27,12 +27,14 @@ export class MockClock implements IClock {
 
   advance(deltaMicros: number) {
     const { timers } = this;
-    const targetTime = this.micros + deltaMicros;
+    const targetTime = this.micros + Math.max(deltaMicros, 0.01);
     while (timers[0] && timers[0].micros <= targetTime) {
       const timer = timers.shift();
-      timer?.callback();
+      if (timer) {
+        this.micros = timer.micros;
+        timer.callback();
+      }
     }
-    this.micros += deltaMicros;
   }
 
   createTimer(deltaMicros: number, callback: () => void) {

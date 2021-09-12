@@ -4,6 +4,7 @@ import { GPIOPin } from './gpio-pin';
 import { IRQ, MAX_HARDWARE_IRQ } from './irq';
 import { RPADC } from './peripherals/adc';
 import { RPClocks } from './peripherals/clocks';
+import { RPDMA } from './peripherals/dma';
 import { RPI2C } from './peripherals/i2c';
 import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
@@ -149,7 +150,11 @@ export class RP2040 {
     new GPIOPin(this, 5, 'SD3'),
   ];
 
-  readonly pio = [new RPPIO(this, 'PIO0', IRQ.PIO0_IRQ0), new RPPIO(this, 'PIO1', IRQ.PIO1_IRQ0)];
+  readonly dma = new RPDMA(this, 'DMA');
+  readonly pio = [
+    new RPPIO(this, 'PIO0', IRQ.PIO0_IRQ0, 0),
+    new RPPIO(this, 'PIO1', IRQ.PIO1_IRQ0, 1),
+  ];
   readonly usbCtrl = new RPUSBController(this, 'USB');
 
   private stopped = true;
@@ -218,6 +223,7 @@ export class RP2040 {
     0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
     0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
+    0x50000: this.dma,
     0x50110: this.usbCtrl,
     0x50200: this.pio[0],
     0x50300: this.pio[1],

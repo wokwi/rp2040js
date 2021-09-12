@@ -1,5 +1,6 @@
 import { RP2040 } from '../rp2040';
 import { FIFO } from '../utils/fifo';
+import { DREQChannel } from './dma';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 // Generic registers
@@ -93,6 +94,31 @@ function irqIndex(irq: number, machineIndex: number): number {
   return rel ? (irq & 0x4) | (((irq & 0x3) + machineIndex) & 0x3) : irq & 0x7;
 }
 
+const dreqRx0 = [
+  DREQChannel.DREQ_PIO1_RX0,
+  DREQChannel.DREQ_PIO0_RX1,
+  DREQChannel.DREQ_PIO0_RX2,
+  DREQChannel.DREQ_PIO0_RX3,
+];
+const dreqTx0 = [
+  DREQChannel.DREQ_PIO0_TX0,
+  DREQChannel.DREQ_PIO0_TX1,
+  DREQChannel.DREQ_PIO0_TX2,
+  DREQChannel.DREQ_PIO0_TX3,
+];
+const dreqRx1 = [
+  DREQChannel.DREQ_PIO1_RX0,
+  DREQChannel.DREQ_PIO1_RX1,
+  DREQChannel.DREQ_PIO1_RX2,
+  DREQChannel.DREQ_PIO1_RX3,
+];
+const dreqTx1 = [
+  DREQChannel.DREQ_PIO1_TX0,
+  DREQChannel.DREQ_PIO1_TX1,
+  DREQChannel.DREQ_PIO1_TX2,
+  DREQChannel.DREQ_PIO1_TX3,
+];
+
 export class StateMachine {
   enabled = false;
 
@@ -127,7 +153,29 @@ export class StateMachine {
   waitPolarity = false;
   waitDelay = -1;
 
-  constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {}
+  readonly dreqRx = this.pio.dreqRx[this.index];
+  readonly dreqTx = this.pio.dreqTx[this.index];
+
+  constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {
+    this.updateDMARx();
+    this.updateDMATx();
+  }
+
+  private updateDMATx() {
+    if (this.txFIFO.full) {
+      this.rp2040.dma.clearDREQ(this.dreqTx);
+    } else {
+      this.rp2040.dma.setDREQ(this.dreqTx);
+    }
+  }
+
+  private updateDMARx() {
+    if (this.rxFIFO.empty) {
+      this.rp2040.dma.clearDREQ(this.dreqRx);
+    } else {
+      this.rp2040.dma.setDREQ(this.dreqRx);
+    }
+  }
 
   writeFIFO(value: number) {
     if (this.txFIFO.full) {
@@ -135,6 +183,7 @@ export class StateMachine {
       return;
     }
     this.txFIFO.push(value);
+    this.updateDMATx();
     this.checkWait();
     if (this.txFIFO.full) {
       this.pio.checkInterrupts();
@@ -147,6 +196,7 @@ export class StateMachine {
       return 0;
     }
     const result = this.rxFIFO.pull();
+    this.updateDMARx();
     this.checkWait();
     if (this.rxFIFO.empty) {
       this.pio.checkInterrupts();
@@ -447,6 +497,7 @@ export class StateMachine {
         if (this.shiftCtrl & SHIFTCTRL_AUTOPUSH && this.inputShiftCount >= this.pushThreshold) {
           if (!this.rxFIFO.full) {
             this.rxFIFO.push(this.inputShiftReg);
+            this.updateDMARx();
             this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
@@ -465,6 +516,7 @@ export class StateMachine {
           this.outputShiftCount = 0;
           if (!this.txFIFO.empty) {
             this.outputShiftReg = this.txFIFO.pull();
+            this.updateDMATx();
             this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
@@ -497,6 +549,7 @@ export class StateMachine {
           }
           if (!this.txFIFO.empty) {
             this.outputShiftReg = this.txFIFO.pull();
+            this.updateDMATx();
             this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
@@ -518,6 +571,7 @@ export class StateMachine {
           }
           if (!this.rxFIFO.full) {
             this.rxFIFO.push(this.inputShiftReg);
+            this.updateDMARx();
             this.pio.checkInterrupts();
           } else {
             this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
@@ -821,6 +875,7 @@ export class StateMachine {
         if (!this.rxFIFO.full) {
           this.rxFIFO.push(this.waitIndex);
           this.waiting = false;
+          this.updateDMARx();
           this.pio.checkInterrupts();
         }
         break;
@@ -830,6 +885,7 @@ export class StateMachine {
         if (!this.txFIFO.empty) {
           this.outputShiftReg = this.txFIFO.pull();
           this.waiting = false;
+          this.updateDMATx();
           this.pio.checkInterrupts();
         }
         break;
@@ -840,6 +896,7 @@ export class StateMachine {
           this.outputShiftReg = this.txFIFO.pull();
           this.outInstruction(this.waitIndex);
           this.waiting = false;
+          this.updateDMATx();
           this.pio.checkInterrupts();
         }
         break;
@@ -856,6 +913,8 @@ export class StateMachine {
 
 export class RPPIO extends BasePeripheral implements Peripheral {
   readonly instructions = new Uint32Array(32);
+  readonly dreqRx = this.index ? dreqRx1 : dreqRx0;
+  readonly dreqTx = this.index ? dreqTx1 : dreqTx0;
   readonly machines = [
     new StateMachine(this.rp2040, this, 0),
     new StateMachine(this.rp2040, this, 1),
@@ -878,7 +937,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   irq1IntEnable = 0;
   irq1IntForce = 0;
 
-  constructor(rp2040: RP2040, name: string, readonly firstIrq: number) {
+  constructor(rp2040: RP2040, name: string, readonly firstIrq: number, readonly index: number) {
     super(rp2040, name);
   }
 
