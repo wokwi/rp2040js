@@ -668,10 +668,16 @@ export class RP2040 {
   }
 
   checkForInterrupts() {
-    const currentPriority = Math.min(
-      this.exceptionPriority(this.IPSR),
-      this.PM ? 0 : LOWEST_PRIORITY
-    );
+    /* If we're waiting for an interrupt (i.e. WFI/WFE), the ARM says:
+       > If PRIMASK.PM is set to 1, an asynchronous exception that has a higher group priority than any
+       > active exception results in a WFI instruction exit. If the group priority of the exception is less than or
+       > equal to the execution group priority, the exception is ignored.
+    */
+    const currentPriority = this.waiting
+      ? this.PM
+        ? this.exceptionPriority(this.IPSR)
+        : LOWEST_PRIORITY
+      : Math.min(this.exceptionPriority(this.IPSR), this.PM ? 0 : LOWEST_PRIORITY);
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
     const { svCallPriority, systickPriority } = this;
     for (let priority = 0; priority < currentPriority; priority++) {
