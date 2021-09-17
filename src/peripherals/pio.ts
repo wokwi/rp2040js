@@ -71,7 +71,7 @@ const EXECCTRL_SIDE_PINDIR = 1 << 29;
 const EXECCTRL_SIDE_EN = 1 << 30;
 const EXECCTRL_EXEC_STALLED = 1 << 31;
 
-enum WaitType {
+export enum WaitType {
   None,
   Pin,
   rxFIFO,

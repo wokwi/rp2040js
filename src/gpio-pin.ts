@@ -1,3 +1,4 @@
+import { WaitType } from './peripherals/pio';
 import { RP2040 } from './rp2040';
 
 export enum GPIOPinState {
@@ -196,6 +197,18 @@ export class GPIOPin {
     }
     if (this.irqValue !== prevIrqValue) {
       this.rp2040.updateIOInterrupt();
+    }
+    for (const pio of this.rp2040.pio) {
+      for (const machine of pio.machines) {
+        if (
+          machine.enabled &&
+          machine.waiting &&
+          machine.waitType === WaitType.Pin &&
+          machine.waitIndex === this.index
+        ) {
+          machine.checkWait();
+        }
+      }
     }
   }
 
