@@ -1,6 +1,6 @@
 {
   "name": "rp2040js",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "description": "Raspberry Pi Pico (RP2040) Emulator",
   "repository": "https://github.com/wokwi/rp2040js",
   "keywords": [
