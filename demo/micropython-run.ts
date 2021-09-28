@@ -8,7 +8,7 @@ import { loadUF2 } from './load-uf2';
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
-loadUF2('rp2-pico-20210618-v1.16.uf2', mcu);
+loadUF2('rp2-pico-20210902-v1.17.uf2', mcu);
 
 const gdbServer = new GDBTCPServer(mcu, 3333);
 console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);

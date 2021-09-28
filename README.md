@@ -26,7 +26,7 @@ npm install
 npm start
 ```
 
-To run the micropython demo, first download [rp2-pico-20210618-v1.16.uf2](https://micropython.org/resources/firmware/rp2-pico-20210618-v1.16.uf2), place it in the rp2040js root directory, then run:
+To run the micropython demo, first download [rp2-pico-20210902-v1.17.uf2](https://micropython.org/resources/firmware/rp2-pico-20210902-v1.17.uf2), place it in the rp2040js root directory, then run:
 
 ```
 npm install
@@ -35,7 +35,7 @@ npm run start:micropython
 
 and enjoy the MicroPython REPL! Quit the REPL with Ctrl+D.
 
-You can replace rp2-pico-20210618-v1.16.uf2 any recent MicroPython or CircuitPython release built for the RP2040.
+You can replace rp2-pico-20210902-v1.17.uf2 any recent MicroPython or CircuitPython release built for the RP2040.
 
 ## Learn more
 
