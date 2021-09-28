@@ -17,6 +17,7 @@ const MAIN_CTRL = 0x40;
 const SIE_STATUS = 0x50;
 const BUFF_STATUS = 0x58;
 const BUFF_CPU_SHOULD_HANDLE = 0x5c;
+const USB_MUXING = 0x74;
 const INTR = 0x8c;
 const INTE = 0x90;
 const INTF = 0x94;
@@ -47,6 +48,12 @@ const SIE_SUSPENDED = 1 << 4;
 const SIE_LINE_STATE_MASK = 0x3;
 const SIE_LINE_STATE_SHIFT = 2;
 const SIE_VBUS_DETECTED = 1 << 0;
+
+// USB_MUXING bits
+const SOFTCON = 1 << 3;
+const TO_DIGITAL_PAD = 1 << 2;
+const TO_EXTPHY = 1 << 1;
+const TO_PHY = 1 << 0;
 
 // INTR bits
 const INTR_BUFF_STATUS = 1 << 4;
@@ -127,6 +134,12 @@ export class RPUSBController extends BasePeripheral {
       case BUFF_STATUS:
         this.buffStatus &= ~this.rawWriteValue;
         this.buffStatusUpdated();
+        break;
+      case USB_MUXING:
+        // Workaround for busy wait in hw_enumeration_fix_force_ls_j() / hw_enumeration_fix_finish():
+        if (value & TO_DIGITAL_PAD && !(value & TO_PHY)) {
+          this.sieStatus |= SIE_CONNECTED;
+        }
         break;
       case SIE_STATUS:
         this.sieStatus &= ~(this.rawWriteValue & SIE_WRITECLEAR_MASK);
