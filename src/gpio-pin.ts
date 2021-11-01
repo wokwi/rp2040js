@@ -138,7 +138,7 @@ export class GPIOPin {
   }
 
   get inputValue() {
-    return applyOverride(this.rawInputValue, this.inputOverride);
+    return applyOverride(this.rawInputValue && this.inputEnable, this.inputOverride);
   }
 
   get irqValue() {
@@ -188,7 +188,7 @@ export class GPIOPin {
   setInputValue(value: boolean) {
     this.rawInputValue = value;
     const prevIrqValue = this.irqValue;
-    if (value) {
+    if (value && this.inputEnable) {
       this.irqStatus |= IRQ_EDGE_HIGH | IRQ_LEVEL_HIGH;
       this.irqStatus &= ~IRQ_LEVEL_LOW;
     } else {
@@ -220,6 +220,10 @@ export class GPIOPin {
         listener(value, lastValue);
       }
     }
+  }
+
+  refreshInput() {
+    this.setInputValue(this.rawInputValue);
   }
 
   updateIRQValue(value: number) {

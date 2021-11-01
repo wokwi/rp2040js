@@ -44,8 +44,12 @@ export class RPPADS extends BasePeripheral implements Peripheral {
   writeUint32(offset: number, value: number) {
     if (offset >= this.firstPadRegister && offset <= this.lastPadRegister) {
       const gpio = this.getPinFromOffset(offset);
+      const oldInputEnable = gpio.inputEnable;
       gpio.padValue = value;
       gpio.checkForUpdates();
+      if (oldInputEnable !== gpio.inputEnable) {
+        gpio.refreshInput();
+      }
       return;
     }
     switch (offset) {
