@@ -249,7 +249,7 @@ export class StateMachine {
       case 0b110: {
         const { gpio } = this.rp2040;
         const { jmpPin } = this;
-        return jmpPin < gpio.length ? gpio[jmpPin].value : false;
+        return jmpPin < gpio.length ? gpio[jmpPin].inputValue : false;
       }
 
       // !OSRE: output shift register not empty
