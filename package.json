@@ -54,10 +54,12 @@
     "uf2": "^1.0.0"
   },
   "lint-staged": {
-    "**/*.{js,ts}": [
+    "**/*.ts": [
       "eslint --fix",
-      "prettier --write",
-      "git add"
+      "prettier --write"
+    ],
+    "**/*.js": [
+      "prettier --write"
     ]
   }
 }
