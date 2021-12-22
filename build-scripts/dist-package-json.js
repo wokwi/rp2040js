@@ -11,6 +11,6 @@ fs.writeFileSync(
 fs.writeFileSync(
   path.join(__dirname, '../dist/esm/package.json'),
   JSON.stringify({
-    type: 'esm',
+    type: 'module',
   })
 );
