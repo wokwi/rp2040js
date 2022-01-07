@@ -1,6 +1,7 @@
 import { IRQ } from '../irq';
 import { RP2040 } from '../rp2040';
 import { FIFO } from '../utils/fifo';
+import { DREQChannel } from './dma';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 const CS = 0x00; // ADC Control and Status
@@ -96,6 +97,7 @@ export class RPADC extends BasePeripheral implements Peripheral {
   };
 
   readonly fifo = new FIFO(4);
+  readonly dreq = DREQChannel.DREQ_ADC;
 
   // Registers
   cs = 0;
@@ -156,6 +158,17 @@ export class RPADC extends BasePeripheral implements Peripheral {
     this.onADCRead(this.activeChannel);
   }
 
+  private updateDMA() {
+    if (this.fcs & FCS_DREQ_EN) {
+      const thres = (this.fcs >> FCS_THRESH_SHIFT) & FCS_THRES_MASK;
+      if (this.fifo.itemCount >= thres) {
+        this.rp2040.dma.setDREQ(this.dreq);
+      } else {
+        this.rp2040.dma.clearDREQ(this.dreq);
+      }
+    }
+  }
+
   completeADCRead(value: number, error: boolean) {
     this.busy = false;
     this.result = value;
@@ -178,6 +191,7 @@ export class RPADC extends BasePeripheral implements Peripheral {
           value |= FIFO_ERR;
         }
         this.fifo.push(value);
+        this.updateDMA();
         this.checkInterrupts();
       }
     }
@@ -228,7 +242,9 @@ export class RPADC extends BasePeripheral implements Peripheral {
           this.fcs |= FCS_UNDER;
           return 0;
         } else {
-          return this.fifo.pull();
+          const value = this.fifo.pull();
+          this.updateDMA();
+          return value;
         }
       case DIV:
         return this.clockDiv;
