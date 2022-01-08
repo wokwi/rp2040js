@@ -120,6 +120,15 @@ const EN = 1 << 0;
 const CHn_CTRL_TRIG_WRITE_MASK = 0xffffff;
 const CHn_CTRL_TRIG_WC_MASK = READ_ERROR | WRITE_ERROR;
 
+// SNIFF_CTRL bits
+const OUT_INV = 1 << 11;
+const OUT_REV = 1 << 10;
+const SNIFF_BSWAP = 1 << 9;
+const CALC_MASK = 0xf;
+const CALC_SHIFT = 5;
+const DMACH_MASK = 0xf;
+const DMACH_SHIFT = 1;
+
 export class RPDMAChannel {
   private ctrl = 0;
   private readAddr = 0;
@@ -158,36 +167,53 @@ export class RPDMAChannel {
   }
 
   transfer8 = () => {
-    const { rp2040 } = this;
-    rp2040.writeUint8(this.writeAddr, rp2040.readUint8(this.readAddr));
+    const { rp2040, ctrl, dma } = this;
+    const output = rp2040.readUint8(this.readAddr);
+    if (ctrl & SNIFF_EN) {
+      dma.sniffTransfer(this, output);
+    }
+    rp2040.writeUint8(this.writeAddr, output);
   };
 
   transfer16 = () => {
-    const { rp2040 } = this;
-    rp2040.writeUint16(this.writeAddr, rp2040.readUint16(this.readAddr));
+    const { rp2040, ctrl, dma } = this;
+    const output = rp2040.readUint16(this.readAddr);
+    if (ctrl & SNIFF_EN) {
+      dma.sniffTransfer(this, output);
+    }
+    rp2040.writeUint16(this.writeAddr, output);
   };
 
   transferSwap16 = () => {
-    const { rp2040 } = this;
+    const { rp2040, ctrl, dma } = this;
     const input = rp2040.readUint16(this.readAddr);
-    rp2040.writeUint16(this.writeAddr, ((input & 0xff) << 8) | (input >> 8));
+    const output = ((input & 0xff) << 8) | (input >> 8);
+    if (ctrl & SNIFF_EN) {
+      dma.sniffTransfer(this, output);
+    }
+    rp2040.writeUint16(this.writeAddr, output);
   };
 
   transfer32 = () => {
-    const { rp2040 } = this;
-    rp2040.writeUint32(this.writeAddr, rp2040.readUint32(this.readAddr));
+    const { rp2040, ctrl, dma } = this;
+    const output = rp2040.readUint32(this.readAddr);
+    if (ctrl & SNIFF_EN) {
+      dma.sniffTransfer(this, output);
+    }
+    rp2040.writeUint32(this.writeAddr, output);
   };
 
   transferSwap32 = () => {
-    const { rp2040 } = this;
+    const { rp2040, ctrl, dma } = this;
     const input = rp2040.readUint32(this.readAddr);
-    rp2040.writeUint32(
-      this.writeAddr,
-      ((input & 0x000000ff) << 24) |
-        ((input & 0x0000ff00) << 8) |
-        ((input & 0x00ff0000) >> 8) |
-        ((input >> 24) & 0xff)
-    );
+    const output = ((input & 0x000000ff) << 24) |
+                   ((input & 0x0000ff00) << 8) |
+                   ((input & 0x00ff0000) >> 8) |
+                   ((input >> 24) & 0xff);
+    if (ctrl & SNIFF_EN) {
+      dma.sniffTransfer(this, output);
+    }
+    rp2040.writeUint32(this.writeAddr, output);
   };
 
   transfer = () => {
@@ -390,6 +416,8 @@ export class RPDMA extends BasePeripheral implements Peripheral {
   private timer1 = 0;
   private timer2 = 0;
   private timer3 = 0;
+  private sniffCtrl = 0;
+  private sniffData = 0;
 
   readonly dreq: boolean[] = Array(DREQChannel.DREQ_MAX);
 
@@ -429,6 +457,10 @@ export class RPDMA extends BasePeripheral implements Peripheral {
         return this.intForce1;
       case INTS1:
         return this.intStatus1;
+      case SNIFF_CTRL:
+        return this.sniffCtrl;
+      case SNIFF_DATA:
+        return this.sniffData;
       case N_CHANNELS:
         return this.channels.length;
     }
@@ -482,6 +514,12 @@ export class RPDMA extends BasePeripheral implements Peripheral {
             chan.start();
           }
         }
+        return;
+      case SNIFF_CTRL:
+        this.sniffCtrl = value;
+        return;
+      case SNIFF_DATA:
+        this.sniffData = value;
         return;
       case CHAN_ABORT:
         for (const chan of this.channels) {
@@ -548,5 +586,14 @@ export class RPDMA extends BasePeripheral implements Peripheral {
   checkInterrupts() {
     this.rp2040.setInterrupt(IRQ.DMA_IRQ0, !!this.intStatus0);
     this.rp2040.setInterrupt(IRQ.DMA_IRQ1, !!this.intStatus1);
+  }
+
+  sniffTransfer(channel: RPDMAChannel, datum: number) {
+    const sniffChannel = (this.sniffCtrl >> DMACH_SHIFT) & DMACH_MASK;
+    if ((this.sniffCtrl & EN) && (channel.index === sniffChannel)) {
+      // TODO: Actually obey settings in sniffCtrl...
+      // currently assuming OUT_INV = OUT_REV = SNIFF_BSWAP = 0; CALC = 0xf
+      this.sniffData += datum;
+    }
   }
 }
