@@ -3,12 +3,19 @@ import { GDBTCPServer } from '../src/gdb/gdb-tcp-server';
 import { USBCDC } from '../src/usb/cdc';
 import { ConsoleLogger, LogLevel } from '../src/utils/logging';
 import { bootromB1 } from './bootrom';
-import { loadUF2 } from './load-uf2';
+import { loadUF2, loadMicropythonFlashImage } from './load-flash';
 
+const fs = require('fs');
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
 loadUF2('rp2-pico-20210902-v1.17.uf2', mcu);
+
+if (fs.existsSync('littlefs.img')) {
+  loadMicropythonFlashImage('littlefs.img', mcu);
+  // Instead of reading from file, it would also be possible to generate the LittleFS image on-the-fly here, e.g. using
+  // https://github.com/wokwi/littlefs-wasm or https://github.com/littlefs-project/littlefs-js
+}
 
 const gdbServer = new GDBTCPServer(mcu, 3333);
 console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
@@ -25,7 +32,8 @@ cdc.onSerialData = (value) => {
 
 process.stdin.setRawMode(true);
 process.stdin.on('data', (chunk) => {
-  if (chunk[0] === 4) {
+  // 24 is Ctrl+X
+  if (chunk[0] === 24) {
     process.exit(0);
   }
   for (const byte of chunk) {
