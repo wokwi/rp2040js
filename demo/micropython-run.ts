@@ -13,6 +13,8 @@ loadUF2('rp2-pico-20210902-v1.17.uf2', mcu);
 
 if (fs.existsSync('littlefs.img')) {
   loadMicropythonFlashImage('littlefs.img', mcu);
+  // Instead of reading from file, it would also be possible to generate the LittleFS image on-the-fly here, e.g. using
+  // https://github.com/wokwi/littlefs-wasm or https://github.com/littlefs-project/littlefs-js
 }
 
 const gdbServer = new GDBTCPServer(mcu, 3333);
