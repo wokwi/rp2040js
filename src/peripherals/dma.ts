@@ -593,7 +593,7 @@ export class RPDMA extends BasePeripheral implements Peripheral {
     if ((this.sniffCtrl & EN) && (channel.index === sniffChannel)) {
       // TODO: Actually obey settings in sniffCtrl...
       // currently assuming OUT_INV = OUT_REV = SNIFF_BSWAP = 0; CALC = 0xf
-      this.sniffData += datum;
+      this.sniffData = (this.sniffData + datum) >>> 0;
     }
   }
 }
