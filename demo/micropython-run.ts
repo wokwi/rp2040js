@@ -30,7 +30,8 @@ cdc.onSerialData = (value) => {
 
 process.stdin.setRawMode(true);
 process.stdin.on('data', (chunk) => {
-  if (chunk[0] === 4) {
+  // 24 is Ctrl+X
+  if (chunk[0] === 24) {
     process.exit(0);
   }
   for (const byte of chunk) {
