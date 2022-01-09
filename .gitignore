@@ -3,3 +3,4 @@ dist
 *.hex
 *.elf
 *.uf2
+*.img
