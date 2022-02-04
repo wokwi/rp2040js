@@ -185,6 +185,8 @@ export class RP2040 {
   pendingInterrupts: number = 0;
   enabledInterrupts: number = 0;
   interruptPriorities = [0xffffffff, 0x0, 0x0, 0x0];
+  pendingNMI: boolean = false;
+  pendingPendSV: boolean = false;
   pendingSVCall: boolean = false;
   pendingSystick: boolean = false;
   interruptsUpdated = false;
@@ -606,6 +608,10 @@ export class RP2040 {
     // SleepOnExit(); // IMPLEMENTATION DEFINED
   }
 
+  get pendSVPriority() {
+    return (this.SHPR3 >> 22) & 0x3;
+  }
+
   get svCallPriority() {
     return this.SHPR2 >>> 30;
   }
@@ -636,9 +642,9 @@ export class RP2040 {
       case EXC_SVCALL:
         return this.svCallPriority;
       case EXC_PENDSV:
-        return (this.readUint32(this.SHPR3) >> 22) & 0x3;
+        return this.pendSVPriority;
       case EXC_SYSTICK:
-        return this.readUint32(this.SHPR3) >>> 30;
+        return this.systickPriority;
       default: {
         if (n < 16) {
           return LOWEST_PRIORITY;
@@ -652,6 +658,33 @@ export class RP2040 {
         return LOWEST_PRIORITY;
       }
     }
+  }
+
+  get vectPending() {
+    if (this.pendingNMI) {
+      return EXC_NMI;
+    }
+    const { svCallPriority, systickPriority, pendSVPriority, pendingInterrupts } = this;
+    for (let priority = 0; priority < LOWEST_PRIORITY; priority++) {
+      const levelInterrupts = pendingInterrupts & this.interruptPriorities[priority];
+      if (this.pendingSVCall && priority === svCallPriority) {
+        return EXC_SVCALL;
+      }
+      if (this.pendingPendSV && priority === pendSVPriority) {
+        return EXC_PENDSV;
+      }
+      if (this.pendingSystick && priority === systickPriority) {
+        return EXC_SYSTICK;
+      }
+      if (levelInterrupts) {
+        for (let interruptNumber = 0; interruptNumber < 32; interruptNumber++) {
+          if (levelInterrupts & (1 << interruptNumber)) {
+            return 16 + interruptNumber;
+          }
+        }
+      }
+    }
+    return 0;
   }
 
   setInterrupt(irq: number, value: boolean) {
@@ -679,12 +712,22 @@ export class RP2040 {
         : LOWEST_PRIORITY
       : Math.min(this.exceptionPriority(this.IPSR), this.PM ? 0 : LOWEST_PRIORITY);
     const interruptSet = this.pendingInterrupts & this.enabledInterrupts;
-    const { svCallPriority, systickPriority } = this;
+    const { svCallPriority, systickPriority, pendSVPriority } = this;
+    if (this.pendingNMI) {
+      this.pendingNMI = false;
+      this.exceptionEntry(EXC_NMI);
+      return true;
+    }
     for (let priority = 0; priority < currentPriority; priority++) {
       const levelInterrupts = interruptSet & this.interruptPriorities[priority];
       if (this.pendingSVCall && priority === svCallPriority) {
         this.pendingSVCall = false;
         this.exceptionEntry(EXC_SVCALL);
+        return true;
+      }
+      if (this.pendingPendSV && priority === pendSVPriority) {
+        this.pendingPendSV = false;
+        this.exceptionEntry(EXC_PENDSV);
         return true;
       }
       if (this.pendingSystick && priority === systickPriority) {

@@ -3,6 +3,7 @@ import { MAX_HARDWARE_IRQ } from '../irq';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 export const CPUID = 0xd00;
+export const ICSR = 0xd04;
 export const VTOR = 0xd08;
 export const SHPR2 = 0xd1c;
 export const SHPR3 = 0xd20;
@@ -26,6 +27,19 @@ const NVIC_IPR5 = 0x414;
 const NVIC_IPR6 = 0x418;
 const NVIC_IPR7 = 0x41c;
 
+/** ICSR Bits */
+const NMIPENDSET = 1 << 31;
+const PENDSVSET = 1 << 28;
+const PENDSVCLR = 1 << 27;
+const PENDSTSET = 1 << 26;
+const PENDSTCLR = 1 << 25;
+const ISRPREEMPT = 1 << 23;
+const ISRPENDING = 1 << 22;
+const VECTPENDING_MASK = 0x1ff;
+const VECTPENDING_SHIFT = 12;
+const VECTACTIVE_MASK = 0x1ff;
+const VECTACTIVE_SHIFT = 0;
+
 /** PPB stands for Private Periphral Bus.
  * These are peripherals that are part of the ARM Cortex Core, and there's one copy for each processor core.
  *
@@ -45,6 +59,23 @@ export class RPPPB extends BasePeripheral implements Peripheral {
     switch (offset) {
       case CPUID:
         return 0x410cc601; /* Verified against actual hardware */
+
+      case ICSR: {
+        const pendingInterrupts =
+          this.rp2040.pendingInterrupts ||
+          this.rp2040.pendingPendSV ||
+          this.rp2040.pendingSystick ||
+          this.rp2040.pendingSVCall;
+        const vectPending = this.rp2040.vectPending;
+        return (
+          (this.rp2040.pendingNMI ? NMIPENDSET : 0) |
+          (this.rp2040.pendingPendSV ? PENDSVSET : 0) |
+          (this.rp2040.pendingSystick ? PENDSTSET : 0) |
+          (pendingInterrupts ? ISRPENDING : 0) |
+          (vectPending << VECTPENDING_SHIFT) |
+          ((this.rp2040.IPSR & VECTACTIVE_MASK) << VECTACTIVE_SHIFT)
+        );
+      }
 
       case VTOR:
         return rp2040.VTOR;
@@ -112,6 +143,27 @@ export class RPPPB extends BasePeripheral implements Peripheral {
     const hardwareInterruptMask = (1 << MAX_HARDWARE_IRQ) - 1;
 
     switch (offset) {
+      case ICSR:
+        if (value & NMIPENDSET) {
+          this.rp2040.pendingNMI = true;
+          rp2040.interruptsUpdated = true;
+        }
+        if (value & PENDSVSET) {
+          this.rp2040.pendingPendSV = true;
+          rp2040.interruptsUpdated = true;
+        }
+        if (value & PENDSVCLR) {
+          this.rp2040.pendingPendSV = false;
+        }
+        if (value & PENDSTSET) {
+          this.rp2040.pendingSystick = true;
+          rp2040.interruptsUpdated = true;
+        }
+        if (value & PENDSTCLR) {
+          this.rp2040.pendingSystick = false;
+        }
+        return;
+
       case VTOR:
         rp2040.VTOR = value;
         return;
