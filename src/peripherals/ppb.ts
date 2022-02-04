@@ -2,6 +2,7 @@ import { IClockTimer } from '../clock/clock';
 import { MAX_HARDWARE_IRQ } from '../irq';
 import { BasePeripheral, Peripheral } from './peripheral';
 
+export const CPUID = 0xd00;
 export const VTOR = 0xd08;
 export const SHPR2 = 0xd1c;
 export const SHPR3 = 0xd20;
@@ -42,6 +43,9 @@ export class RPPPB extends BasePeripheral implements Peripheral {
     const { rp2040 } = this;
 
     switch (offset) {
+      case CPUID:
+        return 0x410cc601; /* Verified against actual hardware */
+
       case VTOR:
         return rp2040.VTOR;
 
