@@ -58,9 +58,6 @@ enum ExecutionMode {
   Mode_Handler,
 }
 
-export type CPUWriteCallback = (value: number, address: number) => void;
-export type CPUReadCallback = (address: number) => number;
-
 function signExtend8(value: number) {
   return (value << 24) >> 24;
 }
