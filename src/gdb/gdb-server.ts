@@ -4,7 +4,8 @@
  * Copyright (C) 2021, Uri Shaked
  */
 
-import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../rp2040';
+import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../cortex-m0-core';
+import { RP2040 } from '../rp2040';
 import { ConsoleLogger, Logger, LogLevel } from '../utils/logging';
 import { GDBConnection } from './gdb-connection';
 import {
@@ -62,6 +63,7 @@ export class GDBServer {
 
   processGDBMessage(cmd: string) {
     const { rp2040 } = this;
+    const { core } = rp2040;
     if (cmd === 'Hg0') {
       return gdbMessage('OK');
     }
@@ -94,7 +96,7 @@ export class GDBServer {
           return;
         }
         if (cmd.startsWith('vCont;s')) {
-          rp2040.executeInstruction();
+          rp2040.step();
           return gdbMessage(STOP_REPLY_TRAP);
         }
         break;
@@ -108,8 +110,8 @@ export class GDBServer {
       case 'g': {
         // Read registers
         const buf = new Uint32Array(17);
-        buf.set(rp2040.registers);
-        buf[16] = rp2040.xPSR;
+        buf.set(core.registers);
+        buf[16] = core.xPSR;
         return gdbMessage(encodeHexBuf(new Uint8Array(buf.buffer)));
       }
 
@@ -117,13 +119,13 @@ export class GDBServer {
         // Read register
         const registerIndex = parseInt(cmd.substr(1), 16);
         if (registerIndex >= 0 && registerIndex <= 15) {
-          return gdbMessage(encodeHexUint32(rp2040.registers[registerIndex]));
+          return gdbMessage(encodeHexUint32(core.registers[registerIndex]));
         }
         const specialRegister = (sysm: number) =>
-          gdbMessage(encodeHexUint32(rp2040.readSpecialRegister(sysm)));
+          gdbMessage(encodeHexUint32(core.readSpecialRegister(sysm)));
         switch (registerIndex) {
           case 0x10:
-            return gdbMessage(encodeHexUint32(rp2040.xPSR));
+            return gdbMessage(encodeHexUint32(core.xPSR));
           case 0x11:
             return specialRegister(SYSM_MSP);
           case 0x12:
@@ -157,16 +159,16 @@ export class GDBServer {
         const value = new DataView(valueBuffer.buffer).getUint32(0, true);
         switch (registerIndex) {
           case 0x10:
-            rp2040.xPSR = value;
+            core.xPSR = value;
             break;
           case 0x11:
-            rp2040.writeSpecialRegister(SYSM_MSP, value);
+            core.writeSpecialRegister(SYSM_MSP, value);
             break;
           case 0x12:
-            rp2040.writeSpecialRegister(SYSM_PSP, value);
+            core.writeSpecialRegister(SYSM_PSP, value);
             break;
           case 0x13:
-            rp2040.writeSpecialRegister(SYSM_PRIMASK, value);
+            core.writeSpecialRegister(SYSM_PRIMASK, value);
             break;
           case 0x14:
             this.logger.warn(LOG_NAME, 'TODO BASEPRI');
@@ -175,10 +177,10 @@ export class GDBServer {
             this.logger.warn(LOG_NAME, 'TODO faultmask');
             break; // TODO faultmask
           case 0x16:
-            rp2040.writeSpecialRegister(SYSM_CONTROL, value);
+            core.writeSpecialRegister(SYSM_CONTROL, value);
             break;
           default:
-            rp2040.registers[registerIndex] = value;
+            core.registers[registerIndex] = value;
             break;
         }
         return gdbMessage('OK');
@@ -217,7 +219,7 @@ export class GDBServer {
     this.connections.add(connection);
     this.rp2040.onBreak = () => {
       this.rp2040.stop();
-      this.rp2040.PC -= this.rp2040.breakRewind;
+      this.rp2040.core.PC -= this.rp2040.core.breakRewind;
       for (const connection of this.connections) {
         connection.onBreakpoint();
       }

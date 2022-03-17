@@ -4,8 +4,8 @@ import { USBCDC } from '../src/usb/cdc';
 import { ConsoleLogger, LogLevel } from '../src/utils/logging';
 import { bootromB1 } from './bootrom';
 import { loadUF2, loadMicropythonFlashImage } from './load-flash';
+import fs from 'fs';
 
-const fs = require('fs');
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
@@ -41,5 +41,5 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
-mcu.PC = 0x10000000;
+mcu.core.PC = 0x10000000;
 mcu.execute();

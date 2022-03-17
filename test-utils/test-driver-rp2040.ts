@@ -1,4 +1,5 @@
-import { RP2040, SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../src/rp2040';
+import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../src/cortex-m0-core';
+import { RP2040 } from '../src/rp2040';
 import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver';
 
 export class RP2040TestDriver implements ICortexTestDriver {
@@ -14,7 +15,7 @@ export class RP2040TestDriver implements ICortexTestDriver {
   }
 
   async setPC(pcValue: number) {
-    this.rp2040.PC = pcValue;
+    this.rp2040.core.PC = pcValue;
   }
 
   async writeUint8(address: number, value: number) {
@@ -31,95 +32,97 @@ export class RP2040TestDriver implements ICortexTestDriver {
 
   async setRegisters(registers: Partial<ICortexRegisters>) {
     const { rp2040 } = this;
+    const { core } = rp2040;
     for (const key of Object.keys(registers) as ICortexRegisterName[]) {
       const value = registers[key] as number;
       const boolValue = registers[key] as boolean;
       switch (key) {
         case 'r0':
-          rp2040.registers[0] = value;
+          core.registers[0] = value;
           break;
         case 'r1':
-          rp2040.registers[1] = value;
+          core.registers[1] = value;
           break;
         case 'r2':
-          rp2040.registers[2] = value;
+          core.registers[2] = value;
           break;
         case 'r3':
-          rp2040.registers[3] = value;
+          core.registers[3] = value;
           break;
         case 'r4':
-          rp2040.registers[4] = value;
+          core.registers[4] = value;
           break;
         case 'r5':
-          rp2040.registers[5] = value;
+          core.registers[5] = value;
           break;
         case 'r6':
-          rp2040.registers[6] = value;
+          core.registers[6] = value;
           break;
         case 'r7':
-          rp2040.registers[7] = value;
+          core.registers[7] = value;
           break;
         case 'r8':
-          rp2040.registers[8] = value;
+          core.registers[8] = value;
           break;
         case 'r9':
-          rp2040.registers[9] = value;
+          core.registers[9] = value;
           break;
         case 'r10':
-          rp2040.registers[10] = value;
+          core.registers[10] = value;
           break;
         case 'r11':
-          rp2040.registers[11] = value;
+          core.registers[11] = value;
           break;
         case 'r12':
-          rp2040.registers[12] = value;
+          core.registers[12] = value;
           break;
         case 'sp':
-          rp2040.registers[13] = value;
+          core.registers[13] = value;
           break;
         case 'lr':
-          rp2040.registers[14] = value;
+          core.registers[14] = value;
           break;
         case 'pc':
-          rp2040.registers[15] = value;
+          core.registers[15] = value;
           break;
         case 'xPSR':
-          rp2040.xPSR = value;
+          core.xPSR = value;
           break;
         case 'MSP':
-          rp2040.writeSpecialRegister(SYSM_MSP, value);
+          core.writeSpecialRegister(SYSM_MSP, value);
           break;
         case 'PSP':
-          rp2040.writeSpecialRegister(SYSM_PSP, value);
+          core.writeSpecialRegister(SYSM_PSP, value);
           break;
         case 'PRIMASK':
-          rp2040.writeSpecialRegister(SYSM_PRIMASK, value);
+          core.writeSpecialRegister(SYSM_PRIMASK, value);
           break;
         case 'CONTROL':
-          rp2040.writeSpecialRegister(SYSM_CONTROL, value);
+          core.writeSpecialRegister(SYSM_CONTROL, value);
           break;
         case 'N':
-          rp2040.N = boolValue;
+          core.N = boolValue;
           break;
         case 'Z':
-          rp2040.Z = boolValue;
+          core.Z = boolValue;
           break;
         case 'C':
-          rp2040.C = boolValue;
+          core.C = boolValue;
           break;
         case 'V':
-          rp2040.V = boolValue;
+          core.V = boolValue;
           break;
       }
     }
   }
 
   async singleStep() {
-    this.rp2040.executeInstruction();
+    this.rp2040.step();
   }
 
   async readRegisters(): Promise<ICortexRegisters> {
-    const { registers, xPSR } = this.rp2040;
+    const { core } = this.rp2040;
+    const { registers, xPSR } = core;
     return {
       r0: registers[0],
       r1: registers[1],
@@ -138,10 +141,10 @@ export class RP2040TestDriver implements ICortexTestDriver {
       lr: registers[14],
       pc: registers[15],
       xPSR,
-      MSP: this.rp2040.readSpecialRegister(SYSM_MSP),
-      PSP: this.rp2040.readSpecialRegister(SYSM_PSP),
-      PRIMASK: this.rp2040.readSpecialRegister(SYSM_PRIMASK),
-      CONTROL: this.rp2040.readSpecialRegister(SYSM_CONTROL),
+      MSP: core.readSpecialRegister(SYSM_MSP),
+      PSP: core.readSpecialRegister(SYSM_PSP),
+      PRIMASK: core.readSpecialRegister(SYSM_PRIMASK),
+      CONTROL: core.readSpecialRegister(SYSM_CONTROL),
 
       N: !!(xPSR & 0x80000000),
       Z: !!(xPSR & 0x40000000),

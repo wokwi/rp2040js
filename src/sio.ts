@@ -66,7 +66,7 @@ export class RPSIO {
       }
     }
     this.divCSR = 0b11;
-    this.rp2040.cycles += 8;
+    this.rp2040.core.cycles += 8;
   }
 
   readUint32(offset: number) {

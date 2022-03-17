@@ -18,5 +18,5 @@ mcu.uart[0].onByte = (value) => {
   process.stdout.write(new Uint8Array([value]));
 };
 
-mcu.PC = 0x10000000;
+mcu.core.PC = 0x10000000;
 mcu.execute();

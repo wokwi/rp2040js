@@ -39,16 +39,16 @@ describe('RPTimer', () => {
       expect(rp2040.readUint32(ARMED)).toEqual(0);
       expect(rp2040.readUint32(INTR)).toEqual(0x8);
       expect(rp2040.readUint32(INTS)).toEqual(0);
-      expect(rp2040.pendingInterrupts).toBe(0);
+      expect(rp2040.core.pendingInterrupts).toBe(0);
       // Enable the interrupts for all alarms
       rp2040.writeUint32(INTE, 0xff);
       expect(rp2040.readUint32(INTS)).toEqual(0x8);
-      expect(rp2040.pendingInterrupts).toBe(0x8);
-      expect(rp2040.interruptsUpdated).toEqual(true);
+      expect(rp2040.core.pendingInterrupts).toBe(0x8);
+      expect(rp2040.core.interruptsUpdated).toEqual(true);
       // Clear the alarm's interrupt
       rp2040.writeUint32(INTR_CLEAR, 0x8);
       expect(rp2040.readUint32(INTS)).toEqual(0);
-      expect(rp2040.pendingInterrupts).toBe(0);
+      expect(rp2040.core.pendingInterrupts).toBe(0);
     });
 
     it('should generate an interrupt if INTF is 1 even when the INTE bit is 0', () => {

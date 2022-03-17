@@ -55,6 +55,7 @@ export class RPPPB extends BasePeripheral implements Peripheral {
 
   readUint32(offset: number) {
     const { rp2040 } = this;
+    const { core } = rp2040;
 
     switch (offset) {
       case CPUID:
@@ -62,33 +63,30 @@ export class RPPPB extends BasePeripheral implements Peripheral {
 
       case ICSR: {
         const pendingInterrupts =
-          this.rp2040.pendingInterrupts ||
-          this.rp2040.pendingPendSV ||
-          this.rp2040.pendingSystick ||
-          this.rp2040.pendingSVCall;
-        const vectPending = this.rp2040.vectPending;
+          core.pendingInterrupts || core.pendingPendSV || core.pendingSystick || core.pendingSVCall;
+        const vectPending = core.vectPending;
         return (
-          (this.rp2040.pendingNMI ? NMIPENDSET : 0) |
-          (this.rp2040.pendingPendSV ? PENDSVSET : 0) |
-          (this.rp2040.pendingSystick ? PENDSTSET : 0) |
+          (core.pendingNMI ? NMIPENDSET : 0) |
+          (core.pendingPendSV ? PENDSVSET : 0) |
+          (core.pendingSystick ? PENDSTSET : 0) |
           (pendingInterrupts ? ISRPENDING : 0) |
           (vectPending << VECTPENDING_SHIFT) |
-          ((this.rp2040.IPSR & VECTACTIVE_MASK) << VECTACTIVE_SHIFT)
+          ((core.IPSR & VECTACTIVE_MASK) << VECTACTIVE_SHIFT)
         );
       }
 
       case VTOR:
-        return rp2040.VTOR;
+        return core.VTOR;
 
       /* NVIC */
       case NVIC_ISPR:
-        return rp2040.pendingInterrupts >>> 0;
+        return core.pendingInterrupts >>> 0;
       case NVIC_ICPR:
-        return rp2040.pendingInterrupts >>> 0;
+        return core.pendingInterrupts >>> 0;
       case NVIC_ISER:
-        return rp2040.enabledInterrupts >>> 0;
+        return core.enabledInterrupts >>> 0;
       case NVIC_ICER:
-        return rp2040.enabledInterrupts >>> 0;
+        return core.enabledInterrupts >>> 0;
 
       case NVIC_IPR0:
       case NVIC_IPR1:
@@ -102,8 +100,8 @@ export class RPPPB extends BasePeripheral implements Peripheral {
         let result = 0;
         for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
           const interruptNumber = regIndex * 4 + byteIndex;
-          for (let priority = 0; priority < rp2040.interruptPriorities.length; priority++) {
-            if (rp2040.interruptPriorities[priority] & (1 << interruptNumber)) {
+          for (let priority = 0; priority < core.interruptPriorities.length; priority++) {
+            if (core.interruptPriorities[priority] & (1 << interruptNumber)) {
               result |= priority << (8 * byteIndex + 6);
             }
           }
@@ -112,9 +110,9 @@ export class RPPPB extends BasePeripheral implements Peripheral {
       }
 
       case SHPR2:
-        return rp2040.SHPR2;
+        return core.SHPR2;
       case SHPR3:
-        return rp2040.SHPR3;
+        return core.SHPR3;
 
       /* SysTick */
       case SYST_CSR: {
@@ -139,49 +137,50 @@ export class RPPPB extends BasePeripheral implements Peripheral {
 
   writeUint32(offset: number, value: number) {
     const { rp2040 } = this;
+    const { core } = rp2040;
 
     const hardwareInterruptMask = (1 << MAX_HARDWARE_IRQ) - 1;
 
     switch (offset) {
       case ICSR:
         if (value & NMIPENDSET) {
-          this.rp2040.pendingNMI = true;
-          rp2040.interruptsUpdated = true;
+          core.pendingNMI = true;
+          core.interruptsUpdated = true;
         }
         if (value & PENDSVSET) {
-          this.rp2040.pendingPendSV = true;
-          rp2040.interruptsUpdated = true;
+          core.pendingPendSV = true;
+          core.interruptsUpdated = true;
         }
         if (value & PENDSVCLR) {
-          this.rp2040.pendingPendSV = false;
+          core.pendingPendSV = false;
         }
         if (value & PENDSTSET) {
-          this.rp2040.pendingSystick = true;
-          rp2040.interruptsUpdated = true;
+          core.pendingSystick = true;
+          core.interruptsUpdated = true;
         }
         if (value & PENDSTCLR) {
-          this.rp2040.pendingSystick = false;
+          core.pendingSystick = false;
         }
         return;
 
       case VTOR:
-        rp2040.VTOR = value;
+        core.VTOR = value;
         return;
 
       /* NVIC */
       case NVIC_ISPR:
-        rp2040.pendingInterrupts |= value;
-        rp2040.interruptsUpdated = true;
+        core.pendingInterrupts |= value;
+        core.interruptsUpdated = true;
         return;
       case NVIC_ICPR:
-        rp2040.pendingInterrupts &= ~value | hardwareInterruptMask;
+        core.pendingInterrupts &= ~value | hardwareInterruptMask;
         return;
       case NVIC_ISER:
-        rp2040.enabledInterrupts |= value;
-        rp2040.interruptsUpdated = true;
+        core.enabledInterrupts |= value;
+        core.interruptsUpdated = true;
         return;
       case NVIC_ICER:
-        rp2040.enabledInterrupts &= ~value;
+        core.enabledInterrupts &= ~value;
         return;
 
       case NVIC_IPR0:
@@ -196,20 +195,20 @@ export class RPPPB extends BasePeripheral implements Peripheral {
         for (let byteIndex = 0; byteIndex < 4; byteIndex++) {
           const interruptNumber = regIndex * 4 + byteIndex;
           const newPriority = (value >> (8 * byteIndex + 6)) & 0x3;
-          for (let priority = 0; priority < rp2040.interruptPriorities.length; priority++) {
-            rp2040.interruptPriorities[priority] &= ~(1 << interruptNumber);
+          for (let priority = 0; priority < core.interruptPriorities.length; priority++) {
+            core.interruptPriorities[priority] &= ~(1 << interruptNumber);
           }
-          rp2040.interruptPriorities[newPriority] |= 1 << interruptNumber;
+          core.interruptPriorities[newPriority] |= 1 << interruptNumber;
         }
-        rp2040.interruptsUpdated = true;
+        core.interruptsUpdated = true;
         return;
       }
 
       case SHPR2:
-        rp2040.SHPR2 = value;
+        core.SHPR2 = value;
         return;
       case SHPR3:
-        rp2040.SHPR3 = value;
+        core.SHPR3 = value;
         return;
 
       // SysTick
@@ -220,10 +219,10 @@ export class RPPPB extends BasePeripheral implements Peripheral {
           if (interrupt && !prevInterrupt) {
             // TODO: adjust the timer based on the current systick value
             const systickCallback = () => {
-              rp2040.pendingSystick = true;
-              rp2040.interruptsUpdated = true;
-              if (rp2040.waiting && rp2040.checkForInterrupts()) {
-                rp2040.waiting = false;
+              core.pendingSystick = true;
+              core.interruptsUpdated = true;
+              if (core.waiting && core.checkForInterrupts()) {
+                core.waiting = false;
               }
               this.systickTimer = rp2040.clock.createTimer(this.systickReload + 1, systickCallback);
             };
