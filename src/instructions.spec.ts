@@ -810,7 +810,7 @@ describe('Cortex-M0+ Instruction Set', () => {
 
   it('should execute a `mrs r0, ipsr` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint32(0x20000000, opcodeMRS(r0, 5)); // 5 ==sr
+    await cpu.writeUint32(0x20000000, opcodeMRS(r0, 5)); // 5 == ipsr
     await cpu.setRegisters({ r0: 55 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
@@ -818,9 +818,9 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.pc).toEqual(0x20000004);
   });
 
-  it('should execute a `msr ipsr, r0` instruction', async () => {
+  it('should execute a `msr msp, r0` instruction', async () => {
     await cpu.setPC(0x20000000);
-    await cpu.writeUint32(0x20000000, opcodeMSR(8, r0)); // 5 ==sr
+    await cpu.writeUint32(0x20000000, opcodeMSR(8, r0)); // 8 == msp
     await cpu.setRegisters({ r0: 0x1234 });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
