@@ -582,7 +582,7 @@ export class CortexM0Core {
     // ARM Thumb instruction encoding - 16 bits / 2 bytes
     const opcodePC = this.PC & ~1; //ensure no LSB set PC are executed
     const opcode = this.readUint16(opcodePC);
-    const wideInstruction = opcode >> 12 === 0b1111 || opcode >> 13 === 0b11101;
+    const wideInstruction = opcode >> 12 === 0b1111 || opcode >> 11 === 0b11101;
     const opcode2 = wideInstruction ? this.readUint16(opcodePC + 2) : 0;
     this.PC += 2;
     this.cycles++;
