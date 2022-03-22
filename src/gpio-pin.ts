@@ -9,6 +9,7 @@ export enum GPIOPinState {
   InputPullDown,
 }
 
+export const FUNCTION_PWM = 4;
 export const FUNCTION_SIO = 5;
 export const FUNCTION_PIO0 = 6;
 export const FUNCTION_PIO1 = 7;
@@ -105,6 +106,9 @@ export class GPIOPin {
     const { index, rp2040, functionSelect } = this;
     const bitmask = 1 << index;
     switch (functionSelect) {
+      case FUNCTION_PWM:
+        return !!(rp2040.pwm.gpioDirection & bitmask);
+
       case FUNCTION_SIO:
         return !!(rp2040.sio.gpioOutputEnable & bitmask);
 
@@ -123,6 +127,9 @@ export class GPIOPin {
     const { index, rp2040, functionSelect } = this;
     const bitmask = 1 << index;
     switch (functionSelect) {
+      case FUNCTION_PWM:
+        return !!(rp2040.pwm.gpioValue & bitmask);
+
       case FUNCTION_SIO:
         return !!(rp2040.sio.gpioValue & bitmask);
 
@@ -197,6 +204,9 @@ export class GPIOPin {
     }
     if (this.irqValue !== prevIrqValue) {
       this.rp2040.updateIOInterrupt();
+    }
+    if (this.functionSelect === FUNCTION_PWM) {
+      this.rp2040.pwm.gpioOnInput(this.index);
     }
     for (const pio of this.rp2040.pio) {
       for (const machine of pio.machines) {

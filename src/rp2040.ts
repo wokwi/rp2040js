@@ -12,6 +12,7 @@ import { RPPADS } from './peripherals/pads';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral';
 import { RPPIO } from './peripherals/pio';
 import { RPPPB } from './peripherals/ppb';
+import { RPPWM } from './peripherals/pwm';
 import { RPReset } from './peripherals/reset';
 import { RP2040RTC } from './peripherals/rtc';
 import { RPSPI } from './peripherals/spi';
@@ -57,6 +58,7 @@ export class RP2040 {
   readonly uart = [new RPUART(this, 'UART0', IRQ.UART0), new RPUART(this, 'UART1', IRQ.UART1)];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
   readonly spi = [new RPSPI(this, 'SPI0', IRQ.SPI0), new RPSPI(this, 'SPI1', IRQ.SPI1)];
+  readonly pwm = new RPPWM(this, 'PWM_BASE');
   readonly adc = new RPADC(this, 'ADC');
 
   readonly gpio = [
@@ -136,7 +138,7 @@ export class RP2040 {
     0x40044: this.i2c[0],
     0x40048: this.i2c[1],
     0x4004c: this.adc,
-    0x40050: new UnimplementedPeripheral(this, 'PWM_BASE'),
+    0x40050: this.pwm,
     0x40054: new RPTimer(this, 'TIMER_BASE'),
     0x40058: new UnimplementedPeripheral(this, 'WATCHDOG_BASE'),
     0x4005c: new RP2040RTC(this, 'RTC_BASE'),
@@ -157,7 +159,9 @@ export class RP2040 {
     this.stopped = true;
   };
 
-  constructor(readonly clock: IClock = new RealtimeClock()) {}
+  constructor(readonly clock: IClock = new RealtimeClock()) {
+    this.reset();
+  }
 
   loadBootrom(bootromData: Uint32Array) {
     this.bootrom.set(bootromData);
@@ -166,6 +170,7 @@ export class RP2040 {
 
   reset() {
     this.core.reset();
+    this.pwm.reset();
     this.flash.fill(0xff);
   }
 
