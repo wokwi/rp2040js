@@ -12,6 +12,7 @@ const UARTIMIS = 0x40;
 const UARTICR = 0x44;
 
 // UARTFR bits:
+const TXFE = 1 << 7;
 const RXFF = 1 << 6;
 const RXFE = 1 << 4;
 
@@ -72,7 +73,7 @@ export class RPUART extends BasePeripheral implements Peripheral {
   }
 
   get flags() {
-    return (this.rxFIFO.full ? RXFF : 0) | (this.rxFIFO.empty ? RXFE : 0);
+    return (this.rxFIFO.full ? RXFF : 0) | (this.rxFIFO.empty ? RXFE : 0) | TXFE;
   }
 
   checkInterrupts() {
