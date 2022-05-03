@@ -33,11 +33,234 @@ const DIV_QUOTIENT = 0x070; //  Divider result quotient
 const DIV_REMAINDER = 0x074; //Divider result remainder
 const DIV_CSR = 0x078;
 
+//INTERPOLATOR
+const INTERP0_ACCUM0 = 0x080; // Read/write access to accumulator 0
+const INTERP0_ACCUM1 = 0x084; // Read/write access to accumulator 1
+const INTERP0_BASE0 = 0x088; // Read/write access to BASE0 register
+const INTERP0_BASE1 = 0x08c; // Read/write access to BASE1 register
+const INTERP0_BASE2 = 0x090; // Read/write access to BASE2 register
+const INTERP0_POP_LANE0 = 0x094; // Read LANE0 result, and simultaneously write lane results to both accumulators (POP)
+const INTERP0_POP_LANE1 = 0x098; // Read LANE1 result, and simultaneously write lane results to both accumulators (POP)
+const INTERP0_POP_FULL = 0x09c; // Read FULL result, and simultaneously write lane results to both accumulators (POP)
+const INTERP0_PEEK_LANE0 = 0x0a0; // Read LANE0 result, without altering any internal state (PEEK)
+const INTERP0_PEEK_LANE1 = 0x0a4; // Read LANE1 result, without altering any internal state (PEEK)
+const INTERP0_PEEK_FULL = 0x0a8; // Read FULL result, without altering any internal state (PEEK)
+const INTERP0_CTRL_LANE0 = 0x0ac; // Control register for lane 0
+const INTERP0_CTRL_LANE1 = 0x0b0; // Control register for lane 1
+const INTERP0_ACCUM0_ADD = 0x0b4; // Values written here are atomically added to ACCUM0
+const INTERP0_ACCUM1_ADD = 0x0b8; // Values written here are atomically added to ACCUM1
+const INTERP0_BASE_1AND0 = 0x0bc; // On write, the lower 16 bits go to BASE0, upper bits to BASE1 simultaneously
+const INTERP1_ACCUM0 = 0x0c0; // Read/write access to accumulator 0
+const INTERP1_ACCUM1 = 0x0c4; // Read/write access to accumulator 1
+const INTERP1_BASE0 = 0x0c8; // Read/write access to BASE0 register
+const INTERP1_BASE1 = 0x0cc; // Read/write access to BASE1 register
+const INTERP1_BASE2 = 0x0d0; // Read/write access to BASE2 register
+const INTERP1_POP_LANE0 = 0x0d4; // Read LANE0 result, and simultaneously write lane results to both accumulators (POP)
+const INTERP1_POP_LANE1 = 0x0d8; // Read LANE1 result, and simultaneously write lane results to both accumulators (POP)
+const INTERP1_POP_FULL = 0x0dc; // Read FULL result, and simultaneously write lane results to both accumulators (POP)
+const INTERP1_PEEK_LANE0 = 0x0e0; // Read LANE0 result, without altering any internal state (PEEK)
+const INTERP1_PEEK_LANE1 = 0x0e4; // Read LANE1 result, without altering any internal state (PEEK)
+const INTERP1_PEEK_FULL = 0x0e8; // Read FULL result, without altering any internal state (PEEK)
+const INTERP1_CTRL_LANE0 = 0x0ec; // Control register for lane 0
+const INTERP1_CTRL_LANE1 = 0x0f0; // Control register for lane 1
+const INTERP1_ACCUM0_ADD = 0x0f4; // Values written here are atomically added to ACCUM0
+const INTERP1_ACCUM1_ADD = 0x0f8; // Values written here are atomically added to ACCUM1
+const INTERP1_BASE_1AND0 = 0x0fc; // On write, the lower 16 bits go to BASE0, upper bits to BASE1 simultaneously
+
 //SPINLOCK
 const SPINLOCK_ST = 0x5c;
 const SPINLOCK0 = 0x100;
 const SPINLOCK31 = 0x17c;
 
+class InterpolatorConfig {
+  shift = 0;
+  mask_lsb = 0;
+  mask_msb = 0;
+  is_signed = false;
+  cross_input = false;
+  cross_result = false;
+  add_raw = false;
+  force_msb = 0;
+  blend = false;
+  clamp = false;
+  overf0 = false;
+  overf1 = false;
+  overf = false;
+  _reserved0 = 0;
+
+  constructor(value: number) {
+    this.shift        =         (value >>>  0) & 0b11111;
+    this.mask_lsb     =         (value >>>  5) & 0b11111;
+    this.mask_msb     =         (value >>> 10) & 0b11111;
+    this.is_signed    = Boolean((value >>> 15) & 1);
+    this.cross_input  = Boolean((value >>> 16) & 1);
+    this.cross_result = Boolean((value >>> 17) & 1);
+    this.add_raw      = Boolean((value >>> 18) & 1);
+    this.force_msb    =         (value >>> 19) & 0b11;
+    this.blend        = Boolean((value >>> 21) & 1);
+    this.clamp        = Boolean((value >>> 22) & 1);
+    this.overf0       = Boolean((value >>> 23) & 1);
+    this.overf1       = Boolean((value >>> 24) & 1);
+    this.overf        = Boolean((value >>> 25) & 1);
+    this._reserved0   =         (value >>> 26) & 0b111111;
+  }
+
+  toUint32() {
+    return (
+      ((this.shift                & 0b11111)  <<  0) |
+      ((this.mask_lsb             & 0b11111)  <<  5) |
+      ((this.mask_msb             & 0b11111)  << 10) |
+      ((Number(this.is_signed)    & 1)        << 15) |
+      ((Number(this.cross_input)  & 1)        << 16) |
+      ((Number(this.cross_result) & 1)        << 17) |
+      ((Number(this.add_raw)      & 1)        << 18) |
+      ((this.force_msb            & 0b11)     << 19) |
+      ((Number(this.blend)        & 1)        << 21) |
+      ((Number(this.clamp)        & 1)        << 22) |
+      ((Number(this.overf0)       & 1)        << 23) |
+      ((Number(this.overf1)       & 1)        << 24) |
+      ((Number(this.overf)        & 1)        << 25) |
+      ((this._reserved0           & 0b111111) << 26)
+    );
+  }
+}
+
+class BitUtil {
+    static s32(n: number) {
+        return n | 0;
+    }
+
+    static u32(n: number) {
+        const s32 = BitUtil.s32;
+        return s32(n) < 0 ? s32(n) + 0x100000000 : s32(n);
+    }
+}
+
+class Interpolator {
+  accum0 = 0;
+  accum1 = 0;
+  base0 = 0;
+  base1 = 0;
+  base2 = 0;
+  ctrl0 = 0;
+  ctrl1 = 0;
+  result0 = 0;
+  result1 = 0;
+  result2 = 0;
+  smresult0 = 0;
+  smresult1 = 0;
+
+  constructor(private readonly index: number) {
+    this.update();
+  }
+
+  update() {
+    const s32 = BitUtil.s32;
+    const u32 = BitUtil.u32;
+
+    const N = this.index;
+    const ctrl0 = new InterpolatorConfig(this.ctrl0);
+    const ctrl1 = new InterpolatorConfig(this.ctrl1);
+
+    const do_clamp = ctrl0.clamp && N == 1;
+    const do_blend = ctrl0.blend && N == 0;
+
+    ctrl0.clamp = do_clamp;
+    ctrl0.blend = do_blend;
+    ctrl0._reserved0 = 0;
+    ctrl1.clamp = false;
+    ctrl1.blend = false;
+    ctrl1.overf0 = false;
+    ctrl1.overf1 = false;
+    ctrl1.overf = false;
+    ctrl1._reserved0 = 0;
+
+    const input0 = s32(ctrl0.cross_input ? this.accum1 : this.accum0);
+    const input1 = s32(ctrl1.cross_input ? this.accum0 : this.accum1);
+
+    const msbmask0 = ctrl0.mask_msb == 31 ? 0xffffffff : (1 << (ctrl0.mask_msb + 1)) - 1;
+    const msbmask1 = ctrl1.mask_msb == 31 ? 0xffffffff : (1 << (ctrl1.mask_msb + 1)) - 1;
+    const mask0 = msbmask0 & ~((1 << ctrl0.mask_lsb) - 1);
+    const mask1 = msbmask1 & ~((1 << ctrl1.mask_lsb) - 1);
+
+    const uresult0 = (input0 >>> ctrl0.shift) & mask0;
+    const uresult1 = (input1 >>> ctrl1.shift) & mask1;
+
+    const overf0 = Boolean((input0 >>> ctrl0.shift) & ~msbmask0);
+    const overf1 = Boolean((input1 >>> ctrl1.shift) & ~msbmask1);
+    const overf = overf0 || overf1;
+
+    const sextmask0 = (uresult0 & (1 << ctrl0.mask_msb)) ? (-1 << ctrl0.mask_msb) : 0;
+    const sextmask1 = (uresult1 & (1 << ctrl1.mask_msb)) ? (-1 << ctrl1.mask_msb) : 0;
+
+    const sresult0 = uresult0 | sextmask0;
+    const sresult1 = uresult1 | sextmask1;
+
+    const result0 = ctrl0.is_signed ? sresult0 : uresult0;
+    const result1 = ctrl1.is_signed ? sresult1 : uresult1;
+
+    const addresult0 = this.base0 + (ctrl0.add_raw ? input0 : result0);
+    const addresult1 = this.base1 + (ctrl1.add_raw ? input1 : result1);
+    const addresult2 = this.base2 + result0 + (do_blend ? 0 : result1);
+
+    const uclamp0 = u32(result0) < u32(this.base0) ? this.base0 : (u32(result0) > u32(this.base1) ? this.base1 : result0);
+    const sclamp0 = s32(result0) < s32(this.base0) ? this.base0 : (s32(result0) > s32(this.base1) ? this.base1 : result0);
+    const clamp0 = ctrl0.is_signed ? sclamp0 : uclamp0;
+
+    const alpha1 = result1 & 0xff;
+    const ublend1 = u32(this.base0) + (((alpha1 * (u32(this.base1) - u32(this.base0))) / 256) | 0);
+    const sblend1 = s32(this.base0) + (((alpha1 * (s32(this.base1) - s32(this.base0))) / 256) | 0);
+    const blend1 = ctrl1.is_signed ? sblend1 : ublend1;
+
+    this.smresult0 = u32(result0);
+    this.smresult1 = u32(result1);
+    this.result0 = u32(do_blend ? alpha1 : (do_clamp ? clamp0 : addresult0) | (ctrl0.force_msb << 28));
+    this.result1 = u32((do_blend ? blend1 : addresult1) | (ctrl0.force_msb << 28));
+    this.result2 = u32(addresult2);
+
+    ctrl0.overf0 = overf0;
+    ctrl0.overf1 = overf1;
+    ctrl0.overf = overf;
+    this.ctrl0 = u32(ctrl0.toUint32());
+    this.ctrl1 = u32(ctrl1.toUint32());
+  }
+
+  writeback() {
+    const u32 = BitUtil.u32;
+
+    const ctrl0 = new InterpolatorConfig(this.ctrl0);
+    const ctrl1 = new InterpolatorConfig(this.ctrl1);
+
+    this.accum0 = u32(ctrl0.cross_result ? this.result1 : this.result0);
+    this.accum1 = u32(ctrl1.cross_result ? this.result0 : this.result1);
+
+    this.update();
+  }
+
+  setBase01(value: number) {
+    const u32 = BitUtil.u32;
+
+    const N = this.index;
+    const ctrl0 = new InterpolatorConfig(this.ctrl0);
+    const ctrl1 = new InterpolatorConfig(this.ctrl1);
+
+    const do_blend = ctrl0.blend && N == 0;
+
+    const input0 = value & 0xffff;
+    const input1 = (value >>> 16) & 0xffff;
+
+    const sextmask0 = input0 & (1 << 15) ? -1 << 15 : 0;
+    const sextmask1 = input1 & (1 << 15) ? -1 << 15 : 0;
+
+    const base0 = (do_blend ? ctrl1.is_signed : ctrl0.is_signed) ? input0 | sextmask0 : input0;
+    const base1 = ctrl1.is_signed ? input1 | sextmask1 : input1;
+
+    this.base0 = u32(base0);
+    this.base1 = u32(base1);
+
+    this.update();
+  }
+}
 export class RPSIO {
   gpioValue = 0;
   gpioOutputEnable = 0;
@@ -49,6 +272,8 @@ export class RPSIO {
   divRemainder = 0;
   divCSR = 0;
   spinLock = 0;
+  interp0 = new Interpolator(0);
+  interp1 = new Interpolator(1);
 
   constructor(private readonly rp2040: RP2040) {}
 
@@ -133,6 +358,84 @@ export class RPSIO {
         return this.divRemainder;
       case DIV_CSR:
         return this.divCSR;
+      case INTERP0_ACCUM0:
+        return this.interp0.accum0;
+      case INTERP0_ACCUM1:
+        return this.interp0.accum1;
+      case INTERP0_BASE0:
+        return this.interp0.base0;
+      case INTERP0_BASE1:
+        return this.interp0.base1;
+      case INTERP0_BASE2:
+        return this.interp0.base2
+      case INTERP0_CTRL_LANE0:
+        return this.interp0.ctrl0;
+      case INTERP0_CTRL_LANE1:
+        return this.interp0.ctrl1;
+      case INTERP0_PEEK_LANE0:
+        return this.interp0.result0;
+      case INTERP0_PEEK_LANE1:
+        return this.interp0.result1;
+      case INTERP0_PEEK_FULL:
+        return this.interp0.result2;
+      case INTERP0_POP_LANE0: {
+        const value =  this.interp0.result0;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_LANE1: {
+        const value =  this.interp0.result1;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_FULL: {
+        const value = this.interp0.result2;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_ACCUM0_ADD:
+        return this.interp0.smresult0;
+      case INTERP0_ACCUM1_ADD:
+        return this.interp0.smresult1;
+      case INTERP1_ACCUM0:
+        return this.interp1.accum0;
+      case INTERP1_ACCUM1:
+        return this.interp1.accum1;
+      case INTERP1_BASE0:
+        return this.interp1.base0;
+      case INTERP1_BASE1:
+        return this.interp1.base1;
+      case INTERP1_BASE2:
+        return this.interp1.base2
+      case INTERP1_CTRL_LANE0:
+        return this.interp1.ctrl0;
+      case INTERP1_CTRL_LANE1:
+        return this.interp1.ctrl1;
+      case INTERP1_PEEK_LANE0:
+        return this.interp1.result0;
+      case INTERP1_PEEK_LANE1:
+        return this.interp1.result1;
+      case INTERP1_PEEK_FULL:
+        return this.interp1.result2;
+      case INTERP1_POP_LANE0: {
+        const value =  this.interp1.result0;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_LANE1: {
+        const value =  this.interp1.result1;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_FULL: {
+        const value = this.interp1.result2;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_ACCUM0_ADD:
+        return this.interp1.smresult0;
+      case INTERP1_ACCUM1_ADD:
+        return this.interp1.smresult1;
     }
     console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
     return 0xffffffff;
@@ -218,6 +521,84 @@ export class RPSIO {
       case DIV_REMAINDER:
         this.divRemainder = value;
         this.divCSR = 0b11;
+        break;
+      case INTERP0_ACCUM0:
+        this.interp0.accum0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM1:
+        this.interp0.accum1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE0:
+        this.interp0.base0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE1:
+        this.interp0.base1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE2:
+        this.interp0.base2 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_CTRL_LANE0:
+        this.interp0.ctrl0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_CTRL_LANE1:
+        this.interp0.ctrl1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM0_ADD:
+        this.interp0.accum0 += value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM1_ADD:
+        this.interp0.accum1 += value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE_1AND0:
+        this.interp0.setBase01(value);
+        break;
+      case INTERP1_ACCUM0:
+        this.interp1.accum0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM1:
+        this.interp1.accum1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE0:
+        this.interp1.base0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE1:
+        this.interp1.base1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE2:
+        this.interp1.base2 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_CTRL_LANE0:
+        this.interp1.ctrl0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_CTRL_LANE1:
+        this.interp1.ctrl1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM0_ADD:
+        this.interp1.accum0 += value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM1_ADD:
+        this.interp1.accum1 += value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE_1AND0:
+        this.interp1.setBase01(value);
         break;
       default:
         console.warn(
