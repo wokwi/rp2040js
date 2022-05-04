@@ -130,8 +130,8 @@ export class Interpolator {
     ctrl0.overf0 = overf0;
     ctrl0.overf1 = overf1;
     ctrl0.overf = overf;
-    this.ctrl0 = u32(ctrl0.toUint32());
-    this.ctrl1 = u32(ctrl1.toUint32());
+    this.ctrl0 = ctrl0.toUint32();
+    this.ctrl1 = ctrl1.toUint32();
   }
 
   writeback() {
