@@ -14,7 +14,6 @@ export class InterpolatorConfig {
   overf0 = false;
   overf1 = false;
   overf = false;
-  _reserved0 = 0;
 
   constructor(value: number) {
     this.shift        =         (value >>>  0) & 0b11111;
@@ -30,7 +29,6 @@ export class InterpolatorConfig {
     this.overf0       = Boolean((value >>> 23) & 1);
     this.overf1       = Boolean((value >>> 24) & 1);
     this.overf        = Boolean((value >>> 25) & 1);
-    this._reserved0   =         (value >>> 26) & 0b111111;
   }
 
   toUint32() {
@@ -47,8 +45,7 @@ export class InterpolatorConfig {
       ((Number(this.clamp)        & 1)        << 22) |
       ((Number(this.overf0)       & 1)        << 23) |
       ((Number(this.overf1)       & 1)        << 24) |
-      ((Number(this.overf)        & 1)        << 25) |
-      ((this._reserved0           & 0b111111) << 26)
+      ((Number(this.overf)        & 1)        << 25)
     );
   }
 }
