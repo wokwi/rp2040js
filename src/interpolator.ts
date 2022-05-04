@@ -117,8 +117,8 @@ export class Interpolator {
     const clamp0 = ctrl0.signed ? sclamp0 : uclamp0;
 
     const alpha1 = result1 & 0xff;
-    const ublend1 = u32(this.base0) + (((alpha1 * (u32(this.base1) - u32(this.base0))) / 256) | 0);
-    const sblend1 = s32(this.base0) + (((alpha1 * (s32(this.base1) - s32(this.base0))) / 256) | 0);
+    const ublend1 = u32(this.base0) + (Math.floor((alpha1 * (u32(this.base1) - u32(this.base0))) / 256) | 0);
+    const sblend1 = s32(this.base0) + (Math.floor((alpha1 * (s32(this.base1) - s32(this.base0))) / 256) | 0);
     const blend1 = ctrl1.signed ? sblend1 : ublend1;
 
     this.smresult0 = u32(result0);
