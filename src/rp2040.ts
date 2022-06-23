@@ -18,6 +18,7 @@ import { RP2040RTC } from './peripherals/rtc';
 import { RPSPI } from './peripherals/spi';
 import { RPSSI } from './peripherals/ssi';
 import { RP2040SysCfg } from './peripherals/syscfg';
+import { RP2040SysInfo } from './peripherals/sysinfo';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 import { RPUSBController } from './peripherals/usb';
@@ -118,7 +119,7 @@ export class RP2040 {
 
   readonly peripherals: { [index: number]: Peripheral } = {
     0x18000: new RPSSI(this, 'SSI'),
-    0x40000: new UnimplementedPeripheral(this, 'SYSINFO_BASE'),
+    0x40000: new RP2040SysInfo(this, 'SYSINFO_BASE'),
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
     0x40008: new RPClocks(this, 'CLOCKS_BASE'),
     0x4000c: new RPReset(this, 'RESETS_BASE'),
