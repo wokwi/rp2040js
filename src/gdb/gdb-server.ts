@@ -19,6 +19,29 @@ import {
 export const STOP_REPLY_SIGINT = 'S02';
 export const STOP_REPLY_TRAP = 'S05';
 
+/* string value: armv6m-none-unknown-eabi */
+const lldbTriple = '61726d76366d2d6e6f6e652d756e6b6e6f776e2d65616269';
+
+const registers = [
+  `name:r0;bitsize:32;offset:0;encoding:int;format:hex;set:General Purpose Registers;generic:arg1;gcc:0;dwarf:0;`,
+  `name:r1;bitsize:32;offset:4;encoding:int;format:hex;set:General Purpose Registers;generic:arg2;gcc:1;dwarf:1;`,
+  `name:r2;bitsize:32;offset:8;encoding:int;format:hex;set:General Purpose Registers;generic:arg3;gcc:2;dwarf:2;`,
+  `name:r3;bitsize:32;offset:12;encoding:int;format:hex;set:General Purpose Registers;generic:arg4;gcc:3;dwarf:3;`,
+  `name:r4;bitsize:32;offset:16;encoding:int;format:hex;set:General Purpose Registers;gcc:4;dwarf:4;`,
+  `name:r5;bitsize:32;offset:20;encoding:int;format:hex;set:General Purpose Registers;gcc:5;dwarf:5;`,
+  `name:r6;bitsize:32;offset:24;encoding:int;format:hex;set:General Purpose Registers;gcc:6;dwarf:6;`,
+  `name:r7;bitsize:32;offset:28;encoding:int;format:hex;set:General Purpose Registers;gcc:7;dwarf:7;`,
+  `name:r8;bitsize:32;offset:32;encoding:int;format:hex;set:General Purpose Registers;gcc:8;dwarf:8;`,
+  `name:r9;bitsize:32;offset:36;encoding:int;format:hex;set:General Purpose Registers;gcc:9;dwarf:9;`,
+  `name:r10;bitsize:32;offset:40;encoding:int;format:hex;set:General Purpose Registers;gcc:10;dwarf:10;`,
+  `name:r11;bitsize:32;offset:44;encoding:int;format:hex;set:General Purpose Registers;generic:fp;gcc:11;dwarf:11;`,
+  `name:r12;bitsize:32;offset:48;encoding:int;format:hex;set:General Purpose Registers;gcc:12;dwarf:12;`,
+  `name:sp;bitsize:32;offset:52;encoding:int;format:hex;set:General Purpose Registers;generic:sp;alt-name:r13;gcc:13;dwarf:13;`,
+  `name:lr;bitsize:32;offset:56;encoding:int;format:hex;set:General Purpose Registers;generic:ra;alt-name:r14;gcc:14;dwarf:14;`,
+  `name:pc;bitsize:32;offset:60;encoding:int;format:hex;set:General Purpose Registers;generic:pc;alt-name:r15;gcc:15;dwarf:15;`,
+  `name:cpsr;bitsize:32;offset:64;encoding:int;format:hex;set:General Purpose Registers;generic:flags;alt-name:psr;gcc:16;dwarf:16;`,
+];
+
 const targetXML = `<?xml version="1.0"?>
 <!DOCTYPE target SYSTEM "gdb-target.dtd">
 <target version="1.0">
@@ -83,6 +106,21 @@ export class GDBServer {
         if (cmd.startsWith('qXfer:features:read:target.xml')) {
           return gdbMessage('l' + targetXML);
         }
+        if (cmd.startsWith('qRegisterInfo')) {
+          const index = parseInt(cmd.substring(13), 16);
+          const register = registers[index];
+          if (register) {
+            return gdbMessage(register);
+          } else {
+            return gdbMessage(`E45`);
+          }
+        }
+        if (cmd === 'qHostInfo') {
+          return gdbMessage(`triple:${lldbTriple};endian:little;ptrsize:4;`);
+        }
+        if (cmd === 'qProcessInfo') {
+          return gdbMessage('pid:1;endian:little;ptrsize:4;');
+        }
         return gdbMessage('');
 
       case 'v':
@@ -97,7 +135,12 @@ export class GDBServer {
         }
         if (cmd.startsWith('vCont;s')) {
           rp2040.step();
-          return gdbMessage(STOP_REPLY_TRAP);
+          const registerStatus = [];
+          for (let i = 0; i < 17; i++) {
+            const value = i === 16 ? core.xPSR : core.registers[i];
+            registerStatus.push(`${encodeHexByte(i)}:${encodeHexUint32(value)}`);
+          }
+          return gdbMessage(`T05${registerStatus.join(';')};reason:trace;`);
         }
         break;
 
@@ -105,7 +148,7 @@ export class GDBServer {
         if (!rp2040.executing) {
           rp2040.execute();
         }
-        break;
+        return gdbMessage('OK');
 
       case 'g': {
         // Read registers
