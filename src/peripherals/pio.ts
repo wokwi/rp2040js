@@ -95,7 +95,7 @@ function irqIndex(irq: number, machineIndex: number): number {
 }
 
 const dreqRx0 = [
-  DREQChannel.DREQ_PIO1_RX0,
+  DREQChannel.DREQ_PIO0_RX0,
   DREQChannel.DREQ_PIO0_RX1,
   DREQChannel.DREQ_PIO0_RX2,
   DREQChannel.DREQ_PIO0_RX3,
