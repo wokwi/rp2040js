@@ -112,8 +112,8 @@ export class RPSPI extends BasePeripheral implements Peripheral {
   private doTX() {
     if (!this.busy && !this.txFIFO.empty) {
       const value = this.txFIFO.pull();
-      this.onTransmit(value);
       this.busy = true;
+      this.onTransmit(value);
       this.fifosUpdated();
     }
   }
