@@ -194,7 +194,13 @@ export class RPUSBController extends BasePeripheral {
       value &= ~USB_BUF_CTRL_AVAILABLE;
       this.rp2040.usbDPRAMView.setUint32(offset, value, true);
       if (bufferOut) {
-        this.onEndpointRead?.(endpoint, bufferLength);
+        if (this.readDelayMicroseconds) {
+          this.rp2040.clock.createTimer(this.readDelayMicroseconds, () => {
+            this.onEndpointRead?.(endpoint, bufferLength);
+          });
+        } else {
+          this.onEndpointRead?.(endpoint, bufferLength);
+        }
       } else {
         value &= ~USB_BUF_CTRL_FULL;
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);
