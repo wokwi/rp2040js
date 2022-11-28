@@ -24,6 +24,7 @@ import { RPUART } from './peripherals/uart';
 import { RPUSBController } from './peripherals/usb';
 import { RPSIO } from './sio';
 import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
+import { RPTBMAN } from './peripherals/tbman';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const FLASH_END_ADDRESS = 0x14000000;
@@ -145,7 +146,7 @@ export class RP2040 {
     0x4005c: new RP2040RTC(this, 'RTC_BASE'),
     0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
-    0x4006c: new UnimplementedPeripheral(this, 'TBMAN_BASE'),
+    0x4006c: new RPTBMAN(this, 'TBMAN_BASE'),
     0x50000: this.dma,
     0x50110: this.usbCtrl,
     0x50200: this.pio[0],
