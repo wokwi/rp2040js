@@ -30,7 +30,9 @@ cdc.onSerialData = (value) => {
   process.stdout.write(value);
 };
 
-process.stdin.setRawMode(true);
+if (process.stdin.isTTY) {
+  process.stdin.setRawMode(true);
+}
 process.stdin.on('data', (chunk) => {
   // 24 is Ctrl+X
   if (chunk[0] === 24) {
