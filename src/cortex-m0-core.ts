@@ -88,6 +88,7 @@ export class CortexM0Core {
   SHPR2 = 0;
   SHPR3 = 0;
 
+  public onSEV?: () => void;
   constructor(readonly rp2040: RP2040) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
@@ -1137,6 +1138,7 @@ export class CortexM0Core {
     // SEV
     else if (opcode === 0b1011111101000000) {
       this.logger.info(LOG_NAME, 'SEV');
+      this.onSEV?.();
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
