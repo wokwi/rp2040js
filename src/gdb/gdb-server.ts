@@ -8,6 +8,7 @@ import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../cortex-m0-cor
 import { RP2040 } from '../rp2040';
 import { ConsoleLogger, Logger, LogLevel } from '../utils/logging';
 import { GDBConnection } from './gdb-connection';
+import { Core } from '../core';
 import {
   decodeHexBuf,
   encodeHexBuf,
@@ -86,7 +87,7 @@ export class GDBServer {
 
   processGDBMessage(cmd: string) {
     const { rp2040 } = this;
-    const { core } = rp2040;
+    const { core0: core } = rp2040;
     if (cmd === 'Hg0') {
       return gdbMessage('OK');
     }
@@ -128,7 +129,7 @@ export class GDBServer {
           return gdbMessage('vCont;c;C;s;S');
         }
         if (cmd.startsWith('vCont;c')) {
-          if (!rp2040.executing) {
+          if (!rp2040.executing(Core.Core0)) {
             rp2040.execute();
           }
           return;
@@ -145,7 +146,7 @@ export class GDBServer {
         break;
 
       case 'c':
-        if (!rp2040.executing) {
+        if (!rp2040.executing(Core.Core0)) {
           rp2040.execute();
         }
         return gdbMessage('OK');
@@ -260,9 +261,9 @@ export class GDBServer {
 
   addConnection(connection: GDBConnection) {
     this.connections.add(connection);
-    this.rp2040.onBreak = () => {
+    this.rp2040.core0.onBreak = () => {
       this.rp2040.stop();
-      this.rp2040.core.PC -= this.rp2040.core.breakRewind;
+      this.rp2040.core0.PC -= this.rp2040.core0.breakRewind;
       for (const connection of this.connections) {
         connection.onBreakpoint();
       }
