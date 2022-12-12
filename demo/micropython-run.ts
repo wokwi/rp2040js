@@ -41,5 +41,6 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
-mcu.core.PC = 0x10000000;
+mcu.core0.PC = 0x10000000;
+mcu.core1.PC = 0x10000000;
 mcu.execute();
