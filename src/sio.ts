@@ -1,7 +1,13 @@
 import { RP2040 } from './rp2040';
 import { Interpolator } from './interpolator';
+import { FIFO } from './utils/fifo';
+import { Core } from './core';
+import { IRQ } from './irq';
 
 const CPUID = 0x000;
+const FIFO_ST = 0x50;
+const FIFO_WR = 0x54;
+const FIFO_RD = 0x58;
 
 // GPIO
 const GPIO_IN = 0x004; // Input value for GPIO pins
@@ -73,6 +79,11 @@ const SPINLOCK_ST = 0x5c;
 const SPINLOCK0 = 0x100;
 const SPINLOCK31 = 0x17c;
 
+const FIFO_ST_VLD_BITS = 0x01;
+const FIFO_ST_RDY_BITS = 0x02;
+const FIFO_ST_WOF_BITS = 0x04;
+const FIFO_ST_ROE_BITS = 0x08;
+
 export class RPSIO {
   gpioValue = 0;
   gpioOutputEnable = 0;
@@ -86,10 +97,22 @@ export class RPSIO {
   spinLock = 0;
   interp0 = new Interpolator(0);
   interp1 = new Interpolator(1);
+  // The meaning of FIFO is for core0
+  readonly core0TxFIFO = new FIFO(8);
+  readonly core0RxFIFO = new FIFO(8);
+  readonly core1TxFIFO;
+  readonly core1RxFIFO;
+  core0ROE = false;
+  core0WOF = false;
+  core1ROE = false;
+  core1WOF = false;
 
-  constructor(private readonly rp2040: RP2040) {}
+  constructor(private readonly rp2040: RP2040) {
+    this.core1TxFIFO = this.core0RxFIFO;
+    this.core1RxFIFO = this.core0TxFIFO;
+  }
 
-  updateHardwareDivider(signed: boolean) {
+  updateHardwareDivider(signed: boolean, core: Core) {
     if (this.divDivisor == 0) {
       this.divQuotient = this.divDividend > 0 ? -1 : 1;
       this.divRemainder = this.divDividend;
@@ -103,10 +126,18 @@ export class RPSIO {
       }
     }
     this.divCSR = 0b11;
-    this.rp2040.core.cycles += 8;
+    switch (core)
+    {
+      case Core.Core0:
+        this.rp2040.core0.cycles += 8;
+        break;
+      case Core.Core1:
+        this.rp2040.core1.cycles += 8;
+        break;
+    }
   }
 
-  readUint32(offset: number) {
+  readUint32(offset: number, core: Core) {
     if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
       const bitIndexMask = 1 << ((offset - SPINLOCK0) / 4);
       if (this.spinLock & bitIndexMask) {
@@ -151,8 +182,60 @@ export class RPSIO {
       case GPIO_HI_OE_XOR:
         return 0; // TODO verify with silicone
       case CPUID:
-        // Returns the current CPU core id (always 0 for now)
-        return 0;
+        switch (core) {
+          case Core.Core0: return 0;
+          case Core.Core1: return 1;
+        }
+      case FIFO_ST:
+        let value = 0;
+        switch (core) {
+          case Core.Core0:
+            if (!this.core0RxFIFO.empty) {
+              value |= FIFO_ST_VLD_BITS;
+            }
+            if (!this.core0TxFIFO.full) {
+              value |= FIFO_ST_RDY_BITS;
+            }
+            if (this.core0WOF) {
+              value |= FIFO_ST_WOF_BITS;
+            }
+            if (this.core0ROE) {
+              value |= FIFO_ST_ROE_BITS;
+            }
+            break;
+          case Core.Core1:
+            if (!this.core0TxFIFO.empty) {
+              value |= FIFO_ST_VLD_BITS;
+            }
+            if (!this.core0RxFIFO.full) {
+              value |= FIFO_ST_RDY_BITS;
+            }
+            if (this.core1WOF) {
+              value |= FIFO_ST_WOF_BITS;
+            }
+            if (this.core1ROE) {
+              value |= FIFO_ST_ROE_BITS;
+            }
+            break;
+        }
+        return value;
+      case FIFO_RD:
+        switch (core) {
+          case Core.Core0:
+            if (this.core0RxFIFO.empty) {
+              this.core0ROE = true;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+              return 0;
+            }
+            return this.core0RxFIFO.pull();
+          case Core.Core1:
+            if (this.core1RxFIFO.empty) {
+              this.core1ROE = true;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+              return 0;
+            }
+            return this.core1RxFIFO.pull();
+        }
       case SPINLOCK_ST:
         return this.spinLock;
       case DIV_UDIVIDEND:
@@ -253,7 +336,7 @@ export class RPSIO {
     return 0xffffffff;
   }
 
-  writeUint32(offset: number, value: number) {
+  writeUint32(offset: number, value: number, core: Core) {
     if (offset >= SPINLOCK0 && offset <= SPINLOCK31) {
       const bitIndexMask = ~(1 << ((offset - SPINLOCK0) / 4));
       this.spinLock &= bitIndexMask;
@@ -312,19 +395,19 @@ export class RPSIO {
         break;
       case DIV_UDIVIDEND:
         this.divDividend = value;
-        this.updateHardwareDivider(false);
+        this.updateHardwareDivider(false, core);
         break;
       case DIV_SDIVIDEND:
         this.divDividend = value;
-        this.updateHardwareDivider(true);
+        this.updateHardwareDivider(true, core);
         break;
       case DIV_UDIVISOR:
         this.divDivisor = value;
-        this.updateHardwareDivider(false);
+        this.updateHardwareDivider(false, core);
         break;
       case DIV_SDIVISOR:
         this.divDivisor = value;
-        this.updateHardwareDivider(true);
+        this.updateHardwareDivider(true, core);
         break;
       case DIV_QUOTIENT:
         this.divQuotient = value;
@@ -411,6 +494,54 @@ export class RPSIO {
         break;
       case INTERP1_BASE_1AND0:
         this.interp1.setBase01(value);
+        break;
+      case FIFO_ST:
+        switch (core) {
+          case Core.Core0:
+            if (value | FIFO_ST_WOF_BITS) {
+              this.core0WOF = false;
+            }
+            if (value | FIFO_ST_ROE_BITS) {
+              this.core0ROE = false;
+            }
+            if (!this.core0WOF && !this.core0ROE && this.core0RxFIFO.empty) {
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, false, Core.Core0);
+            }
+            break;
+          case Core.Core1:
+            if (value | FIFO_ST_WOF_BITS) {
+              this.core1WOF = false;
+            }
+            if (value | FIFO_ST_ROE_BITS) {
+              this.core1ROE = false;
+            }
+            if (!this.core1WOF && !this.core1ROE && this.core1RxFIFO.empty) {
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, false, Core.Core1);
+            }
+            break;
+        }
+        break;
+      case FIFO_WR:
+        switch (core) {
+          case Core.Core0:
+            if (this.core0TxFIFO.full) {
+              this.core0WOF = true;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+            } else {
+              this.core0TxFIFO.push(value);
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+            }
+            break;
+          case Core.Core1:
+            if (this.core1TxFIFO.full) {
+              this.core1WOF = true;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+            } else {
+              this.core1TxFIFO.push(value);
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+            }
+            break;
+        }
         break;
       default:
         console.warn(
