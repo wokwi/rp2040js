@@ -978,22 +978,22 @@ describe('Cortex-M0+ Instruction Set', () => {
   it('should execute a `udf 1` instruction', () => {
     const breakMock = jest.fn();
     const rp2040 = new RP2040();
-    rp2040.core.PC = 0x20000000;
+    rp2040.core0.PC = 0x20000000;
     rp2040.writeUint16(0x20000000, opcodeUDF(0x1));
-    rp2040.onBreak = breakMock;
+    rp2040.core0.onBreak = breakMock;
     rp2040.step();
-    expect(rp2040.core.PC).toEqual(0x20000002);
+    expect(rp2040.core0.PC).toEqual(0x20000002);
     expect(breakMock).toHaveBeenCalledWith(1);
   });
 
   it('should execute a `udf.w #0` (T2 encoding) instruction', () => {
     const breakMock = jest.fn();
     const rp2040 = new RP2040();
-    rp2040.core.PC = 0x20000000;
+    rp2040.core0.PC = 0x20000000;
     rp2040.writeUint32(0x20000000, opcodeUDF2(0));
-    rp2040.onBreak = breakMock;
+    rp2040.core0.onBreak = breakMock;
     rp2040.step();
-    expect(rp2040.core.PC).toEqual(0x20000004);
+    expect(rp2040.core0.PC).toEqual(0x20000004);
     expect(breakMock).toHaveBeenCalledWith(0);
   });
 
@@ -1431,13 +1431,13 @@ describe('Cortex-M0+ Instruction Set', () => {
 
     await cpu.singleStep();
     if (cpu instanceof RP2040TestDriver) {
-      expect(cpu.rp2040.core.pendingSVCall).toEqual(true);
+      expect(cpu.rp2040.core0.pendingSVCall).toEqual(true);
     }
 
     await cpu.singleStep(); // SVCall handler should run here
     const registers2 = await cpu.readRegisters();
     if (cpu instanceof RP2040TestDriver) {
-      expect(cpu.rp2040.core.pendingSVCall).toEqual(false);
+      expect(cpu.rp2040.core0.pendingSVCall).toEqual(false);
     }
     expect(registers2.pc).toEqual(SVCALL_HANDLER + 2);
     expect(registers2.r0).toEqual(0x55);
