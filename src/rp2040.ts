@@ -155,6 +155,20 @@ export class RP2040 {
 
   constructor(readonly clock: IClock = new RealtimeClock()) {
     this.reset();
+    this.core0.onSEV = () => {
+      if (this.core1.waiting) {
+        this.core1.waiting = false;
+      } else {
+        this.core1.eventRegistered = true;
+      }
+    }
+    this.core1.onSEV = () => {
+      if (this.core0.waiting) {
+        this.core0.waiting = false;
+      } else {
+        this.core0.eventRegistered = true;
+      }
+    }
   }
 
   isCore0Running = true;
