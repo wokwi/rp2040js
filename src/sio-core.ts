@@ -207,7 +207,7 @@ export class RPSIOCore {
                 }
                 return this.rxFIFO.pull();
             default:
-                console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
+                console.warn(`Read from invalid SIO address: ${offset.toString(16)} (${this.core})`);
                 return 0xffffffff;
         }
     }
@@ -359,7 +359,7 @@ export class RPSIOCore {
                 break;
             default:
                 console.warn(
-                    `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)}`
+                    `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)} (${this.core})`
                 );
                 break;
         }
