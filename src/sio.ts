@@ -100,9 +100,9 @@ export class RPSIO {
     }
     switch (core) {
       case Core.Core0:
-        return this.core0.readUint32(offset, core);
+        return this.core0.readUint32(offset);
       case Core.Core1:
-        return this.core1.readUint32(offset, core);
+        return this.core1.readUint32(offset);
     }
   }
 
@@ -166,10 +166,10 @@ export class RPSIO {
       default:
         switch (core) {
           case Core.Core0:
-            this.core0.writeUint32(offset, value, core)
+            this.core0.writeUint32(offset, value)
             break;
           case Core.Core1:
-            this.core1.writeUint32(offset, value, core);
+            this.core1.writeUint32(offset, value);
             break;
         }
     }

@@ -73,16 +73,17 @@ export class RPSIOCore {
     static create2Cores(rp2040: RP2040) {
         let rxFIFO = new FIFO(8);
         let txFIFO = new FIFO(8);
-        let core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO);
-        let core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO);
+        let core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO, Core.Core0);
+        let core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO, Core.Core1);
         return [core0, core1];
     }
 
     private constructor(private readonly rp2040: RP2040,
         private readonly rxFIFO: FIFO,
-        private readonly txFIFO: FIFO) { }
+        private readonly txFIFO: FIFO,
+        private readonly core: Core) { }
 
-    readUint32(offset: number, core: Core) {
+    readUint32(offset: number) {
         switch (offset) {
             case DIV_UDIVIDEND:
                 return this.divDividend;
@@ -195,7 +196,7 @@ export class RPSIOCore {
             case FIFO_RD:
                 if (this.rxFIFO.empty) {
                     this.ROE = true;
-                    switch (core) {
+                    switch (this.core) {
                         case Core.Core0:
                             this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
                             break;
@@ -211,23 +212,23 @@ export class RPSIOCore {
         }
     }
 
-    writeUint32(offset: number, value: number, core: Core) {
+    writeUint32(offset: number, value: number) {
         switch (offset) {
             case DIV_UDIVIDEND:
                 this.divDividend = value;
-                this.updateHardwareDivider(false, core);
+                this.updateHardwareDivider(false);
                 break;
             case DIV_SDIVIDEND:
                 this.divDividend = value;
-                this.updateHardwareDivider(true, core);
+                this.updateHardwareDivider(true);
                 break;
             case DIV_UDIVISOR:
                 this.divDivisor = value;
-                this.updateHardwareDivider(false, core);
+                this.updateHardwareDivider(false);
                 break;
             case DIV_SDIVISOR:
                 this.divDivisor = value;
-                this.updateHardwareDivider(true, core);
+                this.updateHardwareDivider(true);
                 break;
             case DIV_QUOTIENT:
                 this.divQuotient = value;
@@ -323,7 +324,7 @@ export class RPSIOCore {
                     this.ROE = false;
                 }
                 if (!this.WOF && !this.ROE && this.rxFIFO.empty) {
-                    switch (core) {
+                    switch (this.core) {
                         case Core.Core0:
                             this.rp2040.setInterruptCore(IRQ.SIO_PROC0, false, Core.Core0);
                             break;
@@ -336,7 +337,7 @@ export class RPSIOCore {
             case FIFO_WR:
                 if (this.txFIFO.full) {
                     this.WOF = true;
-                    switch (core) {
+                    switch (this.core) {
                         case Core.Core0:
                             this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
                             break;
@@ -346,7 +347,7 @@ export class RPSIOCore {
                     }
                 } else {
                     this.txFIFO.push(value);
-                    switch (core) {
+                    switch (this.core) {
                         case Core.Core0:
                             this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
                             break;
@@ -364,7 +365,7 @@ export class RPSIOCore {
         }
     }
 
-    private updateHardwareDivider(signed: boolean, core: Core) {
+    private updateHardwareDivider(signed: boolean) {
         if (this.divDivisor == 0) {
             this.divQuotient = this.divDividend > 0 ? -1 : 1;
             this.divRemainder = this.divDividend;
@@ -378,7 +379,7 @@ export class RPSIOCore {
             }
         }
         this.divCSR = 0b11;
-        switch (core) {
+        switch (this.core) {
             case Core.Core0:
                 this.rp2040.core0.cycles += 8;
                 break;
