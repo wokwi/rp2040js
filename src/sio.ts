@@ -3,6 +3,7 @@ import { Interpolator } from './interpolator';
 import { FIFO } from './utils/fifo';
 import { Core } from './core';
 import { IRQ } from './irq';
+import { RPSIOCore } from './sio-core';
 
 const CPUID = 0x000;
 const FIFO_ST = 0x50;
@@ -30,15 +31,6 @@ const GPIO_HI_OE_CLR = 0x048; // QSPI output enable clear
 const GPIO_HI_OE_XOR = 0x04c; // QSPI output enable XOR
 
 const GPIO_MASK = 0x3fffffff;
-
-//HARDWARE DIVIDER
-const DIV_UDIVIDEND = 0x060; //  Divider unsigned dividend
-const DIV_UDIVISOR = 0x064; //  Divider unsigned divisor
-const DIV_SDIVIDEND = 0x068; //  Divider signed dividend
-const DIV_SDIVISOR = 0x06c; //  Divider signed divisor
-const DIV_QUOTIENT = 0x070; //  Divider result quotient
-const DIV_REMAINDER = 0x074; //Divider result remainder
-const DIV_CSR = 0x078;
 
 //INTERPOLATOR
 const INTERP0_ACCUM0 = 0x080; // Read/write access to accumulator 0
@@ -89,11 +81,6 @@ export class RPSIO {
   gpioOutputEnable = 0;
   qspiGpioValue = 0;
   qspiGpioOutputEnable = 0;
-  divDividend = 0;
-  divDivisor = 1;
-  divQuotient = 0;
-  divRemainder = 0;
-  divCSR = 0;
   spinLock = 0;
   interp0 = new Interpolator(0);
   interp1 = new Interpolator(1);
@@ -106,35 +93,14 @@ export class RPSIO {
   core0WOF = false;
   core1ROE = false;
   core1WOF = false;
+  readonly core0;
+  readonly core1;
 
   constructor(private readonly rp2040: RP2040) {
     this.core1TxFIFO = this.core0RxFIFO;
     this.core1RxFIFO = this.core0TxFIFO;
-  }
-
-  updateHardwareDivider(signed: boolean, core: Core) {
-    if (this.divDivisor == 0) {
-      this.divQuotient = this.divDividend > 0 ? -1 : 1;
-      this.divRemainder = this.divDividend;
-    } else {
-      if (signed) {
-        this.divQuotient = (this.divDividend | 0) / (this.divDivisor | 0);
-        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0);
-      } else {
-        this.divQuotient = (this.divDividend >>> 0) / (this.divDivisor >>> 0);
-        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0);
-      }
-    }
-    this.divCSR = 0b11;
-    switch (core)
-    {
-      case Core.Core0:
-        this.rp2040.core0.cycles += 8;
-        break;
-      case Core.Core1:
-        this.rp2040.core1.cycles += 8;
-        break;
-    }
+    this.core0 = new RPSIOCore(rp2040);
+    this.core1 = new RPSIOCore(rp2040);
   }
 
   readUint32(offset: number, core: Core) {
@@ -238,21 +204,6 @@ export class RPSIO {
         }
       case SPINLOCK_ST:
         return this.spinLock;
-      case DIV_UDIVIDEND:
-        return this.divDividend;
-      case DIV_SDIVIDEND:
-        return this.divDividend;
-      case DIV_UDIVISOR:
-        return this.divDivisor;
-      case DIV_SDIVISOR:
-        return this.divDivisor;
-      case DIV_QUOTIENT:
-        this.divCSR &= ~0b10;
-        return this.divQuotient;
-      case DIV_REMAINDER:
-        return this.divRemainder;
-      case DIV_CSR:
-        return this.divCSR;
       case INTERP0_ACCUM0:
         return this.interp0.accum0;
       case INTERP0_ACCUM1:
@@ -332,8 +283,12 @@ export class RPSIO {
       case INTERP1_ACCUM1_ADD:
         return this.interp1.smresult1;
     }
-    console.warn(`Read from invalid SIO address: ${offset.toString(16)}`);
-    return 0xffffffff;
+    switch (core) {
+      case Core.Core0:
+        return this.core0.readUint32(offset);
+      case Core.Core1:
+        return this.core1.readUint32(offset);
+    }
   }
 
   writeUint32(offset: number, value: number, core: Core) {
@@ -392,30 +347,6 @@ export class RPSIO {
         break;
       case GPIO_HI_OE_XOR:
         this.qspiGpioOutputEnable ^= value & GPIO_MASK;
-        break;
-      case DIV_UDIVIDEND:
-        this.divDividend = value;
-        this.updateHardwareDivider(false, core);
-        break;
-      case DIV_SDIVIDEND:
-        this.divDividend = value;
-        this.updateHardwareDivider(true, core);
-        break;
-      case DIV_UDIVISOR:
-        this.divDivisor = value;
-        this.updateHardwareDivider(false, core);
-        break;
-      case DIV_SDIVISOR:
-        this.divDivisor = value;
-        this.updateHardwareDivider(true, core);
-        break;
-      case DIV_QUOTIENT:
-        this.divQuotient = value;
-        this.divCSR = 0b11;
-        break;
-      case DIV_REMAINDER:
-        this.divRemainder = value;
-        this.divCSR = 0b11;
         break;
       case INTERP0_ACCUM0:
         this.interp0.accum0 = value;
@@ -544,9 +475,14 @@ export class RPSIO {
         }
         break;
       default:
-        console.warn(
-          `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)}`
-        );
+        switch (core) {
+          case Core.Core0:
+            this.core0.writeUint32(offset, value, core)
+            break;
+          case Core.Core1:
+            this.core1.writeUint32(offset, value, core);
+            break;
+        }
     }
     const pinsToUpdate =
       (this.gpioValue ^ prevGpioValue) | (this.gpioOutputEnable ^ prevGpioOutputEnable);
