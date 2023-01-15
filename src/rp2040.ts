@@ -27,7 +27,6 @@ import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 import { RPTBMAN } from './peripherals/tbman';
 
 export const FLASH_START_ADDRESS = 0x10000000;
-export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const DPRAM_START_ADDRESS = 0x50100000;
 export const SIO_START_ADDRESS = 0xd0000000;
@@ -188,7 +187,10 @@ export class RP2040 {
     const { bootrom } = this;
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
-    } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+    } else if (
+      address >= FLASH_START_ADDRESS &&
+      address < FLASH_START_ADDRESS + this.flash.length
+    ) {
       return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
@@ -218,7 +220,7 @@ export class RP2040 {
 
   /** We assume the address is 16-bit aligned */
   readUint16(address: number) {
-    if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+    if (address >= FLASH_START_ADDRESS && address < FLASH_START_ADDRESS + this.flash.length) {
       return this.flashView.getUint16(address - FLASH_START_ADDRESS, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint16(address - RAM_START_ADDRESS, true);
@@ -229,7 +231,7 @@ export class RP2040 {
   }
 
   readUint8(address: number) {
-    if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+    if (address >= FLASH_START_ADDRESS && address < FLASH_START_ADDRESS + this.flash.length) {
       return this.flash[address - FLASH_START_ADDRESS];
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sram[address - RAM_START_ADDRESS];
@@ -249,7 +251,10 @@ export class RP2040 {
       peripheral.writeUint32Atomic(offset, value, atomicType);
     } else if (address < bootrom.length * 4) {
       bootrom[address / 4] = value;
-    } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+    } else if (
+      address >= FLASH_START_ADDRESS &&
+      address < FLASH_START_ADDRESS + this.flash.length
+    ) {
       this.flashView.setUint32(address - FLASH_START_ADDRESS, value, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
