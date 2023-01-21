@@ -186,7 +186,8 @@ export class RPADC extends BasePeripheral implements Peripheral {
         value &= 0xfff; // 12 bits
         if (this.fcs & FCS_SHIFT) {
           value >>= 4;
-        } else if (error && this.fcs & FCS_ERR) {
+        } 
+        if (error && this.fcs & FCS_ERR) {
           value |= FIFO_ERR;
         }
         this.fifo.push(value);
