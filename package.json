@@ -61,5 +61,9 @@
     "**/*.js": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "@types/minimist": "^1.2.2",
+    "minimist": "^1.2.7"
   }
 }
