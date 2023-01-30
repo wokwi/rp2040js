@@ -35,9 +35,17 @@ npm install
 npm run start:micropython
 ```
 
-and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X.
+and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X. A different UF2 image can be loaded by supplying the `--image` option:
 
-You can replace rp2-pico-20210902-v1.17.uf2 with any recent MicroPython or CircuitPython release built for the RP2040.
+```
+npm run start:micropython -- --image=my_image.uf2
+```
+
+A GDB server on port 3333 can be enabled by specifying the `--gdb` flag:
+
+```
+npm run start:micropython -- --gdb
+```
 
 With MicroPython – and probably also CircuitPython – you can use the filesystem on the Pico. This becomes useful as more than one script file is used in your code. Just put a [LittleFS](https://github.com/littlefs-project/littlefs) formatted filesystem image called `littlefs.img` into the rp2040js root directory, and your `main.py` will be automatically started from there.
 
