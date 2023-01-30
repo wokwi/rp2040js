@@ -374,35 +374,27 @@ export class RP2040 {
   execute() {
     this.core0.stopped = false;
     this.core1.stopped = false;
-    setTimeout(() => this.execute0(), 0);
+    setTimeout(() => this.executeInternal(), 0);
   }
 
-  private execute0() {
+  private executeInternal() {
     this.clock.resume();
     this.executeTimer = null;
-    this.isCore0Running = true;
-    for (let i = 0; i < 1000 && !this.core0.stopped && !this.core0.waiting; i++) {
-      this.core0.executeInstruction();
+    let idle = false;
+    for (let i = 0; i < 1000 && !idle; i++) {
+      idle = true;
+      if (!this.core0.stopped && !this.core0.waiting) {
+        idle = false;
+        this.isCore0Running = true;
+        this.core0.executeInstruction();
+      }
+      if (!this.core1.stopped && !this.core1.waiting) {
+        idle = false;
+        this.isCore0Running = false;
+        this.core1.executeInstruction();
+      }
     }
-    this.isCore0Running = false;
-    if (this.core1.stopped || this.core1.waiting) {
-      this.executeTimer = setTimeout(() => this.execute0(), 0);
-    } else {
-      this.executeTimer = setTimeout(() => this.execute1(), 0);
-    }
-  }
-
-  private execute1() {
-    this.clock.resume();
-    this.executeTimer = null;
-    for (let i = 0; i < 1000 && !this.core1.stopped && !this.core1.waiting; i++) {
-      this.core1.executeInstruction();
-    }
-    if (this.core0.stopped || this.core0.waiting) {
-      this.executeTimer = setTimeout(() => this.execute1(), 0);
-    } else {
-      this.executeTimer = setTimeout(() => this.execute0(), 0);
-    }
+    this.executeTimer = setTimeout(() => this.executeInternal(), 0);
   }
 
   stop() {
