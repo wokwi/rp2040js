@@ -5,11 +5,20 @@ import { ConsoleLogger, LogLevel } from '../src/utils/logging';
 import { bootromB1 } from './bootrom';
 import { loadUF2, loadMicropythonFlashImage } from './load-flash';
 import fs from 'fs';
+import minimist from 'minimist';
+
+const args = minimist(process.argv.slice(2), {
+  string: 'image', // UF2 image to load; defaults to "rp2-pico-20210902-v1.17.uf2"
+  boolean: 'gdb', // start GDB server on 3333
+});
 
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
-loadUF2('rp2-pico-20210902-v1.17.uf2', mcu);
+
+const imageName = args.image ?? 'rp2-pico-20210902-v1.17.uf2';
+console.log(`Loading uf2 image ${imageName}`);
+loadUF2(imageName, mcu);
 
 if (fs.existsSync('littlefs.img')) {
   loadMicropythonFlashImage('littlefs.img', mcu);
@@ -17,8 +26,10 @@ if (fs.existsSync('littlefs.img')) {
   // https://github.com/wokwi/littlefs-wasm or https://github.com/littlefs-project/littlefs-js
 }
 
-const gdbServer = new GDBTCPServer(mcu, 3333);
-console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
+if (args.gdb) {
+  const gdbServer = new GDBTCPServer(mcu, 3333);
+  console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
+}
 
 const cdc = new USBCDC(mcu.usbCtrl);
 cdc.onDeviceConnected = () => {
