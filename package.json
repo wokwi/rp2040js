@@ -30,6 +30,7 @@
     "build": "rimraf dist && tsc && tsc -p tsconfig.esm.json && node build-scripts/dist-package-json",
     "prepublish": "npm run build",
     "prepare": "husky install",
+    "format:check": "prettier --check **/*.{ts,js} !**/dist/** !**/node_modules/**",
     "lint": "eslint . --ext .ts",
     "start": "ts-node demo/emulator-run.ts",
     "start:micropython": "ts-node demo/micropython-run.ts",
