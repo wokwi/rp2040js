@@ -16,12 +16,7 @@ const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
 
-let imageName: string;
-if (args.image) {
-  imageName = args.image;
-} else {
-  imageName = 'rp2-pico-20210902-v1.17.uf2';
-}
+const imageName = args.image ?? 'rp2-pico-20210902-v1.17.uf2';
 console.log(`Loading uf2 image ${imageName}`);
 loadUF2(imageName, mcu);
 
