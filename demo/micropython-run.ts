@@ -5,25 +5,25 @@ import { ConsoleLogger, LogLevel } from '../src/utils/logging';
 import { bootromB1 } from './bootrom';
 import { loadUF2, loadMicropythonFlashImage } from './load-flash';
 import fs from 'fs';
-const minimist = require('minimist');
+import minimist from 'minimist';
 
 const args = minimist(process.argv.slice(2), {
   string: 'image',  // UF2 image to load; defaults to "rp2-pico-20210902-v1.17.uf2"
-  boolean: 'no_gdb',  // Do NOT start GDB server
+  boolean: 'gdb',  // start GDB server on 3333
 })
 
 const mcu = new RP2040();
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
 
-var image_name: string;
+let imageName: string;
 if(args.image){
-  image_name = args.image;
+  imageName = args.image;
 } else {
-  image_name = 'rp2-pico-20210902-v1.17.uf2';
+  imageName = 'rp2-pico-20210902-v1.17.uf2';
 }
-console.log(`Loading uf2 image ${image_name}`);
-loadUF2(image_name , mcu);
+console.log(`Loading uf2 image ${imageName}`);
+loadUF2(imageName , mcu);
 
 if (fs.existsSync('littlefs.img')) {
   loadMicropythonFlashImage('littlefs.img', mcu);
@@ -31,9 +31,8 @@ if (fs.existsSync('littlefs.img')) {
   // https://github.com/wokwi/littlefs-wasm or https://github.com/littlefs-project/littlefs-js
 }
 
-var gdbServer: GDBTCPServer;
-if(!args.no_gdb){
-  gdbServer = new GDBTCPServer(mcu, 3333);
+if(args.gdb){
+  const gdbServer = new GDBTCPServer(mcu, 3333);
   console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
 }
 
