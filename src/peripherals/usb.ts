@@ -226,7 +226,7 @@ export class RPUSBController extends BasePeripheral {
         }
       }
 
-      if (doubleBuffer && ((value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_AVAILABLE)) {
+      if (doubleBuffer && (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_AVAILABLE) {
         const bufferLength = (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_LEN_MASK;
         const bufferOffset = this.getEndpointBufferOffset(endpoint, bufferOut) + USB_BUF1_OFFSET;
         this.debug(

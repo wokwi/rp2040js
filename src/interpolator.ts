@@ -16,36 +16,36 @@ export class InterpolatorConfig {
   overf = false;
 
   constructor(value: number) {
-    this.shift       =         (value >>>  0) & 0b11111;
-    this.maskLSB     =         (value >>>  5) & 0b11111;
-    this.maskMSB     =         (value >>> 10) & 0b11111;
-    this.signed      = Boolean((value >>> 15) & 1);
-    this.crossInput  = Boolean((value >>> 16) & 1);
+    this.shift = (value >>> 0) & 0b11111;
+    this.maskLSB = (value >>> 5) & 0b11111;
+    this.maskMSB = (value >>> 10) & 0b11111;
+    this.signed = Boolean((value >>> 15) & 1);
+    this.crossInput = Boolean((value >>> 16) & 1);
     this.crossResult = Boolean((value >>> 17) & 1);
-    this.addRaw      = Boolean((value >>> 18) & 1);
-    this.forceMSB    =         (value >>> 19) & 0b11;
-    this.blend       = Boolean((value >>> 21) & 1);
-    this.clamp       = Boolean((value >>> 22) & 1);
-    this.overf0      = Boolean((value >>> 23) & 1);
-    this.overf1      = Boolean((value >>> 24) & 1);
-    this.overf       = Boolean((value >>> 25) & 1);
+    this.addRaw = Boolean((value >>> 18) & 1);
+    this.forceMSB = (value >>> 19) & 0b11;
+    this.blend = Boolean((value >>> 21) & 1);
+    this.clamp = Boolean((value >>> 22) & 1);
+    this.overf0 = Boolean((value >>> 23) & 1);
+    this.overf1 = Boolean((value >>> 24) & 1);
+    this.overf = Boolean((value >>> 25) & 1);
   }
 
   toUint32() {
     return (
-      ((this.shift               & 0b11111)  <<  0) |
-      ((this.maskLSB             & 0b11111)  <<  5) |
-      ((this.maskMSB             & 0b11111)  << 10) |
-      ((Number(this.signed)      & 1)        << 15) |
-      ((Number(this.crossInput)  & 1)        << 16) |
-      ((Number(this.crossResult) & 1)        << 17) |
-      ((Number(this.addRaw)      & 1)        << 18) |
-      ((this.forceMSB            & 0b11)     << 19) |
-      ((Number(this.blend)       & 1)        << 21) |
-      ((Number(this.clamp)       & 1)        << 22) |
-      ((Number(this.overf0)      & 1)        << 23) |
-      ((Number(this.overf1)      & 1)        << 24) |
-      ((Number(this.overf)       & 1)        << 25)
+      ((this.shift & 0b11111) << 0) |
+      ((this.maskLSB & 0b11111) << 5) |
+      ((this.maskMSB & 0b11111) << 10) |
+      ((Number(this.signed) & 1) << 15) |
+      ((Number(this.crossInput) & 1) << 16) |
+      ((Number(this.crossResult) & 1) << 17) |
+      ((Number(this.addRaw) & 1) << 18) |
+      ((this.forceMSB & 0b11) << 19) |
+      ((Number(this.blend) & 1) << 21) |
+      ((Number(this.clamp) & 1) << 22) |
+      ((Number(this.overf0) & 1) << 23) |
+      ((Number(this.overf1) & 1) << 24) |
+      ((Number(this.overf) & 1) << 25)
     );
   }
 }
@@ -99,8 +99,8 @@ export class Interpolator {
     const overf1 = Boolean((input1 >>> ctrl1.shift) & ~msbmask1);
     const overf = overf0 || overf1;
 
-    const sextmask0 = (uresult0 & (1 << ctrl0.maskMSB)) ? (-1 << ctrl0.maskMSB) : 0;
-    const sextmask1 = (uresult1 & (1 << ctrl1.maskMSB)) ? (-1 << ctrl1.maskMSB) : 0;
+    const sextmask0 = uresult0 & (1 << ctrl0.maskMSB) ? -1 << ctrl0.maskMSB : 0;
+    const sextmask1 = uresult1 & (1 << ctrl1.maskMSB) ? -1 << ctrl1.maskMSB : 0;
 
     const sresult0 = uresult0 | sextmask0;
     const sresult1 = uresult1 | sextmask1;
@@ -112,18 +112,32 @@ export class Interpolator {
     const addresult1 = this.base1 + (ctrl1.addRaw ? input1 : result1);
     const addresult2 = this.base2 + result0 + (do_blend ? 0 : result1);
 
-    const uclamp0 = u32(result0) < u32(this.base0) ? this.base0 : (u32(result0) > u32(this.base1) ? this.base1 : result0);
-    const sclamp0 = s32(result0) < s32(this.base0) ? this.base0 : (s32(result0) > s32(this.base1) ? this.base1 : result0);
+    const uclamp0 =
+      u32(result0) < u32(this.base0)
+        ? this.base0
+        : u32(result0) > u32(this.base1)
+        ? this.base1
+        : result0;
+    const sclamp0 =
+      s32(result0) < s32(this.base0)
+        ? this.base0
+        : s32(result0) > s32(this.base1)
+        ? this.base1
+        : result0;
     const clamp0 = ctrl0.signed ? sclamp0 : uclamp0;
 
     const alpha1 = result1 & 0xff;
-    const ublend1 = u32(this.base0) + (Math.floor((alpha1 * (u32(this.base1) - u32(this.base0))) / 256) | 0);
-    const sblend1 = s32(this.base0) + (Math.floor((alpha1 * (s32(this.base1) - s32(this.base0))) / 256) | 0);
+    const ublend1 =
+      u32(this.base0) + (Math.floor((alpha1 * (u32(this.base1) - u32(this.base0))) / 256) | 0);
+    const sblend1 =
+      s32(this.base0) + (Math.floor((alpha1 * (s32(this.base1) - s32(this.base0))) / 256) | 0);
     const blend1 = ctrl1.signed ? sblend1 : ublend1;
 
     this.smresult0 = u32(result0);
     this.smresult1 = u32(result1);
-    this.result0 = u32(do_blend ? alpha1 : (do_clamp ? clamp0 : addresult0) | (ctrl0.forceMSB << 28));
+    this.result0 = u32(
+      do_blend ? alpha1 : (do_clamp ? clamp0 : addresult0) | (ctrl0.forceMSB << 28)
+    );
     this.result1 = u32((do_blend ? blend1 : addresult1) | (ctrl0.forceMSB << 28));
     this.result2 = u32(addresult2);
 

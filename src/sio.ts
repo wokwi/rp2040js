@@ -179,7 +179,7 @@ export class RPSIO {
       case INTERP0_BASE1:
         return this.interp0.base1;
       case INTERP0_BASE2:
-        return this.interp0.base2
+        return this.interp0.base2;
       case INTERP0_CTRL_LANE0:
         return this.interp0.ctrl0;
       case INTERP0_CTRL_LANE1:
@@ -191,12 +191,12 @@ export class RPSIO {
       case INTERP0_PEEK_FULL:
         return this.interp0.result2;
       case INTERP0_POP_LANE0: {
-        const value =  this.interp0.result0;
+        const value = this.interp0.result0;
         this.interp0.writeback();
         return value;
       }
       case INTERP0_POP_LANE1: {
-        const value =  this.interp0.result1;
+        const value = this.interp0.result1;
         this.interp0.writeback();
         return value;
       }
@@ -218,7 +218,7 @@ export class RPSIO {
       case INTERP1_BASE1:
         return this.interp1.base1;
       case INTERP1_BASE2:
-        return this.interp1.base2
+        return this.interp1.base2;
       case INTERP1_CTRL_LANE0:
         return this.interp1.ctrl0;
       case INTERP1_CTRL_LANE1:
@@ -230,12 +230,12 @@ export class RPSIO {
       case INTERP1_PEEK_FULL:
         return this.interp1.result2;
       case INTERP1_POP_LANE0: {
-        const value =  this.interp1.result0;
+        const value = this.interp1.result0;
         this.interp1.writeback();
         return value;
       }
       case INTERP1_POP_LANE1: {
-        const value =  this.interp1.result1;
+        const value = this.interp1.result1;
         this.interp1.writeback();
         return value;
       }
