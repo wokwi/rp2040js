@@ -1,0 +1,29 @@
+name: Test MicroPython Releases
+on:
+  push:
+  pull_request:
+    branches: [master]
+jobs:
+  test-micropython:
+    name: Test and Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        micropython_version: [20210618-v1.16, 20210902-v1.17, 20220117-v1.18, 20220618-v1.19.1]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+      - name: Install packages
+        run: npm ci
+      - name: Install Python requirements
+        run: cd test && pip install -r requirements.txt
+      - name: Download Micropython
+        run: curl -o micropython.uf2 "https://micropython.org/resources/firmware/rp2-pico-${VERSION}.uf2"
+        env:
+          VERSION: ${{ matrix.micropython_version }}
+      - name: Create filesystem
+        run: python test/mklittlefs.py
+      - name: Test Micropython
+        run: timeout 10 npm run start:micropython -- --image micropython.uf2 --expect-text "Hello, MicroPython!"
