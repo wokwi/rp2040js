@@ -49,6 +49,10 @@ A GDB server on port 3333 can be enabled by specifying the `--gdb` flag:
 npm run start:micropython -- --gdb
 ```
 
+For using the MicroPython demo code in tests, the `--expect-text` can come handy: it will look for the given text in the serial output and exit with code 0 if found, or 1 if not found. You can find an example in [the MicroPython CI test](./github/workflows/ci-micropython.yml).
+
+#### Filesystem support
+
 With MicroPython – and probably also CircuitPython – you can use the filesystem on the Pico. This becomes useful as more than one script file is used in your code. Just put a [LittleFS](https://github.com/littlefs-project/littlefs) formatted filesystem image called `littlefs.img` into the rp2040js root directory, and your `main.py` will be automatically started from there.
 
 A simple way to create a suitable LittleFS image containing your script files is outlined in [create_littlefs_image.py](https://github.com/tomods/GrinderController/blob/358ad3e0f795d8cc0bdf4f21bb35f806871d433f/tools/create_littlefs_image.py).
@@ -77,4 +81,4 @@ Currently, the filesystem is not writeable, as the SSI peripheral required for f
 
 ## License
 
-Released under the MIT licence. Copyright (c) 2021, Uri Shaked.
+Released under the MIT licence. Copyright (c) 2021-2023, Uri Shaked.
