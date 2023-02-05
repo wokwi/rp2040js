@@ -570,10 +570,10 @@ export class CortexM0Core {
 
   cyclesIO(addr: number, write = false) {
     addr = addr >>> 0;
-    if(addr >= SIO_START_ADDRESS && addr < SIO_START_ADDRESS + 0x10000000) {
+    if (addr >= SIO_START_ADDRESS && addr < SIO_START_ADDRESS + 0x10000000) {
       return 0;
     }
-    if(addr >= APB_START_ADDRESS && addr < APB_START_ADDRESS + 0x10000000) {
+    if (addr >= APB_START_ADDRESS && addr < APB_START_ADDRESS + 0x10000000) {
       return write ? 4 : 3;
     }
     return 1;
