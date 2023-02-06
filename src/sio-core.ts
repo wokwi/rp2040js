@@ -71,10 +71,10 @@ export class RPSIOCore {
   WOF = false;
 
   static create2Cores(rp2040: RP2040) {
-    let rxFIFO = new FIFO(8);
-    let txFIFO = new FIFO(8);
-    let core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO, Core.Core0);
-    let core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO, Core.Core1);
+    const rxFIFO = new FIFO(8);
+    const txFIFO = new FIFO(8);
+    const core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO, Core.Core0);
+    const core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO, Core.Core1);
     return [core0, core1];
   }
 
@@ -180,7 +180,7 @@ export class RPSIOCore {
         return this.interp1.smresult0;
       case INTERP1_ACCUM1_ADD:
         return this.interp1.smresult1;
-      case FIFO_ST:
+      case FIFO_ST: {
         let value = 0;
         if (!this.rxFIFO.empty) {
           value |= FIFO_ST_VLD_BITS;
@@ -195,6 +195,7 @@ export class RPSIOCore {
           value |= FIFO_ST_ROE_BITS;
         }
         return value;
+      }
       case FIFO_RD:
         if (this.rxFIFO.empty) {
           this.ROE = true;

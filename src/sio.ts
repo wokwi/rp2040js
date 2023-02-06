@@ -41,7 +41,7 @@ export class RPSIO {
   readonly core1;
 
   constructor(private readonly rp2040: RP2040) {
-    let cores = RPSIOCore.create2Cores(rp2040);
+    const cores = RPSIOCore.create2Cores(rp2040);
     this.core0 = cores[0];
     this.core1 = cores[1];
   }
@@ -97,6 +97,7 @@ export class RPSIO {
           case Core.Core1:
             return 1;
         }
+        break;
       case SPINLOCK_ST:
         return this.spinLock;
     }
