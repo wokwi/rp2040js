@@ -1,7 +1,7 @@
 import { IClockTimer } from '../clock/clock';
 import { MAX_HARDWARE_IRQ } from '../irq';
 import { BasePeripheral, Peripheral } from './peripheral';
-import { Core } from '../core'
+import { Core } from '../core';
 
 export const CPUID = 0xd00;
 export const ICSR = 0xd04;

@@ -1,4 +1,4 @@
 export enum Core {
-    Core0,
-    Core1,
+  Core0,
+  Core1,
 }

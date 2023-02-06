@@ -20,9 +20,9 @@ export class RP2040SysCfg extends BasePeripheral implements Peripheral {
       case PROC0_NMI_MASK:
         this.rp2040.core0.interruptNMIMask = value;
         break;
-        case PROC1_NMI_MASK:
-          this.rp2040.core1.interruptNMIMask = value;
-          break;
+      case PROC1_NMI_MASK:
+        this.rp2040.core1.interruptNMIMask = value;
+        break;
 
       default:
         super.writeUint32(offset, value);

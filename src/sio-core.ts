@@ -58,334 +58,338 @@ const FIFO_WR = 0x54;
 const FIFO_RD = 0x58;
 
 export class RPSIOCore {
-    divDividend = 0;
-    divDivisor = 1;
-    divQuotient = 0;
-    divRemainder = 0;
-    divCSR = 0;
+  divDividend = 0;
+  divDivisor = 1;
+  divQuotient = 0;
+  divRemainder = 0;
+  divCSR = 0;
 
-    interp0 = new Interpolator(0);
-    interp1 = new Interpolator(1);
+  interp0 = new Interpolator(0);
+  interp1 = new Interpolator(1);
 
-    ROE = false;
-    WOF = false;
+  ROE = false;
+  WOF = false;
 
-    static create2Cores(rp2040: RP2040) {
-        let rxFIFO = new FIFO(8);
-        let txFIFO = new FIFO(8);
-        let core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO, Core.Core0);
-        let core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO, Core.Core1);
-        return [core0, core1];
-    }
+  static create2Cores(rp2040: RP2040) {
+    let rxFIFO = new FIFO(8);
+    let txFIFO = new FIFO(8);
+    let core0 = new RPSIOCore(rp2040, rxFIFO, txFIFO, Core.Core0);
+    let core1 = new RPSIOCore(rp2040, txFIFO, rxFIFO, Core.Core1);
+    return [core0, core1];
+  }
 
-    private constructor(private readonly rp2040: RP2040,
-        private readonly rxFIFO: FIFO,
-        private readonly txFIFO: FIFO,
-        private readonly core: Core) { }
+  private constructor(
+    private readonly rp2040: RP2040,
+    private readonly rxFIFO: FIFO,
+    private readonly txFIFO: FIFO,
+    private readonly core: Core
+  ) {}
 
-    readUint32(offset: number) {
-        switch (offset) {
-            case DIV_UDIVIDEND:
-                return this.divDividend;
-            case DIV_SDIVIDEND:
-                return this.divDividend;
-            case DIV_UDIVISOR:
-                return this.divDivisor;
-            case DIV_SDIVISOR:
-                return this.divDivisor;
-            case DIV_QUOTIENT:
-                this.divCSR &= ~0b10;
-                return this.divQuotient;
-            case DIV_REMAINDER:
-                return this.divRemainder;
-            case DIV_CSR:
-                return this.divCSR;
-            case INTERP0_ACCUM0:
-                return this.interp0.accum0;
-            case INTERP0_ACCUM1:
-                return this.interp0.accum1;
-            case INTERP0_BASE0:
-                return this.interp0.base0;
-            case INTERP0_BASE1:
-                return this.interp0.base1;
-            case INTERP0_BASE2:
-                return this.interp0.base2
-            case INTERP0_CTRL_LANE0:
-                return this.interp0.ctrl0;
-            case INTERP0_CTRL_LANE1:
-                return this.interp0.ctrl1;
-            case INTERP0_PEEK_LANE0:
-                return this.interp0.result0;
-            case INTERP0_PEEK_LANE1:
-                return this.interp0.result1;
-            case INTERP0_PEEK_FULL:
-                return this.interp0.result2;
-            case INTERP0_POP_LANE0: {
-                const value = this.interp0.result0;
-                this.interp0.writeback();
-                return value;
-            }
-            case INTERP0_POP_LANE1: {
-                const value = this.interp0.result1;
-                this.interp0.writeback();
-                return value;
-            }
-            case INTERP0_POP_FULL: {
-                const value = this.interp0.result2;
-                this.interp0.writeback();
-                return value;
-            }
-            case INTERP0_ACCUM0_ADD:
-                return this.interp0.smresult0;
-            case INTERP0_ACCUM1_ADD:
-                return this.interp0.smresult1;
-            case INTERP1_ACCUM0:
-                return this.interp1.accum0;
-            case INTERP1_ACCUM1:
-                return this.interp1.accum1;
-            case INTERP1_BASE0:
-                return this.interp1.base0;
-            case INTERP1_BASE1:
-                return this.interp1.base1;
-            case INTERP1_BASE2:
-                return this.interp1.base2
-            case INTERP1_CTRL_LANE0:
-                return this.interp1.ctrl0;
-            case INTERP1_CTRL_LANE1:
-                return this.interp1.ctrl1;
-            case INTERP1_PEEK_LANE0:
-                return this.interp1.result0;
-            case INTERP1_PEEK_LANE1:
-                return this.interp1.result1;
-            case INTERP1_PEEK_FULL:
-                return this.interp1.result2;
-            case INTERP1_POP_LANE0: {
-                const value = this.interp1.result0;
-                this.interp1.writeback();
-                return value;
-            }
-            case INTERP1_POP_LANE1: {
-                const value = this.interp1.result1;
-                this.interp1.writeback();
-                return value;
-            }
-            case INTERP1_POP_FULL: {
-                const value = this.interp1.result2;
-                this.interp1.writeback();
-                return value;
-            }
-            case INTERP1_ACCUM0_ADD:
-                return this.interp1.smresult0;
-            case INTERP1_ACCUM1_ADD:
-                return this.interp1.smresult1;
-            case FIFO_ST:
-                let value = 0;
-                if (!this.rxFIFO.empty) {
-                    value |= FIFO_ST_VLD_BITS;
-                }
-                if (!this.txFIFO.full) {
-                    value |= FIFO_ST_RDY_BITS;
-                }
-                if (this.WOF) {
-                    value |= FIFO_ST_WOF_BITS;
-                }
-                if (this.ROE) {
-                    value |= FIFO_ST_ROE_BITS;
-                }
-                return value;
-            case FIFO_RD:
-                if (this.rxFIFO.empty) {
-                    this.ROE = true;
-                    switch (this.core) {
-                        case Core.Core0:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
-                            break;
-                        case Core.Core1:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
-                    }
-                    return 0;
-                }
-                return this.rxFIFO.pull();
-            default:
-                console.warn(`Read from invalid SIO address: ${offset.toString(16)} (${this.core})`);
-                return 0xffffffff;
+  readUint32(offset: number) {
+    switch (offset) {
+      case DIV_UDIVIDEND:
+        return this.divDividend;
+      case DIV_SDIVIDEND:
+        return this.divDividend;
+      case DIV_UDIVISOR:
+        return this.divDivisor;
+      case DIV_SDIVISOR:
+        return this.divDivisor;
+      case DIV_QUOTIENT:
+        this.divCSR &= ~0b10;
+        return this.divQuotient;
+      case DIV_REMAINDER:
+        return this.divRemainder;
+      case DIV_CSR:
+        return this.divCSR;
+      case INTERP0_ACCUM0:
+        return this.interp0.accum0;
+      case INTERP0_ACCUM1:
+        return this.interp0.accum1;
+      case INTERP0_BASE0:
+        return this.interp0.base0;
+      case INTERP0_BASE1:
+        return this.interp0.base1;
+      case INTERP0_BASE2:
+        return this.interp0.base2;
+      case INTERP0_CTRL_LANE0:
+        return this.interp0.ctrl0;
+      case INTERP0_CTRL_LANE1:
+        return this.interp0.ctrl1;
+      case INTERP0_PEEK_LANE0:
+        return this.interp0.result0;
+      case INTERP0_PEEK_LANE1:
+        return this.interp0.result1;
+      case INTERP0_PEEK_FULL:
+        return this.interp0.result2;
+      case INTERP0_POP_LANE0: {
+        const value = this.interp0.result0;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_LANE1: {
+        const value = this.interp0.result1;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_FULL: {
+        const value = this.interp0.result2;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_ACCUM0_ADD:
+        return this.interp0.smresult0;
+      case INTERP0_ACCUM1_ADD:
+        return this.interp0.smresult1;
+      case INTERP1_ACCUM0:
+        return this.interp1.accum0;
+      case INTERP1_ACCUM1:
+        return this.interp1.accum1;
+      case INTERP1_BASE0:
+        return this.interp1.base0;
+      case INTERP1_BASE1:
+        return this.interp1.base1;
+      case INTERP1_BASE2:
+        return this.interp1.base2;
+      case INTERP1_CTRL_LANE0:
+        return this.interp1.ctrl0;
+      case INTERP1_CTRL_LANE1:
+        return this.interp1.ctrl1;
+      case INTERP1_PEEK_LANE0:
+        return this.interp1.result0;
+      case INTERP1_PEEK_LANE1:
+        return this.interp1.result1;
+      case INTERP1_PEEK_FULL:
+        return this.interp1.result2;
+      case INTERP1_POP_LANE0: {
+        const value = this.interp1.result0;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_LANE1: {
+        const value = this.interp1.result1;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_FULL: {
+        const value = this.interp1.result2;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_ACCUM0_ADD:
+        return this.interp1.smresult0;
+      case INTERP1_ACCUM1_ADD:
+        return this.interp1.smresult1;
+      case FIFO_ST:
+        let value = 0;
+        if (!this.rxFIFO.empty) {
+          value |= FIFO_ST_VLD_BITS;
         }
-    }
-
-    writeUint32(offset: number, value: number) {
-        switch (offset) {
-            case DIV_UDIVIDEND:
-                this.divDividend = value;
-                this.updateHardwareDivider(false);
-                break;
-            case DIV_SDIVIDEND:
-                this.divDividend = value;
-                this.updateHardwareDivider(true);
-                break;
-            case DIV_UDIVISOR:
-                this.divDivisor = value;
-                this.updateHardwareDivider(false);
-                break;
-            case DIV_SDIVISOR:
-                this.divDivisor = value;
-                this.updateHardwareDivider(true);
-                break;
-            case DIV_QUOTIENT:
-                this.divQuotient = value;
-                this.divCSR = 0b11;
-                break;
-            case DIV_REMAINDER:
-                this.divRemainder = value;
-                this.divCSR = 0b11;
-                break;
-            case INTERP0_ACCUM0:
-                this.interp0.accum0 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_ACCUM1:
-                this.interp0.accum1 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_BASE0:
-                this.interp0.base0 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_BASE1:
-                this.interp0.base1 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_BASE2:
-                this.interp0.base2 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_CTRL_LANE0:
-                this.interp0.ctrl0 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_CTRL_LANE1:
-                this.interp0.ctrl1 = value;
-                this.interp0.update();
-                break;
-            case INTERP0_ACCUM0_ADD:
-                this.interp0.accum0 += value;
-                this.interp0.update();
-                break;
-            case INTERP0_ACCUM1_ADD:
-                this.interp0.accum1 += value;
-                this.interp0.update();
-                break;
-            case INTERP0_BASE_1AND0:
-                this.interp0.setBase01(value);
-                break;
-            case INTERP1_ACCUM0:
-                this.interp1.accum0 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_ACCUM1:
-                this.interp1.accum1 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_BASE0:
-                this.interp1.base0 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_BASE1:
-                this.interp1.base1 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_BASE2:
-                this.interp1.base2 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_CTRL_LANE0:
-                this.interp1.ctrl0 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_CTRL_LANE1:
-                this.interp1.ctrl1 = value;
-                this.interp1.update();
-                break;
-            case INTERP1_ACCUM0_ADD:
-                this.interp1.accum0 += value;
-                this.interp1.update();
-                break;
-            case INTERP1_ACCUM1_ADD:
-                this.interp1.accum1 += value;
-                this.interp1.update();
-                break;
-            case INTERP1_BASE_1AND0:
-                this.interp1.setBase01(value);
-                break;
-            case FIFO_ST:
-                if (value | FIFO_ST_WOF_BITS) {
-                    this.WOF = false;
-                }
-                if (value | FIFO_ST_ROE_BITS) {
-                    this.ROE = false;
-                }
-                if (!this.WOF && !this.ROE && this.rxFIFO.empty) {
-                    switch (this.core) {
-                        case Core.Core0:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC0, false, Core.Core0);
-                            break;
-                        case Core.Core1:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC1, false, Core.Core1);
-                            break;
-                    }
-                }
-                break;
-            case FIFO_WR:
-                if (this.txFIFO.full) {
-                    this.WOF = true;
-                    switch (this.core) {
-                        case Core.Core0:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
-                            break;
-                        case Core.Core1:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
-                            break;
-                    }
-                } else {
-                    this.txFIFO.push(value);
-                    switch (this.core) {
-                        case Core.Core0:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
-                            break;
-                        case Core.Core1:
-                            this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
-                            break;
-                    }
-                }
-                break;
-            default:
-                console.warn(
-                    `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)} (${this.core})`
-                );
-                break;
+        if (!this.txFIFO.full) {
+          value |= FIFO_ST_RDY_BITS;
         }
-    }
-
-    private updateHardwareDivider(signed: boolean) {
-        if (this.divDivisor == 0) {
-            this.divQuotient = this.divDividend > 0 ? -1 : 1;
-            this.divRemainder = this.divDividend;
-        } else {
-            if (signed) {
-                this.divQuotient = (this.divDividend | 0) / (this.divDivisor | 0);
-                this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0);
-            } else {
-                this.divQuotient = (this.divDividend >>> 0) / (this.divDivisor >>> 0);
-                this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0);
-            }
+        if (this.WOF) {
+          value |= FIFO_ST_WOF_BITS;
         }
-        this.divCSR = 0b11;
-        switch (this.core) {
+        if (this.ROE) {
+          value |= FIFO_ST_ROE_BITS;
+        }
+        return value;
+      case FIFO_RD:
+        if (this.rxFIFO.empty) {
+          this.ROE = true;
+          switch (this.core) {
             case Core.Core0:
-                this.rp2040.core0.cycles += 8;
-                break;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+              break;
             case Core.Core1:
-                this.rp2040.core1.cycles += 8;
-                break;
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+          }
+          return 0;
         }
+        return this.rxFIFO.pull();
+      default:
+        console.warn(`Read from invalid SIO address: ${offset.toString(16)} (${this.core})`);
+        return 0xffffffff;
     }
+  }
+
+  writeUint32(offset: number, value: number) {
+    switch (offset) {
+      case DIV_UDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVIDEND:
+        this.divDividend = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_UDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(false);
+        break;
+      case DIV_SDIVISOR:
+        this.divDivisor = value;
+        this.updateHardwareDivider(true);
+        break;
+      case DIV_QUOTIENT:
+        this.divQuotient = value;
+        this.divCSR = 0b11;
+        break;
+      case DIV_REMAINDER:
+        this.divRemainder = value;
+        this.divCSR = 0b11;
+        break;
+      case INTERP0_ACCUM0:
+        this.interp0.accum0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM1:
+        this.interp0.accum1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE0:
+        this.interp0.base0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE1:
+        this.interp0.base1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE2:
+        this.interp0.base2 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_CTRL_LANE0:
+        this.interp0.ctrl0 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_CTRL_LANE1:
+        this.interp0.ctrl1 = value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM0_ADD:
+        this.interp0.accum0 += value;
+        this.interp0.update();
+        break;
+      case INTERP0_ACCUM1_ADD:
+        this.interp0.accum1 += value;
+        this.interp0.update();
+        break;
+      case INTERP0_BASE_1AND0:
+        this.interp0.setBase01(value);
+        break;
+      case INTERP1_ACCUM0:
+        this.interp1.accum0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM1:
+        this.interp1.accum1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE0:
+        this.interp1.base0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE1:
+        this.interp1.base1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE2:
+        this.interp1.base2 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_CTRL_LANE0:
+        this.interp1.ctrl0 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_CTRL_LANE1:
+        this.interp1.ctrl1 = value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM0_ADD:
+        this.interp1.accum0 += value;
+        this.interp1.update();
+        break;
+      case INTERP1_ACCUM1_ADD:
+        this.interp1.accum1 += value;
+        this.interp1.update();
+        break;
+      case INTERP1_BASE_1AND0:
+        this.interp1.setBase01(value);
+        break;
+      case FIFO_ST:
+        if (value | FIFO_ST_WOF_BITS) {
+          this.WOF = false;
+        }
+        if (value | FIFO_ST_ROE_BITS) {
+          this.ROE = false;
+        }
+        if (!this.WOF && !this.ROE && this.rxFIFO.empty) {
+          switch (this.core) {
+            case Core.Core0:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, false, Core.Core0);
+              break;
+            case Core.Core1:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, false, Core.Core1);
+              break;
+          }
+        }
+        break;
+      case FIFO_WR:
+        if (this.txFIFO.full) {
+          this.WOF = true;
+          switch (this.core) {
+            case Core.Core0:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+              break;
+            case Core.Core1:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+              break;
+          }
+        } else {
+          this.txFIFO.push(value);
+          switch (this.core) {
+            case Core.Core0:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC1, true, Core.Core1);
+              break;
+            case Core.Core1:
+              this.rp2040.setInterruptCore(IRQ.SIO_PROC0, true, Core.Core0);
+              break;
+          }
+        }
+        break;
+      default:
+        console.warn(
+          `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)} (${
+            this.core
+          })`
+        );
+        break;
+    }
+  }
+
+  private updateHardwareDivider(signed: boolean) {
+    if (this.divDivisor == 0) {
+      this.divQuotient = this.divDividend > 0 ? -1 : 1;
+      this.divRemainder = this.divDividend;
+    } else {
+      if (signed) {
+        this.divQuotient = (this.divDividend | 0) / (this.divDivisor | 0);
+        this.divRemainder = (this.divDividend | 0) % (this.divDivisor | 0);
+      } else {
+        this.divQuotient = (this.divDividend >>> 0) / (this.divDivisor >>> 0);
+        this.divRemainder = (this.divDividend >>> 0) % (this.divDivisor >>> 0);
+      }
+    }
+    this.divCSR = 0b11;
+    switch (this.core) {
+      case Core.Core0:
+        this.rp2040.core0.cycles += 8;
+        break;
+      case Core.Core1:
+        this.rp2040.core1.cycles += 8;
+        break;
+    }
+  }
 }

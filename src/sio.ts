@@ -92,8 +92,10 @@ export class RPSIO {
         return 0; // TODO verify with silicone
       case CPUID:
         switch (core) {
-          case Core.Core0: return 0;
-          case Core.Core1: return 1;
+          case Core.Core0:
+            return 0;
+          case Core.Core1:
+            return 1;
         }
       case SPINLOCK_ST:
         return this.spinLock;
@@ -166,7 +168,7 @@ export class RPSIO {
       default:
         switch (core) {
           case Core.Core0:
-            this.core0.writeUint32(offset, value)
+            this.core0.writeUint32(offset, value);
             break;
           case Core.Core1:
             this.core1.writeUint32(offset, value);

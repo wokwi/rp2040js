@@ -161,14 +161,14 @@ export class RP2040 {
       } else {
         this.core1.eventRegistered = true;
       }
-    }
+    };
     this.core1.onSEV = () => {
       if (this.core0.waiting) {
         this.core0.waiting = false;
       } else {
         this.core0.eventRegistered = true;
       }
-    }
+    };
   }
 
   isCore0Running = true;
@@ -351,8 +351,7 @@ export class RP2040 {
   }
 
   setInterruptCore(irq: number, value: boolean, core: Core) {
-    switch (core)
-    {
+    switch (core) {
       case Core.Core0:
         this.core0.setInterrupt(irq, value);
         break;
@@ -413,10 +412,12 @@ export class RP2040 {
     this.clock.pause();
   }
 
-  executing(core: Core): boolean{
+  executing(core: Core): boolean {
     switch (core) {
-      case Core.Core0: return this.core0.stopped;
-      case Core.Core1: return this.core1.stopped;
+      case Core.Core0:
+        return this.core0.stopped;
+      case Core.Core1:
+        return this.core1.stopped;
     }
   }
 }
