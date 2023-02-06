@@ -14,7 +14,7 @@ const INTS = 0x40054040;
 describe('RPTimer', () => {
   describe('Alarms', () => {
     it('should set Alarm 1 to armed when writing to ALARM1 register', () => {
-      const rp2040 = new RP2040();
+      const rp2040 = new RP2040(new MockClock());
       rp2040.writeUint32(ALARM1, 0x1000);
       expect(rp2040.readUint32(ARMED)).toEqual(0x2);
     });

@@ -1,0 +1,20 @@
+name: Test and Lint
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+jobs:
+  test:
+    name: Test and Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install packages
+        run: npm ci
+      - name: Prettier
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Test code
+        run: npm test

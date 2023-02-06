@@ -97,6 +97,99 @@ export class RPSIO {
         }
       case SPINLOCK_ST:
         return this.spinLock;
+      case DIV_UDIVIDEND:
+        return this.divDividend;
+      case DIV_SDIVIDEND:
+        return this.divDividend;
+      case DIV_UDIVISOR:
+        return this.divDivisor;
+      case DIV_SDIVISOR:
+        return this.divDivisor;
+      case DIV_QUOTIENT:
+        this.divCSR &= ~0b10;
+        return this.divQuotient;
+      case DIV_REMAINDER:
+        return this.divRemainder;
+      case DIV_CSR:
+        return this.divCSR;
+      case INTERP0_ACCUM0:
+        return this.interp0.accum0;
+      case INTERP0_ACCUM1:
+        return this.interp0.accum1;
+      case INTERP0_BASE0:
+        return this.interp0.base0;
+      case INTERP0_BASE1:
+        return this.interp0.base1;
+      case INTERP0_BASE2:
+        return this.interp0.base2;
+      case INTERP0_CTRL_LANE0:
+        return this.interp0.ctrl0;
+      case INTERP0_CTRL_LANE1:
+        return this.interp0.ctrl1;
+      case INTERP0_PEEK_LANE0:
+        return this.interp0.result0;
+      case INTERP0_PEEK_LANE1:
+        return this.interp0.result1;
+      case INTERP0_PEEK_FULL:
+        return this.interp0.result2;
+      case INTERP0_POP_LANE0: {
+        const value = this.interp0.result0;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_LANE1: {
+        const value = this.interp0.result1;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_POP_FULL: {
+        const value = this.interp0.result2;
+        this.interp0.writeback();
+        return value;
+      }
+      case INTERP0_ACCUM0_ADD:
+        return this.interp0.smresult0;
+      case INTERP0_ACCUM1_ADD:
+        return this.interp0.smresult1;
+      case INTERP1_ACCUM0:
+        return this.interp1.accum0;
+      case INTERP1_ACCUM1:
+        return this.interp1.accum1;
+      case INTERP1_BASE0:
+        return this.interp1.base0;
+      case INTERP1_BASE1:
+        return this.interp1.base1;
+      case INTERP1_BASE2:
+        return this.interp1.base2;
+      case INTERP1_CTRL_LANE0:
+        return this.interp1.ctrl0;
+      case INTERP1_CTRL_LANE1:
+        return this.interp1.ctrl1;
+      case INTERP1_PEEK_LANE0:
+        return this.interp1.result0;
+      case INTERP1_PEEK_LANE1:
+        return this.interp1.result1;
+      case INTERP1_PEEK_FULL:
+        return this.interp1.result2;
+      case INTERP1_POP_LANE0: {
+        const value = this.interp1.result0;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_LANE1: {
+        const value = this.interp1.result1;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_POP_FULL: {
+        const value = this.interp1.result2;
+        this.interp1.writeback();
+        return value;
+      }
+      case INTERP1_ACCUM0_ADD:
+        return this.interp1.smresult0;
+      case INTERP1_ACCUM1_ADD:
+        return this.interp1.smresult1;
     }
     switch (core) {
       case Core.Core0:

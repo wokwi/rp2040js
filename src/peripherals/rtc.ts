@@ -53,15 +53,15 @@ export class RP2040RTC extends BasePeripheral implements Peripheral {
         }
         if (value & RTC_ENABLE_BITS) {
           this.ctrl |= RTC_ENABLE_BITS;
-          this.ctrl |= RTC_ACTIVE_BITS
+          this.ctrl |= RTC_ACTIVE_BITS;
           if (this.ctrl & RTC_LOAD_BITS) {
             this.rtc1 = this.setup0;
             this.rtc0 = this.setup1;
             this.ctrl &= ~RTC_LOAD_BITS;
           }
         } else {
-          this.ctrl &= ~RTC_ENABLE_BITS
-          this.ctrl &= ~RTC_ACTIVE_BITS
+          this.ctrl &= ~RTC_ENABLE_BITS;
+          this.ctrl &= ~RTC_ACTIVE_BITS;
         }
         break;
       default:

@@ -3,9 +3,9 @@ export function bit(n: number) {
 }
 
 export function s32(n: number) {
-    return n | 0;
+  return n | 0;
 }
 
 export function u32(n: number) {
-    return n >>> 0;
+  return n >>> 0;
 }

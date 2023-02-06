@@ -6,20 +6,21 @@ Raspberry Pi Pico Emulator for the [Wokwi Simulation Platform](https://wokwi.com
 
 If you are just looking to play around with the Raspberry Pi Pico Simulator, check out the Wokwi Simulator:
 
-* [Raspberry Pi Pico Traffic Light](https://wokwi.com/arduino/projects/297322571959894536)
-* [LCD1602 Hello World](https://wokwi.com/arduino/projects/297323005822894602)
-* [MicroPython Blink](https://wokwi.com/arduino/projects/300504213470839309)
-* [MicroPython 7-Segment Counter](https://wokwi.com/arduino/projects/300210834979684872)
+- [Raspberry Pi Pico Traffic Light](https://wokwi.com/arduino/projects/297322571959894536)
+- [LCD1602 Hello World](https://wokwi.com/arduino/projects/297323005822894602)
+- [MicroPython Blink](https://wokwi.com/arduino/projects/300504213470839309)
+- [MicroPython 7-Segment Counter](https://wokwi.com/arduino/projects/300210834979684872)
 
 For more information, take a look at the [wokwi-pi-pico docs](https://docs.wokwi.com/parts/wokwi-pi-pico) and the [Pi Pico MicroPython Guide](https://docs.wokwi.com/guides/micropython).
 
 If you want to develop your own application using the Raspberry Pi Pico simulator, the following examples may be helpful:
 
-* [Blink LEDs with RP2040js, from scratch](https://stackblitz.com/edit/rp2040js-blink?file=index.ts) - Press "Run" and patiently wait for the code to compile ;-)
+- [Blink LEDs with RP2040js, from scratch](https://stackblitz.com/edit/rp2040js-blink?file=index.ts) - Press "Run" and patiently wait for the code to compile ;-)
 
 ## Run the demo project
 
 ### Native code
+
 You'd need to get `hello_uart.hex` by building it from the [pico-examples repo](https://github.com/raspberrypi/pico-examples/tree/master/uart/hello_uart), then copy it to the rp2040js root directory and run:
 
 ```
@@ -28,6 +29,7 @@ npm start
 ```
 
 ### MicroPython code
+
 To run the MicroPython demo, first download [rp2-pico-20210902-v1.17.uf2](https://micropython.org/resources/firmware/rp2-pico-20210902-v1.17.uf2), place it in the rp2040js root directory, then run:
 
 ```
@@ -35,14 +37,27 @@ npm install
 npm run start:micropython
 ```
 
-and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X.
+and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X. A different UF2 image can be loaded by supplying the `--image` option:
 
-You can replace rp2-pico-20210902-v1.17.uf2 with any recent MicroPython or CircuitPython release built for the RP2040.
+```
+npm run start:micropython -- --image=my_image.uf2
+```
+
+A GDB server on port 3333 can be enabled by specifying the `--gdb` flag:
+
+```
+npm run start:micropython -- --gdb
+```
+
+For using the MicroPython demo code in tests, the `--expect-text` can come handy: it will look for the given text in the serial output and exit with code 0 if found, or 1 if not found. You can find an example in [the MicroPython CI test](./github/workflows/ci-micropython.yml).
+
+#### Filesystem support
 
 With MicroPython – and probably also CircuitPython – you can use the filesystem on the Pico. This becomes useful as more than one script file is used in your code. Just put a [LittleFS](https://github.com/littlefs-project/littlefs) formatted filesystem image called `littlefs.img` into the rp2040js root directory, and your `main.py` will be automatically started from there.
 
 A simple way to create a suitable LittleFS image containing your script files is outlined in [create_littlefs_image.py](https://github.com/tomods/GrinderController/blob/358ad3e0f795d8cc0bdf4f21bb35f806871d433f/tools/create_littlefs_image.py).
 So, using [littlefs-python](https://pypi.org/project/littlefs-python/), you can do the following:
+
 ```python
 from littlefs import LittleFS
 files = ['your.py', 'files.py', 'here.py', 'main.py']
@@ -66,4 +81,4 @@ Currently, the filesystem is not writeable, as the SSI peripheral required for f
 
 ## License
 
-Released under the MIT licence. Copyright (c) 2021, Uri Shaked.
+Released under the MIT licence. Copyright (c) 2021-2023, Uri Shaked.

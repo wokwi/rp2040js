@@ -1,5 +1,5 @@
 import { MAX_HARDWARE_IRQ } from './irq';
-import { RP2040, SIO_START_ADDRESS } from './rp2040';
+import { RP2040, APB_START_ADDRESS, SIO_START_ADDRESS } from './rp2040';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const EXC_RESET = 1;
@@ -573,9 +573,15 @@ export class CortexM0Core {
     return result & 0xffffffff;
   }
 
-  slowIO(addr: number) {
+  cyclesIO(addr: number, write = false) {
     addr = addr >>> 0;
-    return addr < SIO_START_ADDRESS || addr > SIO_START_ADDRESS + 0x10000000;
+    if (addr >= SIO_START_ADDRESS && addr < SIO_START_ADDRESS + 0x10000000) {
+      return 0;
+    }
+    if (addr >= APB_START_ADDRESS && addr < APB_START_ADDRESS + 0x10000000) {
+      return write ? 4 : 3;
+    }
+    return 1;
   }
 
   executeInstruction() {
@@ -834,6 +840,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + imm5;
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDR (sp + immediate)
@@ -841,6 +848,7 @@ export class CortexM0Core {
       const Rt = (opcode >> 8) & 0x7;
       const imm8 = opcode & 0xff;
       const addr = this.SP + (imm8 << 2);
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDR (literal)
@@ -849,6 +857,7 @@ export class CortexM0Core {
       const Rt = (opcode >> 8) & 7;
       const nextPC = this.PC + 2;
       const addr = (nextPC & 0xfffffffc) + imm8;
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDR (register)
@@ -857,9 +866,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint32(addr);
     }
     // LDRB (immediate)
@@ -868,9 +875,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + imm5;
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint8(addr);
     }
     // LDRB (register)
@@ -879,9 +884,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint8(addr);
     }
     // LDRH (immediate)
@@ -890,9 +893,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rn] + (imm5 << 1);
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint16(addr);
     }
     // LDRH (register)
@@ -901,9 +902,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = this.readUint16(addr);
     }
     // LDRSB
@@ -912,9 +911,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = signExtend8(this.readUint8(addr));
     }
     // LDRSH
@@ -923,9 +920,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const addr = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(addr)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(addr);
       this.registers[Rt] = signExtend16(this.readUint16(addr));
     }
     // LSLS (immediate)
@@ -1168,9 +1163,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint32(address, this.registers[Rt]);
     }
     // STR (sp + immediate)
@@ -1178,9 +1171,7 @@ export class CortexM0Core {
       const Rt = (opcode >> 8) & 0x7;
       const imm8 = opcode & 0xff;
       const address = this.SP + (imm8 << 2);
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint32(address, this.registers[Rt]);
     }
     // STR (register)
@@ -1189,9 +1180,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint32(address, this.registers[Rt]);
     }
     // STRB (immediate)
@@ -1200,9 +1189,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint8(address, this.registers[Rt]);
     }
     // STRB (register)
@@ -1211,9 +1198,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint8(address, this.registers[Rt]);
     }
     // STRH (immediate)
@@ -1222,9 +1207,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rn] + imm5;
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint16(address, this.registers[Rt]);
     }
     // STRH (register)
@@ -1233,9 +1216,7 @@ export class CortexM0Core {
       const Rn = (opcode >> 3) & 0x7;
       const Rt = opcode & 0x7;
       const address = this.registers[Rm] + this.registers[Rn];
-      if (this.slowIO(address)) {
-        this.cycles++;
-      }
+      this.cycles += this.cyclesIO(address, true);
       this.writeUint16(address, this.registers[Rt]);
     }
     // SUB (SP minus immediate)
