@@ -34,6 +34,7 @@
     "lint": "eslint . --ext .ts",
     "start": "ts-node demo/emulator-run.ts",
     "start:micropython": "ts-node demo/micropython-run.ts",
+    "start:circuitpython": "ts-node demo/circuitpython-run.ts",
     "start:gdbdiff": "ts-node debug/gdbdiff.ts",
     "test": "jest"
   },
