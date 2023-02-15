@@ -28,6 +28,7 @@ import { RPTBMAN } from './peripherals/tbman';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const RAM_START_ADDRESS = 0x20000000;
+export const APB_START_ADDRESS = 0x40000000;
 export const DPRAM_START_ADDRESS = 0x50100000;
 export const SIO_START_ADDRESS = 0xd0000000;
 

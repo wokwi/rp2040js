@@ -1,0 +1,41 @@
+name: Test Pi Pico SDK
+on:
+  push:
+  pull_request:
+    branches: [master]
+jobs:
+  test-pico-sdk:
+    name: Test Pi Pico SDK
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sdk_version: [1.2.0, 1.3.1, 1.4.0]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v3
+        with:
+          path: ~/pico
+          key: ${{ runner.os }}-pico-sdk-${{ matrix.sdk_version }}
+      - name: Set up the toolchain
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
+      - name: Set up the Pi Pico SDK and examples
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir ~/pico
+          cd ~/pico
+          git clone https://github.com/raspberrypi/pico-sdk.git --depth 1 --branch ${SDK_VERSION}
+          cd pico-sdk && git submodule update --init && cd ..
+          git clone https://github.com/raspberrypi/pico-examples.git --depth 1 --branch "sdk-${SDK_VERSION}"
+          cd pico-examples && mkdir build && cd build && cmake .. && make -j4
+        env:
+          SDK_VERSION: ${{ matrix.sdk_version }}
+          PICO_SDK_PATH: ~/pico/pico-sdk
+      - name: Install NPM packages
+        run: npm ci
+      - name: Test "Hello World" example
+        run: timeout 10 npm run start:micropython -- --image ~/pico/pico-examples/build/hello_world/usb/hello_usb.uf2 --expect-text "Hello, world!"
