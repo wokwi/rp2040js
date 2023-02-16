@@ -88,7 +88,7 @@ and start the CircuitPython REPL! The rest of the experience is the same as the 
 
 #### Filesystem support
 
-For CircuitPython, you can create a FAT12 filesystem using the `truncate` and `mkfs` commands in Linux:
+For CircuitPython, you can create a FAT12 filesystem in Linux using the `truncate` and `mkfs.vfat` utilities:
 
 ```shell
 truncate fat12.img -s 1M  # make the image file
@@ -100,7 +100,7 @@ You can then mount the filesystem image and add files to it:
 ```shell
 mkdir fat12  # create the mounting folder if needed
 sudo mount -o loop fat12.img fat12/  # mount the filesystem to the folder
-sudo cp code.py fat12/  # Copy code.py to the filesystem
+sudo cp code.py fat12/  # copy code.py to the filesystem
 sudo umount fat12/  # unmount the filesystem
 ```
 
