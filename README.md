@@ -37,7 +37,7 @@ npm install
 npm run start:micropython
 ```
 
-and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X. A different UF2 image can be loaded by supplying the `--image` option:
+and enjoy the MicroPython REPL! Quit the REPL with Ctrl+X. A different MicroPython UF2 image can be loaded by supplying the `--image` option:
 
 ```
 npm run start:micropython -- --image=my_image.uf2
@@ -53,7 +53,7 @@ For using the MicroPython demo code in tests, the `--expect-text` can come handy
 
 #### Filesystem support
 
-With MicroPython – and probably also CircuitPython – you can use the filesystem on the Pico. This becomes useful as more than one script file is used in your code. Just put a [LittleFS](https://github.com/littlefs-project/littlefs) formatted filesystem image called `littlefs.img` into the rp2040js root directory, and your `main.py` will be automatically started from there.
+With MicroPython, you can use the filesystem on the Pico. This becomes useful as more than one script file is used in your code. Just put a [LittleFS](https://github.com/littlefs-project/littlefs) formatted filesystem image called `littlefs.img` into the rp2040js root directory, and your `main.py` will be automatically started from there.
 
 A simple way to create a suitable LittleFS image containing your script files is outlined in [create_littlefs_image.py](https://github.com/tomods/GrinderController/blob/358ad3e0f795d8cc0bdf4f21bb35f806871d433f/tools/create_littlefs_image.py).
 So, using [littlefs-python](https://pypi.org/project/littlefs-python/), you can do the following:
@@ -73,6 +73,39 @@ with open(output_image, 'wb') as fh:
 Other ways of creating LittleFS images can be found [here](https://github.com/wokwi/littlefs-wasm) or [here](https://github.com/littlefs-project/littlefs#related-projects).
 
 Currently, the filesystem is not writeable, as the SSI peripheral required for flash writing is not implemented yet. If you're interested in hacking, see the discussion in https://github.com/wokwi/rp2040js/issues/88 for a workaround.
+
+### CircuitPython code
+
+To run the CircuitPython demo, you can follow the directions above for MicroPython, except download [adafruit-circuitpython-raspberry_pi_pico-en_US-8.0.2.uf2](https://adafruit-circuit-python.s3.amazonaws.com/bin/raspberry_pi_pico/en_US/adafruit-circuitpython-raspberry_pi_pico-en_US-8.0.2.uf2) instead of the MicroPython UF2 file. Place it in the rp2040js root directory, then run:
+
+```
+npm install
+npm run start:circuitpython
+```
+
+and start the CircuitPython REPL! The rest of the experience is the same as the MicroPython demo (Ctrl+X to exit, using the `--image` and
+`--gdb` options, etc).
+
+#### Filesystem support
+
+For CircuitPython, you can create a FAT12 filesystem in Linux using the `truncate` and `mkfs.vfat` utilities:
+
+```shell
+truncate fat12.img -s 1M  # make the image file
+mkfs.vfat -F12 -S512 fat12.img  # create the FAT12 filesystem
+```
+
+You can then mount the filesystem image and add files to it:
+
+```shell
+mkdir fat12  # create the mounting folder if needed
+sudo mount -o loop fat12.img fat12/  # mount the filesystem to the folder
+sudo cp code.py fat12/  # copy code.py to the filesystem
+sudo umount fat12/  # unmount the filesystem
+```
+
+While CircuitPython does not typically use a writeable filesystem, note that this functionality is unavailable (see MicroPython filesystem
+support section for more details).
 
 ## Learn more
 
