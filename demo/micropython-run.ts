@@ -14,7 +14,7 @@ const args = minimist(process.argv.slice(2), {
   ],
   boolean: [
     'gdb', // start GDB server on 3333
-    'circpy', // use CircuitPython instead of MicroPython
+    'circuitpython', // use CircuitPython instead of MicroPython
   ]
 });
 const expectText = args['expect-text'];
@@ -24,7 +24,7 @@ mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
 
 let imageName: string;
-if (!args.circpy) {
+if (!args.circuitpython) {
   imageName = args.image ?? 'rp2-pico-20210902-v1.17.uf2';
 } else {
   imageName = args.image ?? 'adafruit-circuitpython-raspberry_pi_pico-en_US-8.0.2.uf2';
@@ -32,9 +32,9 @@ if (!args.circpy) {
 console.log(`Loading uf2 image ${imageName}`);
 loadUF2(imageName, mcu);
 
-if (fs.existsSync('littlefs.img') && !args.circpy) {
+if (fs.existsSync('littlefs.img') && !args.circuitpython) {
   loadMicropythonFlashImage('littlefs.img', mcu);
-} else if (fs.existsSync('fat12.img') && args.circpy) {
+} else if (fs.existsSync('fat12.img') && args.circuitpython) {
   loadCircuitpythonFlashImage('fat12.img', mcu);
   // Instead of reading from file, it would also be possible to generate the LittleFS image on-the-fly here, e.g. using
   // https://github.com/wokwi/littlefs-wasm or https://github.com/littlefs-project/littlefs-js
@@ -47,7 +47,7 @@ if (args.gdb) {
 
 const cdc = new USBCDC(mcu.usbCtrl);
 cdc.onDeviceConnected = () => {
-  if (!args.circpy) {
+  if (!args.circuitpython) {
     // We send a newline so the user sees the MicroPython prompt
     cdc.sendSerialByte('\r'.charCodeAt(0));
     cdc.sendSerialByte('\n'.charCodeAt(0));
