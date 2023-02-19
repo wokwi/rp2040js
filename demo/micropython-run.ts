@@ -15,7 +15,7 @@ const args = minimist(process.argv.slice(2), {
   boolean: [
     'gdb', // start GDB server on 3333
     'circuitpython', // use CircuitPython instead of MicroPython
-  ]
+  ],
 });
 const expectText = args['expect-text'];
 
@@ -51,8 +51,7 @@ cdc.onDeviceConnected = () => {
     // We send a newline so the user sees the MicroPython prompt
     cdc.sendSerialByte('\r'.charCodeAt(0));
     cdc.sendSerialByte('\n'.charCodeAt(0));
-  }
-  else {
+  } else {
     cdc.sendSerialByte(3);
   }
 };
