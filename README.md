@@ -83,7 +83,7 @@ npm install
 npm run start:circuitpython
 ```
 
-and start the CircuitPython REPL! The rest of the experience is the same as the MicroPython demp (Ctrl+X to exit, using the `--image` and
+and start the CircuitPython REPL! The rest of the experience is the same as the MicroPython demo (Ctrl+X to exit, using the `--image` and
 `--gdb` options, etc).
 
 #### Filesystem support
