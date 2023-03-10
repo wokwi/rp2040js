@@ -79,7 +79,7 @@ class PWMChannel {
   // GPIO pin indices: Table 525. Mapping of PWM channels to GPIO pins on RP2040
   readonly pinA1 = this.index * 2;
   readonly pinB1 = this.index * 2 + 1;
-  readonly pinA2 = this.index < 7 ? 16 + this.index * 2 + 1 : -1;
+  readonly pinA2 = this.index < 7 ? 16 + this.index * 2 : -1;
   readonly pinB2 = this.index < 7 ? 16 + this.index * 2 + 1 : -1;
 
   constructor(private pwm: RPPWM, readonly clock: IClock, readonly index: number) {
