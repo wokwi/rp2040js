@@ -121,7 +121,7 @@ export class RPPPB extends BasePeripheral implements Peripheral {
         return countFlagValue | (this.systickControl & 0x7);
       }
       case SYST_CVR: {
-        const delta = (rp2040.clock.micros - this.systickLastZero) % (this.systickReload + 1);
+        const delta = (rp2040.core.cycles - this.systickLastZero) % (this.systickReload + 1);
         if (!delta) {
           return 0;
         }
