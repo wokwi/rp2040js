@@ -54,9 +54,9 @@ export class RPPPB extends BasePeripheral implements Peripheral {
   systickReload = 0;
   systickTimer: IClockTimer | null = null;
 
-  readUint32ViaCore(offset: number, _core: Core) {
+  readUint32ViaCore(offset: number, coreIndex: Core) {
     const { rp2040 } = this;
-    const core = _core == Core.Core0 ? rp2040.core0 : rp2040.core1;
+    const core = coreIndex == Core.Core0 ? rp2040.core0 : rp2040.core1;
 
     switch (offset) {
       case CPUID:
@@ -133,12 +133,12 @@ export class RPPPB extends BasePeripheral implements Peripheral {
       case SYST_CALIB:
         return 0x0000270f;
     }
-    return super.readUint32ViaCore(offset, _core);
+    return super.readUint32ViaCore(offset, coreIndex);
   }
 
-  writeUint32ViaCore(offset: number, value: number, _core: Core) {
+  writeUint32ViaCore(offset: number, value: number, coreIndex: Core) {
     const { rp2040 } = this;
-    const core = _core == Core.Core0 ? rp2040.core0 : rp2040.core1;
+    const core = coreIndex == Core.Core0 ? rp2040.core0 : rp2040.core1;
 
     const hardwareInterruptMask = (1 << MAX_HARDWARE_IRQ) - 1;
 
@@ -247,7 +247,7 @@ export class RPPPB extends BasePeripheral implements Peripheral {
         return;
 
       default:
-        super.writeUint32ViaCore(offset, value, _core);
+        super.writeUint32ViaCore(offset, value, coreIndex);
     }
   }
 }
