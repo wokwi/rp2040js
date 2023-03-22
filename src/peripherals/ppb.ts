@@ -1,5 +1,6 @@
-import { IClockTimer } from '../clock/clock';
 import { MAX_HARDWARE_IRQ } from '../irq';
+import { RP2040 } from '../rp2040';
+import { Timer32, Timer32PeriodicAlarm, TimerMode } from '../utils/timer32';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 export const CPUID = 0xd00;
@@ -48,10 +49,33 @@ const VECTACTIVE_SHIFT = 0;
 export class RPPPB extends BasePeripheral implements Peripheral {
   // Systick
   systickCountFlag = false;
-  systickControl = 0;
-  systickLastZero = 0;
+  systickClkSource = false;
+  systickIntEnable = false;
   systickReload = 0;
-  systickTimer: IClockTimer | null = null;
+  readonly systickTimer = new Timer32(this.rp2040.clock, this.rp2040.clkSys);
+  readonly systickAlarm = new Timer32PeriodicAlarm(this.systickTimer, () => {
+    this.systickCountFlag = true;
+    if (this.systickIntEnable) {
+      this.rp2040.core.pendingSystick = true;
+      this.rp2040.core.interruptsUpdated = true;
+    }
+    this.systickTimer.set(this.systickReload);
+  });
+
+  constructor(rp2040: RP2040, name: string) {
+    super(rp2040, name);
+    this.systickTimer.top = 0xffffff;
+    this.systickTimer.mode = TimerMode.Decrement;
+    this.systickAlarm.target = 0;
+    this.systickAlarm.enable = true;
+    this.reset();
+  }
+
+  reset() {
+    this.writeUint32(SYST_CSR, 0);
+    this.writeUint32(SYST_RVR, 0xffffff);
+    this.systickTimer.set(0xffffff);
+  }
 
   readUint32(offset: number) {
     const { rp2040 } = this;
@@ -117,16 +141,14 @@ export class RPPPB extends BasePeripheral implements Peripheral {
       /* SysTick */
       case SYST_CSR: {
         const countFlagValue = this.systickCountFlag ? 1 << 16 : 0;
+        const clkSourceValue = this.systickClkSource ? 1 << 2 : 0;
+        const tickIntValue = this.systickIntEnable ? 1 << 1 : 0;
+        const enableFlagValue = this.systickTimer.enable ? 1 << 0 : 0;
         this.systickCountFlag = false;
-        return countFlagValue | (this.systickControl & 0x7);
+        return countFlagValue | clkSourceValue | tickIntValue | enableFlagValue;
       }
-      case SYST_CVR: {
-        const delta = (rp2040.core.cycles - this.systickLastZero) % (this.systickReload + 1);
-        if (!delta) {
-          return 0;
-        }
-        return this.systickReload - (delta - 1);
-      }
+      case SYST_CVR:
+        return this.systickTimer.counter;
       case SYST_RVR:
         return this.systickReload;
       case SYST_CALIB:
@@ -213,33 +235,12 @@ export class RPPPB extends BasePeripheral implements Peripheral {
 
       // SysTick
       case SYST_CSR:
-        {
-          const prevInterrupt = this.systickControl === 0x7;
-          const interrupt = value === 0x7;
-          if (interrupt && !prevInterrupt) {
-            // TODO: adjust the timer based on the current systick value
-            const systickCallback = () => {
-              core.pendingSystick = true;
-              core.interruptsUpdated = true;
-              if (core.waiting && core.checkForInterrupts()) {
-                core.waiting = false;
-              }
-              this.systickTimer = rp2040.clock.createTimer(this.systickReload + 1, systickCallback);
-            };
-            this.systickTimer = rp2040.clock.createTimer(this.systickReload + 1, systickCallback);
-          }
-          if (prevInterrupt && interrupt) {
-            if (this.systickTimer) {
-              rp2040.clock.deleteTimer(this.systickTimer);
-            }
-            this.systickTimer = null;
-          }
-          this.systickControl = value & 0x7;
-        }
+        this.systickClkSource = value & (1 << 2) ? true : false;
+        this.systickIntEnable = value & (1 << 1) ? true : false;
+        this.systickTimer.enable = value & (1 << 0) ? true : false;
         return;
-
       case SYST_CVR:
-        this.warn(`SYSTICK CVR: not implemented yet, value=${value}`);
+        this.systickTimer.set(0);
         return;
       case SYST_RVR:
         this.systickReload = value;

@@ -210,7 +210,7 @@ export class Timer32PeriodicAlarm {
       }
     }
     if (mode === TimerMode.Decrement) {
-      cycleDelta = top - cycleDelta;
+      cycleDelta = top + 1 - cycleDelta;
     }
     const cyclesToAlarm = cycleDelta >>> 0;
     const microsToAlarm = timer.toMicros(cyclesToAlarm);
