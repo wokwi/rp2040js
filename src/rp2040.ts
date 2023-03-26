@@ -4,6 +4,7 @@ import { CortexM0Core } from './cortex-m0-core';
 import { GPIOPin } from './gpio-pin';
 import { IRQ } from './irq';
 import { RPADC } from './peripherals/adc';
+import { RPBUSCTRL } from './peripherals/busctrl';
 import { RPClocks } from './peripherals/clocks';
 import { RPDMA } from './peripherals/dma';
 import { RPI2C } from './peripherals/i2c';
@@ -19,12 +20,12 @@ import { RPSPI } from './peripherals/spi';
 import { RPSSI } from './peripherals/ssi';
 import { RP2040SysCfg } from './peripherals/syscfg';
 import { RP2040SysInfo } from './peripherals/sysinfo';
+import { RPTBMAN } from './peripherals/tbman';
 import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 import { RPUSBController } from './peripherals/usb';
 import { RPSIO } from './sio';
 import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
-import { RPTBMAN } from './peripherals/tbman';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const RAM_START_ADDRESS = 0x20000000;
@@ -132,7 +133,7 @@ export class RP2040 {
     0x40024: new UnimplementedPeripheral(this, 'XOSC_BASE'),
     0x40028: new UnimplementedPeripheral(this, 'PLL_SYS_BASE'),
     0x4002c: new UnimplementedPeripheral(this, 'PLL_USB_BASE'),
-    0x40030: new UnimplementedPeripheral(this, 'BUSCTRL_BASE'),
+    0x40030: new RPBUSCTRL(this, 'BUSCTRL_BASE'),
     0x40034: this.uart[0],
     0x40038: this.uart[1],
     0x4003c: this.spi[0],
