@@ -82,10 +82,16 @@ export class RPIO extends BasePeripheral implements Peripheral {
             pin.updateIRQValue(pinRawWriteValue);
             break;
           case PROC0_INTE0:
-            pin.irqEnableMask = pinValue;
+            if (pin.irqEnableMask !== pinValue) {
+              pin.irqEnableMask = pinValue;
+              this.rp2040.updateIOInterrupt();
+            }
             break;
           case PROC0_INTF0:
-            pin.irqForceMask = pinValue;
+            if (pin.irqForceMask !== pinValue) {
+              pin.irqForceMask = pinValue;
+              this.rp2040.updateIOInterrupt();
+            }
             break;
         }
       }
