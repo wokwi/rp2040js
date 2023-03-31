@@ -25,6 +25,7 @@ import { RPTimer } from './peripherals/timer';
 import { RPUART } from './peripherals/uart';
 import { RPUSBController } from './peripherals/usb';
 import { RPSIO } from './sio';
+import { Core } from './core';
 import { ConsoleLogger, Logger, LogLevel } from './utils/logging';
 
 export const FLASH_START_ADDRESS = 0x10000000;
@@ -49,7 +50,8 @@ export class RP2040 {
   readonly usbDPRAM = new Uint8Array(4 * KB);
   readonly usbDPRAMView = new DataView(this.usbDPRAM.buffer);
 
-  readonly core = new CortexM0Core(this);
+  readonly core0 = new CortexM0Core(this);
+  readonly core1 = new CortexM0Core(this);
 
   /* Clocks */
   clkSys = 125 * MHz;
@@ -113,8 +115,6 @@ export class RP2040 {
   ];
   readonly usbCtrl = new RPUSBController(this, 'USB');
 
-  private stopped = true;
-
   public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
 
   private executeTimer: NodeJS.Timeout | null = null;
@@ -154,25 +154,33 @@ export class RP2040 {
     0x50300: this.pio[1],
   };
 
-  // Debugging
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public onBreak = (code: number) => {
-    // TODO: raise HardFault exception
-    // console.error('Breakpoint!', code);
-    this.stopped = true;
-  };
-
   constructor(readonly clock: IClock = new RealtimeClock()) {
     this.reset();
+    this.core0.onSEV = () => {
+      if (this.core1.waiting) {
+        this.core1.waiting = false;
+      } else {
+        this.core1.eventRegistered = true;
+      }
+    };
+    this.core1.onSEV = () => {
+      if (this.core0.waiting) {
+        this.core0.waiting = false;
+      } else {
+        this.core0.eventRegistered = true;
+      }
+    };
   }
 
+  isCore0Running = true;
   loadBootrom(bootromData: Uint32Array) {
     this.bootrom.set(bootromData);
     this.reset();
   }
 
   reset() {
-    this.core.reset();
+    this.core0.reset();
+    this.core1.reset();
     this.pwm.reset();
     this.flash.fill(0xff);
   }
@@ -187,6 +195,7 @@ export class RP2040 {
     }
 
     const { bootrom } = this;
+    const core = this.isCore0Running ? Core.Core0 : Core.Core1;
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
     } else if (
@@ -202,9 +211,9 @@ export class RP2040 {
     ) {
       return this.usbDPRAMView.getUint32(address - DPRAM_START_ADDRESS, true);
     } else if (address >>> 12 === 0xe000e) {
-      return this.ppb.readUint32(address & 0xfff);
+      return this.ppb.readUint32ViaCore(address & 0xfff, core);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
-      return this.sio.readUint32(address - SIO_START_ADDRESS);
+      return this.sio.readUint32(address - SIO_START_ADDRESS, core);
     }
 
     const peripheral = this.findPeripheral(address);
@@ -246,6 +255,7 @@ export class RP2040 {
   writeUint32(address: number, value: number) {
     address = address >>> 0;
     const { bootrom } = this;
+    const core = this.isCore0Running ? Core.Core0 : Core.Core1;
     const peripheral = this.findPeripheral(address);
     if (peripheral) {
       const atomicType = (address & 0x3000) >> 12;
@@ -268,9 +278,9 @@ export class RP2040 {
       this.usbDPRAMView.setUint32(offset, value, true);
       this.usbCtrl.DPRAMUpdated(offset, value);
     } else if (address >= SIO_START_ADDRESS && address < SIO_START_ADDRESS + 0x10000000) {
-      this.sio.writeUint32(address - SIO_START_ADDRESS, value);
+      this.sio.writeUint32(address - SIO_START_ADDRESS, value, core);
     } else if (address >>> 12 === 0xe000e) {
-      this.ppb.writeUint32(address & 0xfff, value);
+      this.ppb.writeUint32ViaCore(address & 0xfff, value, core);
     } else {
       this.logger.warn(LOG_NAME, `Write to undefined address: ${address.toString(16)}`);
     }
@@ -337,7 +347,19 @@ export class RP2040 {
   }
 
   setInterrupt(irq: number, value: boolean) {
-    this.core.setInterrupt(irq, value);
+    this.core0.setInterrupt(irq, value);
+    this.core1.setInterrupt(irq, value);
+  }
+
+  setInterruptCore(irq: number, value: boolean, core: Core) {
+    switch (core) {
+      case Core.Core0:
+        this.core0.setInterrupt(irq, value);
+        break;
+      case Core.Core1:
+        this.core1.setInterrupt(irq, value);
+        break;
+    }
   }
 
   updateIOInterrupt() {
@@ -351,23 +373,39 @@ export class RP2040 {
   }
 
   step() {
-    this.core.executeInstruction();
+    this.core0.executeInstruction();
+    this.core1.executeInstruction();
   }
 
   execute() {
+    this.core0.stopped = false;
+    this.core1.stopped = false;
+    setTimeout(() => this.executeInternal(), 0);
+  }
+
+  private executeInternal() {
     this.clock.resume();
     this.executeTimer = null;
-    this.stopped = false;
-    for (let i = 0; i < 100000 && !this.stopped && !this.core.waiting; i++) {
-      this.core.executeInstruction();
+    let idle = false;
+    for (let i = 0; i < 1000 && !idle; i++) {
+      idle = true;
+      if (!this.core0.stopped && !this.core0.waiting) {
+        idle = false;
+        this.isCore0Running = true;
+        this.core0.executeInstruction();
+      }
+      if (!this.core1.stopped && !this.core1.waiting) {
+        idle = false;
+        this.isCore0Running = false;
+        this.core1.executeInstruction();
+      }
     }
-    if (!this.stopped) {
-      this.executeTimer = setTimeout(() => this.execute(), 0);
-    }
+    this.executeTimer = setTimeout(() => this.executeInternal(), 0);
   }
 
   stop() {
-    this.stopped = true;
+    this.core0.stopped = true;
+    this.core1.stopped = true;
     if (this.executeTimer != null) {
       clearTimeout(this.executeTimer);
       this.executeTimer = null;
@@ -375,7 +413,12 @@ export class RP2040 {
     this.clock.pause();
   }
 
-  get executing() {
-    return !this.stopped;
+  executing(core: Core): boolean {
+    switch (core) {
+      case Core.Core0:
+        return this.core0.stopped;
+      case Core.Core1:
+        return this.core1.stopped;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { RP2040 } from '../rp2040';
+import { Core } from '../core';
 
 const ATOMIC_NORMAL = 0;
 const ATOMIC_XOR = 1;
@@ -21,7 +22,9 @@ export function atomicUpdate(currentValue: number, atomicType: number, newValue:
 
 export interface Peripheral {
   readUint32(offset: number): number;
+  readUint32ViaCore(offset: number, core: Core): number;
   writeUint32(offset: number, value: number): void;
+  writeUint32ViaCore(offset: number, value: number, core: Core): void;
   writeUint32Atomic(offset: number, value: number, atomicType: number): void;
 }
 
@@ -38,8 +41,17 @@ export class BasePeripheral implements Peripheral {
     return 0xffffffff;
   }
 
+  readUint32ViaCore(offset: number, core: Core) {
+    this.warn(`Unimplemented peripheral readvia ${core} from ${offset.toString(16)}`);
+    return 0xffffffff;
+  }
+
   writeUint32(offset: number, value: number) {
     this.warn(`Unimplemented peripheral write to ${offset.toString(16)}: ${value}`);
+  }
+
+  writeUint32ViaCore(offset: number, value: number, core: Core) {
+    this.warn(`Unimplemented peripheral write via ${core} to ${offset.toString(16)}: ${value}`);
   }
 
   writeUint32Atomic(offset: number, value: number, atomicType: number) {

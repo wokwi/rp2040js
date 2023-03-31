@@ -15,7 +15,7 @@ export class RP2040TestDriver implements ICortexTestDriver {
   }
 
   async setPC(pcValue: number) {
-    this.rp2040.core.PC = pcValue;
+    this.rp2040.core0.PC = pcValue;
   }
 
   async writeUint8(address: number, value: number) {
@@ -32,7 +32,7 @@ export class RP2040TestDriver implements ICortexTestDriver {
 
   async setRegisters(registers: Partial<ICortexRegisters>) {
     const { rp2040 } = this;
-    const { core } = rp2040;
+    const core = rp2040.core0;
     for (const key of Object.keys(registers) as ICortexRegisterName[]) {
       const value = registers[key] as number;
       const boolValue = registers[key] as boolean;
@@ -121,7 +121,7 @@ export class RP2040TestDriver implements ICortexTestDriver {
   }
 
   async readRegisters(): Promise<ICortexRegisters> {
-    const { core } = this.rp2040;
+    const core = this.rp2040.core0;
     const { registers, xPSR } = core;
     return {
       r0: registers[0],

@@ -88,6 +88,11 @@ export class CortexM0Core {
   SHPR2 = 0;
   SHPR3 = 0;
 
+  public onSEV?: () => void;
+  public onBreak?: (code: number) => void;
+
+  stopped = true;
+
   constructor(readonly rp2040: RP2040) {
     this.SP = 0xfffffffc;
     this.bankedSP = 0xfffffffc;
@@ -724,7 +729,8 @@ export class CortexM0Core {
     else if (opcode >> 8 === 0b10111110) {
       const imm8 = opcode & 0xff;
       this.breakRewind = 2;
-      this.rp2040.onBreak(imm8);
+      this.stopped = true;
+      this.onBreak?.(imm8);
     }
     // BL
     else if (opcode >> 11 === 0b11110 && opcode2 >> 14 === 0b11 && ((opcode2 >> 12) & 0x1) == 1) {
@@ -1132,6 +1138,7 @@ export class CortexM0Core {
     // SEV
     else if (opcode === 0b1011111101000000) {
       this.logger.info(LOG_NAME, 'SEV');
+      this.onSEV?.();
     }
     // STMIA
     else if (opcode >> 11 === 0b11000) {
@@ -1266,14 +1273,16 @@ export class CortexM0Core {
     else if (opcode >> 8 == 0b11011110) {
       const imm8 = opcode & 0xff;
       this.breakRewind = 2;
-      this.rp2040.onBreak(imm8);
+      this.stopped = true;
+      this.onBreak?.(imm8);
     }
     // UDF (Encoding T2)
     else if (opcode >> 4 === 0b111101111111 && opcode2 >> 12 === 0b1010) {
       const imm4 = opcode & 0xf;
       const imm12 = opcode2 & 0xfff;
       this.breakRewind = 4;
-      this.rp2040.onBreak((imm4 << 12) | imm12);
+      this.stopped = true;
+      this.onBreak?.((imm4 << 12) | imm12);
       this.PC += 2;
     }
     // UXTB
