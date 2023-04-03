@@ -439,7 +439,7 @@ export class StateMachine {
     }
   }
 
-  executeInstruction(opcode: number): number {
+  executeInstruction(opcode: number) {
     const arg = opcode & 0xff;
     switch (opcode >>> 13) {
       /* JMP */
@@ -643,8 +643,6 @@ export class StateMachine {
       }
     }
 
-    this.cycles++;
-
     const { sidesetCount, execCtrl } = this;
     const delaySideset = (opcode >> 8) & 0x1f;
     const sideEn = !!(execCtrl & EXECCTRL_SIDE_EN);
@@ -657,16 +655,15 @@ export class StateMachine {
 
     if (this.execValid) {
       this.execValid = false;
-      return this.executeInstruction(this.execOpcode);
+      this.remainingDelay += 1; // delay on EXEC is ignored but EXEC takes 1 cycle
+      this.executeInstruction(this.execOpcode);
     } else if (this.waiting) {
       if (this.waitDelay < 0) {
         this.waitDelay = delay;
       }
       this.checkWait();
-      return delay;
     } else {
-      this.cycles += delay;
-      return delay;
+      this.remainingDelay += delay;
     }
   }
 
@@ -704,6 +701,8 @@ export class StateMachine {
       this.curClockInt -= this.clockDivInt;
     }
 
+    this.cycles++;
+
     if (this.remainingDelay > 0) {
       this.remainingDelay--;
       return;
@@ -714,10 +713,14 @@ export class StateMachine {
       if (this.waiting) {
         return;
       }
+      if (this.remainingDelay > 0) {
+        this.remainingDelay--;
+        return;
+      }
     }
 
     this.updatePC = true;
-    this.remainingDelay += this.executeInstruction(this.pio.instructions[this.pc]);
+    this.executeInstruction(this.pio.instructions[this.pc]);
     if (this.updatePC) {
       this.nextPC();
     }
@@ -934,7 +937,7 @@ export class StateMachine {
 
     if (!this.waiting) {
       this.nextPC();
-      this.cycles += this.waitDelay;
+      this.remainingDelay += this.waitDelay;
       this.execCtrl &= ~EXECCTRL_EXEC_STALLED;
     }
   }
