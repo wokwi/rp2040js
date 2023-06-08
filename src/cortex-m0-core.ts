@@ -675,13 +675,12 @@ export class CortexM0Core {
       const Rm = (opcode >> 3) & 0x7;
       const Rd = opcode & 0x7;
       const input = this.registers[Rm];
-      const result = imm5 ? input >> imm5 : (input & 0x80000000) >> 31;
+      const shiftN = imm5 ? imm5 : 32;
+      const result = shiftN < 32 ? input >> shiftN : (input & 0x80000000) >> 31;
       this.registers[Rd] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      if (imm5) {
-        this.C = input & (1 << (imm5 - 1)) ? true : false;
-      }
+      this.C = input & (1 << (shiftN - 1)) ? true : false;
     }
     // ASRS (register)
     else if (opcode >> 6 === 0b0100000100) {
@@ -693,9 +692,7 @@ export class CortexM0Core {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      if (shiftN) {
-        this.C = input & (1 << (shiftN - 1)) ? true : false;
-      }
+      this.C = input & (1 << (shiftN - 1)) ? true : false;
     }
     // B (with cond)
     else if (opcode >> 12 === 0b1101 && ((opcode >> 9) & 0x7) !== 0b111) {

@@ -334,10 +334,10 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.C).toEqual(false);
   });
 
-  it('should execute an `asrs r3, r2, #0` instruction', async () => {
+  it('should correctly update the carry flags when executing `asrs r3, r2, #32` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeASRS(r3, r2, 0));
-    await cpu.setRegisters({ r2: 0x80000000, C: true });
+    await cpu.setRegisters({ r2: 0x80000000, C: false });
     await cpu.singleStep();
     const registers = await cpu.readRegisters();
     expect(registers.r3).toEqual(0xffffffff);
