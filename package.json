@@ -65,5 +65,8 @@
     "**/*.js": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1"
   }
 }
