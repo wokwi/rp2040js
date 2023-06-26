@@ -27,13 +27,25 @@ const UARTEN = 1 << 0;
 // Interrupt bits
 const UARTRXINTR = 1 << 4;
 
-export class RPUART extends BasePeripheral implements Peripheral {
+type UartEvents = {
+  /** the MCU has written a byte to the UART */
+  byteSent: (value: number) => void;
+  /** readFhe MCU's read FIFO is full, and any further bytes fed to the UART will be dropped */
+  readFifoFull: () => void;
+  /** the MCU's read FIFO is empty */
+  readFifoEmpty: () => void;
+  /** the MCU has read a byte from the UART */
+  byteConsumed: () => void;
+};
+
+export class RPUART extends BasePeripheral<UartEvents> implements Peripheral {
   private ctrlRegister = RXE | TXE;
   private lineCtrlRegister = 0;
   private rxFIFO = new FIFO(32);
   private interruptMask = 0;
   private interruptStatus = 0;
 
+  /** @deprecated prefer `on("byteSent", callback)` */
   public onByte?: (value: number) => void;
 
   constructor(rp2040: RP2040, name: string, readonly irq: number) {
@@ -95,6 +107,13 @@ export class RPUART extends BasePeripheral implements Peripheral {
           this.interruptStatus |= UARTRXINTR;
           this.checkInterrupts();
         }
+        if (this.rxFIFO.empty) {
+          this.emit('readFifoEmpty');
+        }
+        if (this.rxFIFO.full) {
+          this.emit('readFifoFull');
+        }
+        this.emit('byteConsumed');
         return value;
       }
       case UARTFR:
@@ -115,9 +134,12 @@ export class RPUART extends BasePeripheral implements Peripheral {
 
   writeUint32(offset: number, value: number) {
     switch (offset) {
-      case UARTDR:
-        this.onByte?.(value & 0xff);
+      case UARTDR: {
+        const byte = value & 0xff;
+        this.onByte?.(byte);
+        this.emit('byteSent', byte);
         break;
+      }
 
       case UARTLCR_H:
         this.lineCtrlRegister = value;

@@ -1,3 +1,4 @@
+import EventEmitter from 'eventemitter3';
 import { RP2040 } from '../rp2040';
 
 const ATOMIC_NORMAL = 0;
@@ -25,10 +26,15 @@ export interface Peripheral {
   writeUint32Atomic(offset: number, value: number, atomicType: number): void;
 }
 
-export class BasePeripheral implements Peripheral {
+// eslint-disable-next-line @typescript-eslint/ban-types -- EventEmitter3 defines the allowed types as `object`, so copy that here
+export class BasePeripheral<E extends object = Record<string, unknown>>
+  extends EventEmitter<E>
+  implements Peripheral {
   protected rawWriteValue = 0;
 
-  constructor(protected rp2040: RP2040, readonly name: string) {}
+  constructor(protected rp2040: RP2040, readonly name: string) {
+    super();
+  }
 
   readUint32(offset: number) {
     this.warn(`Unimplemented peripheral read from ${offset.toString(16)}`);

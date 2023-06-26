@@ -14,9 +14,9 @@ loadHex(hex, mcu.flash, 0x10000000);
 const gdbServer = new GDBTCPServer(mcu, 3333);
 console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
 
-mcu.uart[0].onByte = (value) => {
+mcu.uart[0].on('byteSent', (value) => {
   process.stdout.write(new Uint8Array([value]));
-};
+});
 
 mcu.core.PC = 0x10000000;
 mcu.execute();
