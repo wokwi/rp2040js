@@ -58,7 +58,10 @@ export class RP2040 {
   readonly ppb = new RPPPB(this, 'PPB');
   readonly sio = new RPSIO(this);
 
-  readonly uart = [new RPUART(this, 'UART0', IRQ.UART0), new RPUART(this, 'UART1', IRQ.UART1)];
+  readonly uart = [
+    new RPUART(this, 'UART0', 0, IRQ.UART0),
+    new RPUART(this, 'UART1', 1, IRQ.UART1),
+  ];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
   readonly spi = [new RPSPI(this, 'SPI0', IRQ.SPI0), new RPSPI(this, 'SPI1', IRQ.SPI1)];
   readonly pwm = new RPPWM(this, 'PWM_BASE');

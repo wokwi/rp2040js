@@ -1,5 +1,6 @@
 import { RP2040 } from '../rp2040';
 import { FIFO } from '../utils/fifo';
+import { DREQChannel } from './dma';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 const UARTDR = 0x0;
@@ -34,9 +35,12 @@ export class RPUART extends BasePeripheral implements Peripheral {
   private interruptMask = 0;
   private interruptStatus = 0;
 
+  private readonly rxDREQ = this.index == 0 ? DREQChannel.DREQ_UART0_RX : DREQChannel.DREQ_UART1_RX;
+  private readonly txDREQ = this.index == 0 ? DREQChannel.DREQ_UART0_TX : DREQChannel.DREQ_UART1_TX;
+
   public onByte?: (value: number) => void;
 
-  constructor(rp2040: RP2040, name: string, readonly irq: number) {
+  constructor(rp2040: RP2040, name: string, readonly index: number, readonly irq: number) {
     super(rp2040, name);
   }
 
@@ -125,6 +129,11 @@ export class RPUART extends BasePeripheral implements Peripheral {
 
       case UARTCR:
         this.ctrlRegister = value;
+        if (this.enabled) {
+          this.rp2040.dma.setDREQ(this.txDREQ);
+        } else {
+          this.rp2040.dma.clearDREQ(this.txDREQ);
+        }
         break;
 
       case UARTIMSC:
