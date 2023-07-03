@@ -16,6 +16,9 @@
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "typings": "./dist/cjs/index.d.ts",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "exports": {
     ".": {
       "import": "./dist/esm/index.js",
