@@ -17,7 +17,7 @@ const CDC_RTS = 1 << 1;
 const CDC_DATA_CLASS = 10;
 const ENDPOINT_BULK = 2;
 
-const TX_FIFO_SIZE = 512;
+const TX_FIFO_SIZE = 1024 * 300;
 
 const ENDPOINT_ZERO = 0;
 const CONFIGURATION_DESCRIPTOR_SIZE = 9;
