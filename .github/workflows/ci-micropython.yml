@@ -20,7 +20,7 @@ jobs:
       - name: Install Python requirements
         run: cd test && pip install -r requirements.txt
       - name: Download Micropython
-        run: curl -o micropython.uf2 "https://micropython.org/resources/firmware/rp2-pico-${VERSION}.uf2"
+        run: curl -o micropython.uf2 "https://micropython.org/resources/firmware/RPI_PICO-${VERSION}.uf2"
         env:
           VERSION: ${{ matrix.micropython_version }}
       - name: Create filesystem
