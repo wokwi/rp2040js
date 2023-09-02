@@ -28,6 +28,11 @@ const UARTEN = 1 << 0;
 // Interrupt bits
 const UARTRXINTR = 1 << 4;
 
+export interface IUARTDMAChannels {
+  rx: DREQChannel;
+  tx: DREQChannel;
+}
+
 export class RPUART extends BasePeripheral implements Peripheral {
   private ctrlRegister = RXE | TXE;
   private lineCtrlRegister = 0;
@@ -35,12 +40,9 @@ export class RPUART extends BasePeripheral implements Peripheral {
   private interruptMask = 0;
   private interruptStatus = 0;
 
-  private readonly rxDREQ = this.index == 0 ? DREQChannel.DREQ_UART0_RX : DREQChannel.DREQ_UART1_RX;
-  private readonly txDREQ = this.index == 0 ? DREQChannel.DREQ_UART0_TX : DREQChannel.DREQ_UART1_TX;
-
   public onByte?: (value: number) => void;
 
-  constructor(rp2040: RP2040, name: string, readonly index: number, readonly irq: number) {
+  constructor(rp2040: RP2040, name: string, readonly irq: number, readonly dreq: IUARTDMAChannels) {
     super(rp2040, name);
   }
 
@@ -130,9 +132,9 @@ export class RPUART extends BasePeripheral implements Peripheral {
       case UARTCR:
         this.ctrlRegister = value;
         if (this.enabled) {
-          this.rp2040.dma.setDREQ(this.txDREQ);
+          this.rp2040.dma.setDREQ(this.dreq.tx);
         } else {
-          this.rp2040.dma.clearDREQ(this.txDREQ);
+          this.rp2040.dma.clearDREQ(this.dreq.tx);
         }
         break;
 

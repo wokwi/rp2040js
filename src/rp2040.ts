@@ -6,7 +6,7 @@ import { IRQ } from './irq';
 import { RPADC } from './peripherals/adc';
 import { RPBUSCTRL } from './peripherals/busctrl';
 import { RPClocks } from './peripherals/clocks';
-import { RPDMA } from './peripherals/dma';
+import { DREQChannel, RPDMA } from './peripherals/dma';
 import { RPI2C } from './peripherals/i2c';
 import { RPIO } from './peripherals/io';
 import { RPPADS } from './peripherals/pads';
@@ -59,8 +59,14 @@ export class RP2040 {
   readonly sio = new RPSIO(this);
 
   readonly uart = [
-    new RPUART(this, 'UART0', 0, IRQ.UART0),
-    new RPUART(this, 'UART1', 1, IRQ.UART1),
+    new RPUART(this, 'UART0', IRQ.UART0, {
+      rx: DREQChannel.DREQ_UART0_RX,
+      tx: DREQChannel.DREQ_UART0_RX,
+    }),
+    new RPUART(this, 'UART1', IRQ.UART1, {
+      rx: DREQChannel.DREQ_UART1_RX,
+      tx: DREQChannel.DREQ_UART1_TX,
+    }),
   ];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
   readonly spi = [new RPSPI(this, 'SPI0', IRQ.SPI0), new RPSPI(this, 'SPI1', IRQ.SPI1)];
