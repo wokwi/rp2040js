@@ -9,7 +9,7 @@ import minimist from 'minimist';
 
 const args = minimist(process.argv.slice(2), {
   string: [
-    'image', // UF2 image to load; defaults to "rp2-pico-20210902-v1.17.uf2"
+    'image', // UF2 image to load; defaults to "RPI_PICO-20230426-v1.20.0.uf2"
     'expect-text', // Text to expect on the serial console, process will exit with code 0 if found
   ],
   boolean: [
@@ -25,7 +25,7 @@ mcu.logger = new ConsoleLogger(LogLevel.Error);
 
 let imageName: string;
 if (!args.circuitpython) {
-  imageName = args.image ?? 'rp2-pico-20210902-v1.17.uf2';
+  imageName = args.image ?? 'RPI_PICO-20230426-v1.20.0.uf2';
 } else {
   imageName = args.image ?? 'adafruit-circuitpython-raspberry_pi_pico-en_US-8.0.2.uf2';
 }
