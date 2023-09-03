@@ -128,7 +128,8 @@ export class RP2040 {
     new RPSPI(this, 'SPI1', IRQ.SPI1, {
       rx: DREQChannel.DREQ_SPI1_RX,
       tx: DREQChannel.DREQ_SPI1_RX,
-    })];
+    }),
+  ];
 
   private stopped = true;
 

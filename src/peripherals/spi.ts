@@ -129,8 +129,8 @@ export class RPSPI extends BasePeripheral implements Peripheral {
 
   constructor(rp2040: RP2040, name: string, readonly irq: number, readonly dreq: ISPIDMAChannels) {
     super(rp2040, name);
-    this.updateDMATx()
-    this.updateDMARx()
+    this.updateDMATx();
+    this.updateDMARx();
   }
 
   private doTX() {
@@ -172,6 +172,9 @@ export class RPSPI extends BasePeripheral implements Peripheral {
     if (this.intStatus !== prevStatus) {
       this.checkInterrupts();
     }
+
+    this.updateDMATx();
+    this.updateDMARx();
   }
 
   readUint32(offset: number) {
@@ -183,7 +186,6 @@ export class RPSPI extends BasePeripheral implements Peripheral {
       case SSPDR:
         if (!this.rxFIFO.empty) {
           const value = this.rxFIFO.pull();
-          this.updateDMARx();
           this.fifosUpdated();
           return value;
         }
@@ -237,9 +239,8 @@ export class RPSPI extends BasePeripheral implements Peripheral {
       case SSPDR:
         if (!this.txFIFO.full) {
           // decoded with respect to SSPCR0.DSS
-          this.txFIFO.push(value & ((1<<this.dataBits)-1));
+          this.txFIFO.push(value & ((1 << this.dataBits) - 1));
           this.doTX();
-          this.updateDMATx();
           this.fifosUpdated();
         }
         return;
