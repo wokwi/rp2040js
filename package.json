@@ -39,6 +39,7 @@
     "start:micropython": "ts-node demo/micropython-run.ts",
     "start:circuitpython": "ts-node demo/micropython-run.ts --circuitpython",
     "start:gdbdiff": "ts-node debug/gdbdiff.ts",
+    "start:dual-mcu": "ts-node demo/dual-mcu.ts",
     "test": "jest"
   },
   "devDependencies": {

@@ -358,11 +358,15 @@ describe('PIO', () => {
     await cpu.writeUint32(INSTR_MEM1, pioWAIT(true, PIO_WAIT_SRC_IRQ, 7));
     await cpu.writeUint32(INSTR_MEM2, pioJMP(PIO_COND_ALWAYS, 2));
     await cpu.writeUint32(CTRL, 1); // Starts State Machine #0
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
     await cpu.writeUint32(SM2_INSTR, pioIRQ(false, false, 5)); // Set IRQ 5
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
     await cpu.writeUint32(SM2_INSTR, pioIRQ(false, false, 7)); // Set IRQ 7
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(2);
+    await cpu.singleStep();
     expect(await cpu.readUint32(IRQ)).toEqual(1 << 5); // Wait should have cleared IRQ 7
   });
 
@@ -374,8 +378,10 @@ describe('PIO', () => {
     await cpu.writeUint32(INSTR_MEM1, pioWAIT(false, PIO_WAIT_SRC_IRQ, 7));
     await cpu.writeUint32(INSTR_MEM2, pioJMP(PIO_COND_ALWAYS, 2));
     await cpu.writeUint32(CTRL, 1); // Starts State Machine #0
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
     await cpu.writeUint32(IRQ, 1 << 7); // Clear IRQ 7
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(2);
   });
 
@@ -421,6 +427,9 @@ describe('PIO', () => {
     await cpu.writeUint32(INSTR_MEM3, pioJMP(PIO_COND_ALWAYS, 3)); // infinite loop
 
     await cpu.writeUint32(CTRL, 1); // Starts State Machine #0
+    await cpu.singleStep();
+    await cpu.singleStep();
+    await cpu.singleStep();
     expect(await cpu.readUint32(SM0_ADDR)).toEqual(1);
   });
 

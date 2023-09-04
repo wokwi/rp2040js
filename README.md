@@ -107,6 +107,16 @@ sudo umount fat12/  # unmount the filesystem
 While CircuitPython does not typically use a writeable filesystem, note that this functionality is unavailable (see MicroPython filesystem
 support section for more details).
 
+### Dual RP2040 demo
+```
+npm install
+npm run start:dual-mcu
+```
+
+This fires up two instances of rp2040js including some glue code that connects the GPIOs 2-10 in an open collector/pull up bus fashion.
+It will write a VCD trace of bus signals to the file `dual-mcu-bus-trace.vcd` including a virtual signal indicating conflicts on the bus.
+The demo programs on the two RP2040s pull a single line low each (MCU0: D0 then D1 then ... then D7, MCU1 in the opposite direction).
+
 ## Learn more
 
 - [Live-coding stream playlist](https://www.youtube.com/playlist?list=PLLomdjsHtJTxT-vdJHwa3z62dFXZnzYBm)

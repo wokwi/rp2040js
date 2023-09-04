@@ -1,0 +1,26 @@
+.program dualmcu
+
+    pull block
+    mov pins, null
+    out pindirs, 8  [5]
+    in pins, 8
+    push            [31]
+
+% c-sdk {
+static inline void dualmcu_program_init(PIO pio, uint sm, uint offset, uint bus_pin_start, float div) {
+    const uint bus_pin_count = 8;
+    pio_sm_config c = dualmcu_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, bus_pin_start, bus_pin_count);
+    sm_config_set_in_pins(&c, bus_pin_start);
+    sm_config_set_in_shift(&c, false /* true: shift ISR right */, false, 0);
+    sm_config_set_out_shift(&c, true /* true: shift OSR right */, false, 0);
+    for(uint i=0; i<bus_pin_count; i++) {
+        pio_gpio_init(pio, bus_pin_start+i);
+        gpio_set_pulls(bus_pin_start+i, true, false);
+    }
+    pio_sm_set_consecutive_pindirs(pio, sm, bus_pin_start, bus_pin_count, false);
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_clkdiv(pio, sm, div);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

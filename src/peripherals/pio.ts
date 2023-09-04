@@ -138,6 +138,9 @@ export class StateMachine {
 
   clockDivInt: number = 1;
   clockDivFrac: number = 0;
+  curClockInt: number = 0;
+  curClockFrac: number = 0;
+  remainingDelay: number = 0;
   execCtrl = 0x1f << 12;
   shiftCtrl = 0b11 << 18;
   pinCtrl = 0x5 << 26;
@@ -640,8 +643,6 @@ export class StateMachine {
       }
     }
 
-    this.cycles++;
-
     const { sidesetCount, execCtrl } = this;
     const delaySideset = (opcode >> 8) & 0x1f;
     const sideEn = !!(execCtrl & EXECCTRL_SIDE_EN);
@@ -654,6 +655,7 @@ export class StateMachine {
 
     if (this.execValid) {
       this.execValid = false;
+      this.remainingDelay += 1; // delay on EXEC is ignored but EXEC takes 1 cycle
       this.executeInstruction(this.execOpcode);
     } else if (this.waiting) {
       if (this.waitDelay < 0) {
@@ -661,7 +663,7 @@ export class StateMachine {
       }
       this.checkWait();
     } else {
-      this.cycles += delay;
+      this.remainingDelay += delay;
     }
   }
 
@@ -683,9 +685,36 @@ export class StateMachine {
   }
 
   step() {
+    if (!this.enabled) {
+      return;
+    }
+
+    this.curClockFrac += this.clockDivFrac;
+    if (this.curClockFrac > 0xff) {
+      this.curClockInt++;
+      this.curClockFrac -= 0x100;
+    }
+    this.curClockInt++;
+    if (this.curClockInt < this.clockDivInt) {
+      return;
+    } else {
+      this.curClockInt -= this.clockDivInt;
+    }
+
+    this.cycles++;
+
+    if (this.remainingDelay > 0) {
+      this.remainingDelay--;
+      return;
+    }
+
     if (this.waiting) {
       this.checkWait();
       if (this.waiting) {
+        return;
+      }
+      if (this.remainingDelay > 0) {
+        this.remainingDelay--;
         return;
       }
     }
@@ -833,6 +862,9 @@ export class StateMachine {
 
   restart() {
     this.cycles = 0;
+    this.curClockInt = 0;
+    this.curClockFrac = 0;
+    this.remainingDelay = 0;
     this.inputShiftCount = 0;
     this.outputShiftCount = 32;
     this.inputShiftReg = 0;
@@ -905,7 +937,7 @@ export class StateMachine {
 
     if (!this.waiting) {
       this.nextPC();
-      this.cycles += this.waitDelay;
+      this.remainingDelay += this.waitDelay;
       this.execCtrl &= ~EXECCTRL_EXEC_STALLED;
     }
   }
@@ -930,7 +962,6 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   pinDirections = 0;
   oldPinValues = 0;
   oldPinDirections = 0;
-  private runTimer: NodeJS.Timeout | null = null;
 
   irq0IntEnable = 0;
   irq0IntForce = 0;
@@ -1077,14 +1108,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
             this.machines[index].clkDivRestart();
           }
         }
-        const shouldRun = value & 0xf;
-        if (this.stopped && shouldRun) {
-          this.stopped = false;
-          this.run();
-        }
-        if (!shouldRun) {
-          this.stopped = true;
-        }
+        this.stopped = !(value & 0xf);
         break;
       }
       case FDEBUG:
@@ -1179,19 +1203,13 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   }
 
   step() {
+    if (this.stopped) {
+      return;
+    }
     for (const machine of this.machines) {
       machine.step();
     }
     this.checkChangedPins();
-  }
-
-  run() {
-    for (let i = 0; i < 1000 && !this.stopped; i++) {
-      this.step();
-    }
-    if (!this.stopped) {
-      this.runTimer = setTimeout(() => this.run(), 0);
-    }
   }
 
   stop() {
@@ -1199,9 +1217,5 @@ export class RPPIO extends BasePeripheral implements Peripheral {
       machine.enabled = false;
     }
     this.stopped = true;
-    if (this.runTimer) {
-      clearTimeout(this.runTimer);
-      this.runTimer = null;
-    }
   }
 }
