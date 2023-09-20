@@ -24,6 +24,10 @@ jobs:
         env:
           VERSION: ${{ matrix.micropython_version }}
       - name: Create filesystem
-        run: python test/mklittlefs.py
+        run: python test/mklittlefs.py littlefs.img test/micropython/main.py
       - name: Test Micropython
         run: timeout 10 npm run start:micropython -- --image micropython.uf2 --expect-text "Hello, MicroPython!"
+      - name: Create SPI test filesystem
+        run: python test/mklittlefs.py littlefs-spi.img test/micropython/main-spi.py
+      - name: Test Micropython SPI
+        run: timeout 10 npm run test:micropython-spi -- "hello world" "h" "0123456789abcdef0123456789abcdef0123456789abcdef"

@@ -33,6 +33,7 @@ console.log(`Loading uf2 image ${imageName}`);
 loadUF2(imageName, mcu);
 
 if (fs.existsSync('littlefs.img') && !args.circuitpython) {
+  console.log(`Loading uf2 image littlefs.img`);
   loadMicropythonFlashImage('littlefs.img', mcu);
 } else if (fs.existsSync('fat12.img') && args.circuitpython) {
   loadCircuitpythonFlashImage('fat12.img', mcu);
