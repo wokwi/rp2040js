@@ -1,5 +1,6 @@
 import { RP2040 } from '../rp2040';
 import { FIFO } from '../utils/fifo';
+import { DREQChannel } from './dma';
 import { BasePeripheral, Peripheral } from './peripheral';
 
 const SSPCR0 = 0x000; // Control register 0, SSPCR0 on page 3-4
@@ -58,6 +59,11 @@ const SSPRXINTR = 1 << 2;
 const SSPRTINTR = 1 << 1;
 const SSPRORINTR = 1 << 0;
 
+export interface ISPIDMAChannels {
+  rx: DREQChannel;
+  tx: DREQChannel;
+}
+
 export class RPSPI extends BasePeripheral implements Peripheral {
   readonly rxFIFO = new FIFO(8);
   readonly txFIFO = new FIFO(8);
@@ -105,8 +111,26 @@ export class RPSPI extends BasePeripheral implements Peripheral {
     return this.rp2040.clkPeri / (this.clockDivisor * (1 + scr));
   }
 
-  constructor(rp2040: RP2040, name: string, readonly irq: number) {
+  private updateDMATx() {
+    if (this.txFIFO.full) {
+      this.rp2040.dma.clearDREQ(this.dreq.tx);
+    } else {
+      this.rp2040.dma.setDREQ(this.dreq.tx);
+    }
+  }
+
+  private updateDMARx() {
+    if (this.rxFIFO.empty) {
+      this.rp2040.dma.clearDREQ(this.dreq.rx);
+    } else {
+      this.rp2040.dma.setDREQ(this.dreq.rx);
+    }
+  }
+
+  constructor(rp2040: RP2040, name: string, readonly irq: number, readonly dreq: ISPIDMAChannels) {
     super(rp2040, name);
+    this.updateDMATx();
+    this.updateDMARx();
   }
 
   private doTX() {
@@ -148,6 +172,9 @@ export class RPSPI extends BasePeripheral implements Peripheral {
     if (this.intStatus !== prevStatus) {
       this.checkInterrupts();
     }
+
+    this.updateDMATx();
+    this.updateDMARx();
   }
 
   readUint32(offset: number) {
@@ -211,7 +238,8 @@ export class RPSPI extends BasePeripheral implements Peripheral {
         return;
       case SSPDR:
         if (!this.txFIFO.full) {
-          this.txFIFO.push(value);
+          // decoded with respect to SSPCR0.DSS
+          this.txFIFO.push(value & ((1 << this.dataBits) - 1));
           this.doTX();
           this.fifosUpdated();
         }

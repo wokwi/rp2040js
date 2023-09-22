@@ -69,7 +69,6 @@ export class RP2040 {
     }),
   ];
   readonly i2c = [new RPI2C(this, 'I2C0', IRQ.I2C0), new RPI2C(this, 'I2C1', IRQ.I2C1)];
-  readonly spi = [new RPSPI(this, 'SPI0', IRQ.SPI0), new RPSPI(this, 'SPI1', IRQ.SPI1)];
   readonly pwm = new RPPWM(this, 'PWM_BASE');
   readonly adc = new RPADC(this, 'ADC');
 
@@ -121,6 +120,16 @@ export class RP2040 {
     new RPPIO(this, 'PIO1', IRQ.PIO1_IRQ0, 1),
   ];
   readonly usbCtrl = new RPUSBController(this, 'USB');
+  readonly spi = [
+    new RPSPI(this, 'SPI0', IRQ.SPI0, {
+      rx: DREQChannel.DREQ_SPI0_RX,
+      tx: DREQChannel.DREQ_SPI0_TX,
+    }),
+    new RPSPI(this, 'SPI1', IRQ.SPI1, {
+      rx: DREQChannel.DREQ_SPI1_RX,
+      tx: DREQChannel.DREQ_SPI1_TX,
+    }),
+  ];
 
   private stopped = true;
 

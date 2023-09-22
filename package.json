@@ -39,7 +39,8 @@
     "start:micropython": "ts-node demo/micropython-run.ts",
     "start:circuitpython": "ts-node demo/micropython-run.ts --circuitpython",
     "start:gdbdiff": "ts-node debug/gdbdiff.ts",
-    "test": "jest"
+    "test": "jest",
+    "test:micropython-spi": "ts-node test/micropython-spi-test.ts"
   },
   "devDependencies": {
     "@types/jest": "^27.4.1",
