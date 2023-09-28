@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { RP2040 } from '../rp2040';
 import { RPUART } from './uart';
 

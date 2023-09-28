@@ -1,15 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDriver } from '../../test-utils/create-test-driver';
 import { ICortexTestDriver } from '../../test-utils/test-driver';
 import {
-  pioIN,
-  pioIRQ,
-  pioJMP,
-  pioMOV,
-  pioOUT,
-  pioPULL,
-  pioPUSH,
-  pioSET,
-  pioWAIT,
   PIO_COND_ALWAYS,
   PIO_COND_NOTEMPTYOSR,
   PIO_COND_NOTX,
@@ -36,6 +28,15 @@ import {
   PIO_SRC_X,
   PIO_SRC_Y,
   PIO_WAIT_SRC_IRQ,
+  pioIN,
+  pioIRQ,
+  pioJMP,
+  pioMOV,
+  pioOUT,
+  pioPULL,
+  pioPUSH,
+  pioSET,
+  pioWAIT,
 } from '../utils/pio-assembler';
 
 const CTRL = 0x50200000;

@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDriver } from '../test-utils/create-test-driver';
 import { ICortexTestDriver } from '../test-utils/test-driver';
 import { SIO_START_ADDRESS } from './rp2040';

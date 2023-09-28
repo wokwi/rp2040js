@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { RP2040 } from '..';
 import { MockClock } from '../clock/mock-clock';
 import { bit } from '../utils/bit';

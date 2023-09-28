@@ -1,15 +1,16 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestDriver } from '../test-utils/create-test-driver';
 import { ICortexTestDriver } from '../test-utils/test-driver';
 import { RP2040TestDriver } from '../test-utils/test-driver-rp2040';
 import { RAM_START_ADDRESS, RP2040 } from './rp2040';
 import {
   opcodeADCS,
-  opcodeADDreg,
   opcodeADDS1,
   opcodeADDS2,
+  opcodeADDSreg,
+  opcodeADDreg,
   opcodeADDsp2,
   opcodeADDspPlusImm,
-  opcodeADDSreg,
   opcodeADR,
   opcodeANDS,
   opcodeASRS,
@@ -33,11 +34,11 @@ import {
   opcodeLDRBreg,
   opcodeLDRH,
   opcodeLDRHreg,
+  opcodeLDRSB,
+  opcodeLDRSH,
   opcodeLDRimm,
   opcodeLDRlit,
   opcodeLDRreg,
-  opcodeLDRSB,
-  opcodeLDRSH,
   opcodeLDRsp,
   opcodeLSLSimm,
   opcodeLSLSreg,
@@ -70,8 +71,8 @@ import {
   opcodeSTRsp,
   opcodeSUBS1,
   opcodeSUBS2,
-  opcodeSUBsp,
   opcodeSUBSreg,
+  opcodeSUBsp,
   opcodeSVC,
   opcodeSXTB,
   opcodeSXTH,
@@ -976,7 +977,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   });
 
   it('should execute a `udf 1` instruction', () => {
-    const breakMock = jest.fn();
+    const breakMock = vi.fn();
     const rp2040 = new RP2040();
     rp2040.core.PC = 0x20000000;
     rp2040.writeUint16(0x20000000, opcodeUDF(0x1));
@@ -987,7 +988,7 @@ describe('Cortex-M0+ Instruction Set', () => {
   });
 
   it('should execute a `udf.w #0` (T2 encoding) instruction', () => {
-    const breakMock = jest.fn();
+    const breakMock = vi.fn();
     const rp2040 = new RP2040();
     rp2040.core.PC = 0x20000000;
     rp2040.writeUint32(0x20000000, opcodeUDF2(0));
@@ -1007,6 +1008,7 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.pc).toEqual(0x20000002);
     expect(registers.C).toEqual(false);
   });
+
   it('should execute a `lsls r5, r0` instruction', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLSLSreg(r5, r0));
