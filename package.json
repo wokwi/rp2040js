@@ -23,22 +23,22 @@
   "exports": {
     ".": {
       "import": {
-        "default": "./dist/esm/index.js",
-        "types": "./dist/esm/index.d.ts"
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
       },
       "require": {
-        "default": "./dist/cjs/index.js",
-        "types": "./dist/cjs/index.d.ts"
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
       }
     },
     "./gdb-tcp-server": {
       "import": {
-        "default": "./dist/esm/gdb/gdb-tcp-server.js",
-        "types": "./dist/esm/gdb/gdb-tcp-server.d.ts"
+        "types": "./dist/esm/gdb/gdb-tcp-server.d.ts",
+        "default": "./dist/esm/gdb/gdb-tcp-server.js"
       },
       "require": {
-        "default": "./dist/cjs/gdb/gdb-tcp-server.js",
-        "types": "./dist/cjs/gdb/gdb-tcp-server.d.ts"
+        "types": "./dist/cjs/gdb/gdb-tcp-server.d.ts",
+        "default": "./dist/cjs/gdb/gdb-tcp-server.js"
       }
     }
   },
