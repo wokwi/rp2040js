@@ -45,7 +45,7 @@ export interface ISetupPacketParams {
   dataDirection: DataDirection;
   type: SetupType;
   recipient: SetupRecipient;
-  bRequest: SetupRequest;
+  bRequest: SetupRequest | number;
   wValue: number /* 16 bits */;
   wIndex: number /* 16 bits */;
   wLength: number /* 16 bits */;
