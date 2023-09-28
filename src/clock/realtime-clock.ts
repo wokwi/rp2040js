@@ -1,5 +1,5 @@
-import { getCurrentMicroseconds } from '../utils/time';
-import { IClock, IClockTimer } from './clock';
+import { getCurrentMicroseconds } from '../utils/time.js';
+import { IClock, IClockTimer } from './clock.js';
 
 export class ClockTimer implements IClockTimer {
   private jsTimer: NodeJS.Timeout | null = null;

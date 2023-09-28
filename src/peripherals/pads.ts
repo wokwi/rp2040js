@@ -1,5 +1,5 @@
-import { RP2040 } from '../rp2040';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const VOLTAGE_SELECT = 0;
 const GPIO_FIRST = 0x4;

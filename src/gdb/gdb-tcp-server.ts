@@ -1,7 +1,7 @@
 import { createServer, Socket } from 'net';
-import { GDBConnection } from './gdb-connection';
-import { GDBServer } from './gdb-server';
-import { RP2040 } from '../rp2040';
+import { GDBConnection } from './gdb-connection.js';
+import { GDBServer } from './gdb-server.js';
+import { RP2040 } from '../rp2040.js';
 
 export class GDBTCPServer extends GDBServer {
   private socketServer = createServer();

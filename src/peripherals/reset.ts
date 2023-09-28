@@ -1,4 +1,4 @@
-import { BasePeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const RESET = 0x0; //Reset control.
 const WDSEL = 0x4; //Watchdog select.

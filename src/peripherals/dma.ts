@@ -1,7 +1,7 @@
-import { IClockTimer } from '../clock/clock';
-import { IRQ } from '../irq';
-import { RP2040 } from '../rp2040';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { IClockTimer } from '../clock/clock.js';
+import { IRQ } from '../irq.js';
+import { RP2040 } from '../rp2040.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 export enum DREQChannel {
   DREQ_PIO0_TX0,

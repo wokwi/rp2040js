@@ -5,7 +5,7 @@ import {
   SetupRecipient,
   SetupRequest,
   SetupType,
-} from './interfaces';
+} from './interfaces.js';
 
 export function createSetupPacket(params: ISetupPacketParams) {
   const setupPacket = new Uint8Array(8);

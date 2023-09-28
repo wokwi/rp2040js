@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RP2040 } from '../rp2040';
-import { RPUART } from './uart';
+import { RP2040 } from '../rp2040.js';
+import { RPUART } from './uart.js';
 
 const OFFSET_UARTLCR_H = 0x2c;
 

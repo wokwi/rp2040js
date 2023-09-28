@@ -1,5 +1,5 @@
-import { RP2040 } from '../rp2040';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const GPIO_CTRL_LAST = 0x0ec;
 const INTR0 = 0xf0;

@@ -1,5 +1,5 @@
-import { WaitType } from './peripherals/pio';
-import { RP2040 } from './rp2040';
+import { WaitType } from './peripherals/pio.js';
+import { RP2040 } from './rp2040.js';
 
 export enum GPIOPinState {
   Low,

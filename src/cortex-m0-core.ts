@@ -1,5 +1,5 @@
-import { MAX_HARDWARE_IRQ } from './irq';
-import { RP2040, APB_START_ADDRESS, SIO_START_ADDRESS } from './rp2040';
+import { MAX_HARDWARE_IRQ } from './irq.js';
+import { RP2040, APB_START_ADDRESS, SIO_START_ADDRESS } from './rp2040.js';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const EXC_RESET = 1;

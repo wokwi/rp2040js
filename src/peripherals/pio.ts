@@ -1,7 +1,7 @@
-import { RP2040 } from '../rp2040';
-import { FIFO } from '../utils/fifo';
-import { DREQChannel } from './dma';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { FIFO } from '../utils/fifo.js';
+import { DREQChannel } from './dma.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 // Generic registers
 const CTRL = 0x000;

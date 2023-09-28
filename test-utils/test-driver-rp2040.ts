@@ -1,6 +1,6 @@
-import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../src/cortex-m0-core';
-import { RP2040 } from '../src/rp2040';
-import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver';
+import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../src/cortex-m0-core.js';
+import { RP2040 } from '../src/rp2040.js';
+import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver.js';
 
 export class RP2040TestDriver implements ICortexTestDriver {
   constructor(readonly rp2040: RP2040) {}

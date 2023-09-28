@@ -4,17 +4,17 @@
  * Copyright (C) 2021, Uri Shaked
  */
 
-import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../cortex-m0-core';
-import { RP2040 } from '../rp2040';
-import { ConsoleLogger, Logger, LogLevel } from '../utils/logging';
-import { GDBConnection } from './gdb-connection';
+import { SYSM_CONTROL, SYSM_MSP, SYSM_PRIMASK, SYSM_PSP } from '../cortex-m0-core.js';
+import { RP2040 } from '../rp2040.js';
+import { ConsoleLogger, Logger, LogLevel } from '../utils/logging.js';
+import { GDBConnection } from './gdb-connection.js';
 import {
   decodeHexBuf,
   encodeHexBuf,
   encodeHexByte,
   encodeHexUint32,
   gdbMessage,
-} from './gdb-utils';
+} from './gdb-utils.js';
 
 export const STOP_REPLY_SIGINT = 'S02';
 export const STOP_REPLY_TRAP = 'S05';

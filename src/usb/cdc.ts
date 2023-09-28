@@ -1,12 +1,12 @@
-import { RPUSBController } from '../peripherals/usb';
-import { FIFO } from '../utils/fifo';
-import { DataDirection, DescriptorType, SetupRecipient, SetupType } from './interfaces';
+import { RPUSBController } from '../peripherals/usb.js';
+import { FIFO } from '../utils/fifo.js';
+import { DataDirection, DescriptorType, SetupRecipient, SetupType } from './interfaces.js';
 import {
   createSetupPacket,
   getDescriptorPacket,
   setDeviceAddressPacket,
   setDeviceConfigurationPacket,
-} from './setup';
+} from './setup.js';
 
 // CDC stuff
 const CDC_REQUEST_SET_CONTROL_LINE_STATE = 0x22;

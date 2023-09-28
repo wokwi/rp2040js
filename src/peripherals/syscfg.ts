@@ -1,4 +1,4 @@
-import { BasePeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const PROC0_NMI_MASK = 0;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

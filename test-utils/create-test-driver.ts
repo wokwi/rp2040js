@@ -1,8 +1,8 @@
-import { RP2040 } from '../src';
-import { GDBClient } from './gdbclient';
-import { ICortexTestDriver } from './test-driver';
-import { GDBTestDriver } from './test-driver-gdb';
-import { RP2040TestDriver } from './test-driver-rp2040';
+import { RP2040 } from '../src/rp2040.js';
+import { GDBClient } from './gdbclient.js';
+import { ICortexTestDriver } from './test-driver.js';
+import { GDBTestDriver } from './test-driver-gdb.js';
+import { RP2040TestDriver } from './test-driver-rp2040.js';
 
 export async function createTestDriver(): Promise<ICortexTestDriver> {
   if (process.env.TEST_GDB_SERVER) {

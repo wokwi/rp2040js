@@ -1,5 +1,5 @@
-import { GDBClient } from './gdbclient';
-import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver';
+import { GDBClient } from './gdbclient.js';
+import { ICortexRegisterName, ICortexRegisters, ICortexTestDriver } from './test-driver.js';
 
 const pc = 15;
 

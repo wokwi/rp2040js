@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MockClock } from '../clock/mock-clock';
-import { RP2040 } from '../rp2040';
+import { MockClock } from '../clock/mock-clock.js';
+import { RP2040 } from '../rp2040.js';
 
 const ALARM1 = 0x40054014;
 const ALARM2 = 0x40054018;

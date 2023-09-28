@@ -1,5 +1,5 @@
-import { IRQ } from '../irq';
-import { BasePeripheral } from './peripheral';
+import { IRQ } from '../irq.js';
+import { BasePeripheral } from './peripheral.js';
 
 // USB DPSRAM Registers
 const EP1_IN_CONTROL = 0x8;

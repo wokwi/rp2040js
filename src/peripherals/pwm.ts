@@ -1,8 +1,8 @@
-import { IClock } from '../clock/clock';
-import { IRQ } from '../irq';
-import { Timer32, Timer32PeriodicAlarm, TimerMode } from '../utils/timer32';
-import { DREQChannel } from './dma';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { IClock } from '../clock/clock.js';
+import { IRQ } from '../irq.js';
+import { Timer32, Timer32PeriodicAlarm, TimerMode } from '../utils/timer32.js';
+import { DREQChannel } from './dma.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 /** Control and status register */
 const CHn_CSR = 0x00;

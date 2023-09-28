@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractEndpointNumbers } from './cdc';
+import { extractEndpointNumbers } from './cdc.js';
 
 describe('extractEndpointNumbers', () => {
   it('should not die if the descriptors are invalid', () => {

@@ -1,4 +1,4 @@
-import { IClock, IClockTimer } from '../clock/clock';
+import { IClock, IClockTimer } from '../clock/clock.js';
 
 export enum TimerMode {
   Increment,

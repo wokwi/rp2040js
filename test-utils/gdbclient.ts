@@ -8,7 +8,7 @@ import {
   encodeHexUint32,
   encodeHexUint32BE,
   gdbMessage,
-} from '../src/gdb/gdb-utils';
+} from '../src/gdb/gdb-utils.js';
 
 export const registerNames = [
   'r0',

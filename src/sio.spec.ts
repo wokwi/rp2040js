@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestDriver } from '../test-utils/create-test-driver';
-import { ICortexTestDriver } from '../test-utils/test-driver';
-import { SIO_START_ADDRESS } from './rp2040';
+import { createTestDriver } from '../test-utils/create-test-driver.js';
+import { ICortexTestDriver } from '../test-utils/test-driver.js';
+import { SIO_START_ADDRESS } from './rp2040.js';
 
 //Hardware Divider registers absolute address
 const SIO_DIV_UDIVIDEND = SIO_START_ADDRESS + 0x060; //  Divider unsigned dividend

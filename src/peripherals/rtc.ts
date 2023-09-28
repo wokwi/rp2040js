@@ -1,4 +1,4 @@
-import { BasePeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const RTC_SETUP0 = 0x04;
 const RTC_SETUP1 = 0x08;

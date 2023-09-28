@@ -1,4 +1,4 @@
-import { BasePeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const CHIP_ID = 0;
 const PLATFORM = 0x4;

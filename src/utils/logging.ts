@@ -1,4 +1,4 @@
-import { formatTime } from './time';
+import { formatTime } from './time.js';
 
 export interface Logger {
   debug(componentName: string, message: string): void;

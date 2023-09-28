@@ -1,4 +1,4 @@
-import { BasePeripheral, Peripheral } from './peripheral';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const SSI_TXFLR = 0x00000020;
 const SSI_RXFLR = 0x00000024;

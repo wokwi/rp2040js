@@ -1,6 +1,6 @@
-import { RP2040 } from '../rp2040';
-import { FIFO } from '../utils/fifo';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { FIFO } from '../utils/fifo.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const IC_CON = 0x00; // I2C Control Register
 const IC_TAR = 0x04; // I2C Target Address Register

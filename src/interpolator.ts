@@ -1,4 +1,4 @@
-import { s32, u32 } from './utils/bit';
+import { s32, u32 } from './utils/bit.js';
 
 export class InterpolatorConfig {
   shift = 0;

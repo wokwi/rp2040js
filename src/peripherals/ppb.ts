@@ -1,7 +1,7 @@
-import { MAX_HARDWARE_IRQ } from '../irq';
-import { RP2040 } from '../rp2040';
-import { Timer32, Timer32PeriodicAlarm, TimerMode } from '../utils/timer32';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { MAX_HARDWARE_IRQ } from '../irq.js';
+import { RP2040 } from '../rp2040.js';
+import { Timer32, Timer32PeriodicAlarm, TimerMode } from '../utils/timer32.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 export const CPUID = 0xd00;
 export const ICSR = 0xd04;

@@ -1,7 +1,7 @@
-import { RP2040 } from '../rp2040';
-import { FIFO } from '../utils/fifo';
-import { DREQChannel } from './dma';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { FIFO } from '../utils/fifo.js';
+import { DREQChannel } from './dma.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const SSPCR0 = 0x000; // Control register 0, SSPCR0 on page 3-4
 const SSPCR1 = 0x004; // Control register 1, SSPCR1 on page 3-5

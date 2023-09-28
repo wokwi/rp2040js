@@ -17,7 +17,7 @@ import {
   PIO_MOV_DEST_X,
   PIO_OP_INVERT,
   PIO_SRC_STATUS,
-} from './pio-assembler';
+} from './pio-assembler.js';
 
 describe('pio-assembler', () => {
   it('should correctly encode an `jmp PIN, 5` pio instruction', () => {

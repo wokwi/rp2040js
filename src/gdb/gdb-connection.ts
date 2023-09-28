@@ -1,5 +1,5 @@
-import { GDBServer, STOP_REPLY_SIGINT, STOP_REPLY_TRAP } from './gdb-server';
-import { gdbChecksum, gdbMessage } from './gdb-utils';
+import { GDBServer, STOP_REPLY_SIGINT, STOP_REPLY_TRAP } from './gdb-server.js';
+import { gdbChecksum, gdbMessage } from './gdb-utils.js';
 
 export type GDBResponseHandler = (value: string) => void;
 

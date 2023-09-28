@@ -1,7 +1,7 @@
-import { IClock, IClockTimer } from '../clock/clock';
-import { IRQ } from '../irq';
-import { RP2040 } from '../rp2040';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { IClock, IClockTimer } from '../clock/clock.js';
+import { IRQ } from '../irq.js';
+import { RP2040 } from '../rp2040.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 const TIMEHR = 0x08;
 const TIMELR = 0x0c;

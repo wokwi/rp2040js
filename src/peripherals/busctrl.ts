@@ -1,5 +1,5 @@
-import { RP2040 } from '../rp2040';
-import { BasePeripheral, Peripheral } from './peripheral';
+import { RP2040 } from '../rp2040.js';
+import { BasePeripheral, Peripheral } from './peripheral.js';
 
 /** Bus priority acknowledge */
 const BUS_PRIORITY_ACK = 0x004;

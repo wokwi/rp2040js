@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestDriver } from '../../test-utils/create-test-driver';
-import { ICortexTestDriver } from '../../test-utils/test-driver';
+import { createTestDriver } from '../../test-utils/create-test-driver.js';
+import { ICortexTestDriver } from '../../test-utils/test-driver.js';
 import {
   PIO_COND_ALWAYS,
   PIO_COND_NOTEMPTYOSR,
@@ -37,7 +37,7 @@ import {
   pioPUSH,
   pioSET,
   pioWAIT,
-} from '../utils/pio-assembler';
+} from '../utils/pio-assembler.js';
 
 const CTRL = 0x50200000;
 const FLEVEL = 0x5020000c;

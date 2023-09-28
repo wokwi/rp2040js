@@ -1,4 +1,4 @@
-import { RP2040 } from '../rp2040';
+import { RP2040 } from '../rp2040.js';
 
 const ATOMIC_NORMAL = 0;
 const ATOMIC_XOR = 1;
