@@ -5,7 +5,7 @@
     "module": "commonjs" /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */,
     "outDir": "./dist/cjs" /* Redirect output structure to the directory. */,
     "strict": true /* Enable all strict type-checking options. */,
-    "noFallthroughCasesInSwitch": false,
+    "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
     "declaration": true,
     "esModuleInterop": true /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */,
     "skipLibCheck": true /* Skip type checking of declaration files. */,
