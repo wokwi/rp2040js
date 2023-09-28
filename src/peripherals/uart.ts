@@ -42,7 +42,12 @@ export class RPUART extends BasePeripheral implements Peripheral {
 
   public onByte?: (value: number) => void;
 
-  constructor(rp2040: RP2040, name: string, readonly irq: number, readonly dreq: IUARTDMAChannels) {
+  constructor(
+    rp2040: RP2040,
+    name: string,
+    readonly irq: number,
+    readonly dreq: IUARTDMAChannels,
+  ) {
     super(rp2040, name);
   }
 

@@ -6,7 +6,10 @@ import { RP2040 } from '../rp2040';
 export class GDBTCPServer extends GDBServer {
   private socketServer = createServer();
 
-  constructor(rp2040: RP2040, readonly port: number = 3333) {
+  constructor(
+    rp2040: RP2040,
+    readonly port: number = 3333,
+  ) {
     super(rp2040);
     this.socketServer.listen(port);
     this.socketServer.on('connection', (socket) => this.handleConnection(socket));

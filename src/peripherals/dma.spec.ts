@@ -62,7 +62,7 @@ describe('DMA', () => {
         INCR_WRITE |
         INCR_READ |
         (TREQ_PERMANENT << TREQ_SEL_SHIFT) |
-        (2 << DATA_SIZE_SHIFT)
+        (2 << DATA_SIZE_SHIFT),
     );
 
     // Channel 6 is used to control channel 2:
@@ -71,7 +71,7 @@ describe('DMA', () => {
     cpu.writeUint32(CH6_TRANS_COUNT, 1); // we'll copy one word at a time
     cpu.writeUint32(
       CH6_CTRL_TRIG,
-      EN | INCR_READ | (TREQ_PERMANENT << TREQ_SEL_SHIFT) | (2 << DATA_SIZE_SHIFT)
+      EN | INCR_READ | (TREQ_PERMANENT << TREQ_SEL_SHIFT) | (2 << DATA_SIZE_SHIFT),
     );
 
     expect(cpu.readUint32(CH6_CTRL_TRIG) & BUSY).toEqual(BUSY);

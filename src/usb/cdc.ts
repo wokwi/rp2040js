@@ -79,7 +79,7 @@ export class USBCDC {
       if (endpoint === ENDPOINT_ZERO && buffer.length === 0) {
         if (this.descriptorsSize == null) {
           this.usb.sendSetupPacket(
-            getDescriptorPacket(DescriptorType.Configration, CONFIGURATION_DESCRIPTOR_SIZE)
+            getDescriptorPacket(DescriptorType.Configration, CONFIGURATION_DESCRIPTOR_SIZE),
           );
         }
         // Acknowledgement
@@ -96,7 +96,7 @@ export class USBCDC {
         ) {
           this.descriptorsSize = (buffer[3] << 8) | buffer[2];
           this.usb.sendSetupPacket(
-            getDescriptorPacket(DescriptorType.Configration, this.descriptorsSize)
+            getDescriptorPacket(DescriptorType.Configration, this.descriptorsSize),
           );
         } else if (this.descriptorsSize != null && this.descriptors.length < this.descriptorsSize) {
           this.descriptors.push(...buffer);
@@ -135,7 +135,7 @@ export class USBCDC {
         wValue: value,
         wIndex: interfaceNumber,
         wLength: 0,
-      })
+      }),
     );
     this.initialized = true;
   }

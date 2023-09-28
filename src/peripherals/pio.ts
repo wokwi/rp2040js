@@ -156,7 +156,11 @@ export class StateMachine {
   readonly dreqRx = this.pio.dreqRx[this.index];
   readonly dreqTx = this.pio.dreqTx[this.index];
 
-  constructor(readonly rp2040: RP2040, readonly pio: RPPIO, readonly index: number) {
+  constructor(
+    readonly rp2040: RP2040,
+    readonly pio: RPPIO,
+    readonly index: number,
+  ) {
     this.updateDMARx();
     this.updateDMATx();
   }
@@ -937,7 +941,12 @@ export class RPPIO extends BasePeripheral implements Peripheral {
   irq1IntEnable = 0;
   irq1IntForce = 0;
 
-  constructor(rp2040: RP2040, name: string, readonly firstIrq: number, readonly index: number) {
+  constructor(
+    rp2040: RP2040,
+    name: string,
+    readonly firstIrq: number,
+    readonly index: number,
+  ) {
     super(rp2040, name);
   }
 

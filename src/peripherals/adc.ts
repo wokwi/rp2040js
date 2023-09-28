@@ -92,7 +92,7 @@ export class RPADC extends BasePeripheral implements Peripheral {
   onADCRead: (channel: number) => void = (channel) => {
     // Default implementation
     this.rp2040.clock.createTimer(this.sampleTime, () =>
-      this.completeADCRead(this.channelValues[channel], false)
+      this.completeADCRead(this.channelValues[channel], false),
     );
   };
 

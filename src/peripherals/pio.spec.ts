@@ -123,11 +123,11 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_PINCTRL,
-      (pinsQty << SET_COUNT_SHIFT) | (shiftAmount << SET_COUNT_BASE)
+      (pinsQty << SET_COUNT_SHIFT) | (shiftAmount << SET_COUNT_BASE),
     );
     await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_PINS, pinsValue));
     expect((await cpu.readUint32(DBG_PADOUT)) & (((1 << pinsQty) - 1) << shiftAmount)).toBe(
-      pinsValue << shiftAmount
+      pinsValue << shiftAmount,
     );
   });
 
@@ -402,7 +402,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_EXECCTRL,
-      (1 << EXECCTRL_WRAP_BOTTOM_SHIFT) | (2 << EXECCTRL_WRAP_TOP_SHIFT)
+      (1 << EXECCTRL_WRAP_BOTTOM_SHIFT) | (2 << EXECCTRL_WRAP_TOP_SHIFT),
     );
 
     // State machine Pseudo code:
@@ -429,7 +429,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
     await cpu.writeUint32(TXF0, 0x5);
     await cpu.writeUint32(TXF0, 0x6);
@@ -450,7 +450,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
     await cpu.writeUint32(TXF0, 0x25);
     await cpu.writeUint32(TXF0, 0x36);
@@ -466,13 +466,13 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPULL | (4 << SHIFTCTRL_PULL_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
 
     await cpu.writeUint32(SM0_INSTR, pioOUT(PIO_DEST_X, 4));
 
     expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(
-      EXECCTRL_EXEC_STALLED
+      EXECCTRL_EXEC_STALLED,
     );
 
     console.log('now writing to TXF0');
@@ -484,7 +484,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
 
     await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 0x13));
@@ -497,7 +497,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
 
     await cpu.writeUint32(SM0_INSTR, pioMOV(PIO_DEST_X, PIO_OP_INVERT, PIO_SRC_NULL));
@@ -510,7 +510,7 @@ describe('PIO', () => {
     await resetStateMachines();
     await cpu.writeUint32(
       SM0_SHIFTCTRL,
-      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR
+      SHIFTCTRL_AUTOPUSH | (8 << SHIFTCTRL_PUSH_THRESH_SHIFT) | OUT_SHIFTDIR,
     );
 
     await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 15));
@@ -525,7 +525,7 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 8)); // Should fill the RX FIFO and stall!
 
     expect((await cpu.readUint32(SM0_EXECCTRL)) & EXECCTRL_EXEC_STALLED).toEqual(
-      EXECCTRL_EXEC_STALLED
+      EXECCTRL_EXEC_STALLED,
     );
 
     expect(await cpu.readUint16(RXF0)).toEqual(15); // Unstalls the machine

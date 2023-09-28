@@ -1,7 +1,10 @@
 import { IClock, IClockTimer } from './clock';
 
 export class MockClockTimer implements IClockTimer {
-  constructor(readonly micros: number, readonly callback: () => void) {}
+  constructor(
+    readonly micros: number,
+    readonly callback: () => void,
+  ) {}
 
   pause() {
     /* intentionally empty */

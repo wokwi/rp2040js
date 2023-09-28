@@ -180,7 +180,11 @@ export class RPI2C extends BasePeripheral implements Peripheral {
     return this.control & IC_10BITADDR_MASTER ? 10 : 7;
   }
 
-  constructor(rp2040: RP2040, name: string, readonly irq: number) {
+  constructor(
+    rp2040: RP2040,
+    name: string,
+    readonly irq: number,
+  ) {
     super(rp2040, name);
   }
 
@@ -367,7 +371,7 @@ export class RPI2C extends BasePeripheral implements Peripheral {
             R_ACTIVITY |
             R_STOP_DET |
             R_START_DET |
-            R_GEN_CALL
+            R_GEN_CALL,
         );
       case IC_CLR_RX_UNDER:
         return this.clearInterrupts(R_RX_UNDER);

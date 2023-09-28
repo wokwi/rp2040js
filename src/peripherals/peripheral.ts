@@ -28,7 +28,10 @@ export interface Peripheral {
 export class BasePeripheral implements Peripheral {
   protected rawWriteValue = 0;
 
-  constructor(protected rp2040: RP2040, readonly name: string) {}
+  constructor(
+    protected rp2040: RP2040,
+    readonly name: string,
+  ) {}
 
   readUint32(offset: number) {
     this.warn(`Unimplemented peripheral read from ${offset.toString(16)}`);

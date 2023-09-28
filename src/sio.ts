@@ -414,7 +414,7 @@ export class RPSIO {
         break;
       default:
         console.warn(
-          `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)}`
+          `Write to invalid SIO address: ${offset.toString(16)}, value=${value.toString(16)}`,
         );
     }
     const pinsToUpdate =

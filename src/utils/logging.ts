@@ -15,7 +15,10 @@ export enum LogLevel {
 }
 
 export class ConsoleLogger implements Logger {
-  constructor(public currentLogLevel: LogLevel, private throwOnError = true) {}
+  constructor(
+    public currentLogLevel: LogLevel,
+    private throwOnError = true,
+  ) {}
 
   private aboveLogLevel(logLevel: LogLevel): boolean {
     return logLevel >= this.currentLogLevel ? true : false;

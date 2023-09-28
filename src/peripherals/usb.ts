@@ -204,7 +204,7 @@ export class RPUSBController extends BasePeripheral {
       this.debug(
         `Start USB transfer, endPoint=${endpoint}, direction=${
           bufferOut ? 'out' : 'in'
-        } buffer=${bufferOffset.toString(16)} length=${bufferLength}`
+        } buffer=${bufferOffset.toString(16)} length=${bufferLength}`,
       );
       value &= ~USB_BUF_CTRL_AVAILABLE;
       this.rp2040.usbDPRAMView.setUint32(offset, value, true);
@@ -232,7 +232,7 @@ export class RPUSBController extends BasePeripheral {
         this.debug(
           `Start USB transfer, endPoint=${endpoint}, direction=${
             bufferOut ? 'out' : 'in'
-          } buffer=${bufferOffset.toString(16)} length=${bufferLength}`
+          } buffer=${bufferOffset.toString(16)} length=${bufferLength}`,
         );
         value &= ~(USB_BUF_CTRL_AVAILABLE << USB_BUF1_SHIFT);
         this.rp2040.usbDPRAMView.setUint32(offset, value, true);

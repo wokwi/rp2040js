@@ -82,7 +82,11 @@ class PWMChannel {
   readonly pinA2 = this.index < 7 ? 16 + this.index * 2 : -1;
   readonly pinB2 = this.index < 7 ? 16 + this.index * 2 + 1 : -1;
 
-  constructor(private pwm: RPPWM, readonly clock: IClock, readonly index: number) {
+  constructor(
+    private pwm: RPPWM,
+    readonly clock: IClock,
+    readonly index: number,
+  ) {
     this.alarmA.enable = true;
     this.alarmB.enable = true;
     this.alarmBottom.enable = true;

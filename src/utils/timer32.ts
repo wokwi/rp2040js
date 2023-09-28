@@ -15,7 +15,10 @@ export class Timer32 {
   private enabled = true;
   readonly listeners: (() => void)[] = [];
 
-  constructor(readonly clock: IClock, private baseFreq: number) {}
+  constructor(
+    readonly clock: IClock,
+    private baseFreq: number,
+  ) {}
 
   reset() {
     this.baseMicros = this.clock.micros;
@@ -141,7 +144,10 @@ export class Timer32PeriodicAlarm {
   private enabled = false;
   private clockTimer?: IClockTimer;
 
-  constructor(readonly timer: Timer32, readonly callback: () => void) {
+  constructor(
+    readonly timer: Timer32,
+    readonly callback: () => void,
+  ) {
     timer.listeners.push(this.update);
   }
 

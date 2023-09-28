@@ -48,7 +48,11 @@ export class GPIOPin {
 
   private readonly listeners = new Set<GPIOPinListener>();
 
-  constructor(readonly rp2040: RP2040, readonly index: number, readonly name = index.toString()) {}
+  constructor(
+    readonly rp2040: RP2040,
+    readonly index: number,
+    readonly name = index.toString(),
+  ) {}
 
   get rawInterrupt() {
     return !!((this.irqStatus & this.irqEnableMask) | this.irqForceMask);

@@ -30,7 +30,10 @@ class RPTimerAlarm {
   targetMicros = 0;
   timer: IClockTimer | null = null;
 
-  constructor(readonly name: string, readonly bitValue: number) {}
+  constructor(
+    readonly name: string,
+    readonly bitValue: number,
+  ) {}
 }
 
 export class RPTimer extends BasePeripheral implements Peripheral {

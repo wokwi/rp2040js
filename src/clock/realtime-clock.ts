@@ -5,7 +5,10 @@ export class ClockTimer implements IClockTimer {
   private jsTimer: NodeJS.Timeout | null = null;
   private timeLeft: number = this.micros;
 
-  constructor(private micros: number, private callback: () => void) {}
+  constructor(
+    private micros: number,
+    private callback: () => void,
+  ) {}
 
   schedule(currentMicros: number) {
     this.jsTimer = setTimeout(this.callback, (this.micros - currentMicros) / 1000);

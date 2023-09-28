@@ -134,7 +134,11 @@ export class RPDMAChannel {
   private transferFn: () => void = () => 0;
   private transferTimer: IClockTimer | null = null;
 
-  constructor(readonly dma: RPDMA, readonly rp2040: RP2040, readonly index: number) {
+  constructor(
+    readonly dma: RPDMA,
+    readonly rp2040: RP2040,
+    readonly index: number,
+  ) {
     this.reset();
   }
 
@@ -186,7 +190,7 @@ export class RPDMAChannel {
       ((input & 0x000000ff) << 24) |
         ((input & 0x0000ff00) << 8) |
         ((input & 0x00ff0000) >> 8) |
-        ((input >> 24) & 0xff)
+        ((input >> 24) & 0xff),
     );
   };
 

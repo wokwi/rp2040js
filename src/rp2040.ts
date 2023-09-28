@@ -200,7 +200,7 @@ export class RP2040 {
     if (address & 0x3) {
       this.logger.error(
         LOG_NAME,
-        `read from address ${address.toString(16)}, which is not 32 bit aligned`
+        `read from address ${address.toString(16)}, which is not 32 bit aligned`,
       );
     }
 
@@ -309,7 +309,7 @@ export class RP2040 {
       peripheral.writeUint32Atomic(
         offset,
         (value & 0xff) | ((value & 0xff) << 8) | ((value & 0xff) << 16) | ((value & 0xff) << 24),
-        atomicType
+        atomicType,
       );
       return;
     }

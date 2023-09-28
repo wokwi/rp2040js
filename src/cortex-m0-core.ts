@@ -604,7 +604,7 @@ export class CortexM0Core {
       const Rdn = opcode & 0x7;
       this.registers[Rdn] = this.addUpdateFlags(
         this.registers[Rm],
-        this.registers[Rdn] + (this.C ? 1 : 0)
+        this.registers[Rdn] + (this.C ? 1 : 0),
       );
     }
     // ADD (register = SP plus immediate)
@@ -1131,7 +1131,7 @@ export class CortexM0Core {
       const Rdn = opcode & 0x7;
       this.registers[Rdn] = this.substractUpdateFlags(
         this.registers[Rdn],
-        this.registers[Rm] + (1 - (this.C ? 1 : 0))
+        this.registers[Rm] + (1 - (this.C ? 1 : 0)),
       );
     }
     // SEV
@@ -1314,7 +1314,7 @@ export class CortexM0Core {
     } else {
       this.logger.warn(
         LOG_NAME,
-        `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`
+        `Warning: Instruction at ${opcodePC.toString(16)} is not implemented yet!`,
       );
       this.logger.warn(LOG_NAME, `Opcode: 0x${opcode.toString(16)} (0x${opcode2.toString(16)})`);
     }

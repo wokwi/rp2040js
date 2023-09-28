@@ -127,7 +127,12 @@ export class RPSPI extends BasePeripheral implements Peripheral {
     }
   }
 
-  constructor(rp2040: RP2040, name: string, readonly irq: number, readonly dreq: ISPIDMAChannels) {
+  constructor(
+    rp2040: RP2040,
+    name: string,
+    readonly irq: number,
+    readonly dreq: ISPIDMAChannels,
+  ) {
     super(rp2040, name);
     this.updateDMATx();
     this.updateDMARx();

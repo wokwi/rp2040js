@@ -12,7 +12,7 @@ import { GDBClient, dumpUint32, registerNames } from '../test-utils/gdbclient';
 function printComparedRegisters(
   registers: Uint32Array,
   emulator: Uint32Array,
-  silicone: Uint32Array
+  silicone: Uint32Array,
 ) {
   for (let i = 0; i < registerNames.length; i++) {
     let modified = ' ';
@@ -26,7 +26,7 @@ function printComparedRegisters(
         '\t0x' +
         dumpUint32(emulator[i]) +
         '\t0x' +
-        dumpUint32(silicone[i])
+        dumpUint32(silicone[i]),
     );
     if (registerNames[i] === 'xPSR' && modified === '*') {
       console.log(
@@ -35,7 +35,7 @@ function printComparedRegisters(
         '\t',
         printFlags(emulator[i]),
         '\t',
-        printFlags(silicone[i])
+        printFlags(silicone[i]),
       );
     }
   }
@@ -52,7 +52,7 @@ function printFlags(xpsr: number) {
 async function compareFixRegisters(
   emulator: Uint32Array,
   silicone: Uint32Array,
-  toFixClient: GDBClient
+  toFixClient: GDBClient,
 ) {
   let result = true;
   for (let i = 0; i < emulator.length; i++) {

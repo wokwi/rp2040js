@@ -136,7 +136,7 @@ export class Interpolator {
     this.smresult0 = u32(result0);
     this.smresult1 = u32(result1);
     this.result0 = u32(
-      do_blend ? alpha1 : (do_clamp ? clamp0 : addresult0) | (ctrl0.forceMSB << 28)
+      do_blend ? alpha1 : (do_clamp ? clamp0 : addresult0) | (ctrl0.forceMSB << 28),
     );
     this.result1 = u32((do_blend ? blend1 : addresult1) | (ctrl0.forceMSB << 28));
     this.result2 = u32(addresult2);

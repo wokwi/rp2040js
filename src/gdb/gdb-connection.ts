@@ -7,7 +7,10 @@ export class GDBConnection {
   readonly rp2040 = this.server.rp2040;
   private buf = '';
 
-  constructor(private server: GDBServer, private onResponse: GDBResponseHandler) {
+  constructor(
+    private server: GDBServer,
+    private onResponse: GDBResponseHandler,
+  ) {
     server.addConnection(this);
     onResponse('+');
   }

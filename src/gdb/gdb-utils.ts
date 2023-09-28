@@ -8,7 +8,7 @@ export function encodeHexBuf(buf: Uint8Array) {
 
 export function encodeHexUint32BE(value: number) {
   return encodeHexBuf(
-    new Uint8Array([(value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff])
+    new Uint8Array([(value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff]),
   );
 }
 
