@@ -2,7 +2,7 @@ name: Test Pi Pico SDK
 on:
   push:
   pull_request:
-    branches: [master]
+    branches: [main]
 jobs:
   test-pico-sdk:
     name: Test Pi Pico SDK

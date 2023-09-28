@@ -1,9 +1,8 @@
 name: Test and Lint
 on:
   push:
-    branches: [master]
   pull_request:
-    branches: [master]
+    branches: [main]
 jobs:
   test:
     name: Test and Lint
