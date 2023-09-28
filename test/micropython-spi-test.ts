@@ -1,7 +1,7 @@
-import { GPIOPinState, RP2040 } from '../src';
-import { ConsoleLogger, LogLevel } from '../src/utils/logging';
-import { bootromB1 } from '../demo/bootrom';
-import { loadUF2, loadMicropythonFlashImage } from '../demo/load-flash';
+import { GPIOPinState, RP2040 } from '../src/index.js';
+import { ConsoleLogger, LogLevel } from '../src/utils/logging.js';
+import { bootromB1 } from '../demo/bootrom.js';
+import { loadUF2, loadMicropythonFlashImage } from '../demo/load-flash.js';
 import fs from 'fs';
 import minimist from 'minimist';
 

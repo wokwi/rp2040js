@@ -1,7 +1,7 @@
 import { closeSync, openSync, readSync } from 'fs';
 import { decodeBlock } from 'uf2';
-import { RP2040 } from '../src';
-import { FLASH_START_ADDRESS } from '../src/rp2040';
+import { RP2040 } from '../src/index.js';
+import { FLASH_START_ADDRESS } from '../src/rp2040.js';
 
 const MICROPYTHON_FS_FLASH_START = 0xa0000;
 const MICROPYTHON_FS_BLOCKSIZE = 4096;

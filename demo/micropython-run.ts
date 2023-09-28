@@ -1,9 +1,9 @@
-import { RP2040 } from '../src';
-import { GDBTCPServer } from '../src/gdb/gdb-tcp-server';
-import { USBCDC } from '../src/usb/cdc';
-import { ConsoleLogger, LogLevel } from '../src/utils/logging';
-import { bootromB1 } from './bootrom';
-import { loadUF2, loadMicropythonFlashImage, loadCircuitpythonFlashImage } from './load-flash';
+import { RP2040 } from '../src/index.js';
+import { GDBTCPServer } from '../src/gdb/gdb-tcp-server.js';
+import { USBCDC } from '../src/usb/cdc.js';
+import { ConsoleLogger, LogLevel } from '../src/utils/logging.js';
+import { bootromB1 } from './bootrom.js';
+import { loadUF2, loadMicropythonFlashImage, loadCircuitpythonFlashImage } from './load-flash.js';
 import fs from 'fs';
 import minimist from 'minimist';
 

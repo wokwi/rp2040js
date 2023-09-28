@@ -1,8 +1,8 @@
 import * as fs from 'fs';
-import { RP2040 } from '../src';
-import { bootromB1 } from './bootrom';
-import { loadHex } from './intelhex';
-import { GDBTCPServer } from '../src/gdb/gdb-tcp-server';
+import { RP2040 } from '../src/index.js';
+import { bootromB1 } from './bootrom.js';
+import { loadHex } from './intelhex.js';
+import { GDBTCPServer } from '../src/gdb/gdb-tcp-server.js';
 
 // Create an array with the compiled code of blink
 // Execute the instructions from this array, one by one.

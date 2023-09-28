@@ -7,7 +7,7 @@
  * Copyright (C) 2021, Uri Shaked.
  **/
 
-import { GDBClient, dumpUint32, registerNames } from '../test-utils/gdbclient';
+import { GDBClient, dumpUint32, registerNames } from '../test-utils/gdbclient.js';
 
 function printComparedRegisters(
   registers: Uint32Array,
