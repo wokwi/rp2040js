@@ -13,6 +13,14 @@ const UARTIMSC = 0x38;
 const UARTIRIS = 0x3c;
 const UARTIMIS = 0x40;
 const UARTICR = 0x44;
+const UARTPERIPHID0 = 0xfe0;
+const UARTPERIPHID1 = 0xfe4;
+const UARTPERIPHID2 = 0xfe8;
+const UARTPERIPHID3 = 0xfec;
+const UARTPCELLID0 = 0xff0;
+const UARTPCELLID1 = 0xff4;
+const UARTPCELLID2 = 0xff8;
+const UARTPCELLID3 = 0xffc;
 
 // UARTFR bits:
 const TXFE = 1 << 7;
@@ -137,6 +145,22 @@ export class RPUART extends BasePeripheral implements Peripheral {
         return this.interruptStatus;
       case UARTIMIS:
         return this.interruptStatus & this.interruptMask;
+      case UARTPERIPHID0:
+        return 0x11;
+      case UARTPERIPHID1:
+        return 0x10;
+      case UARTPERIPHID2:
+        return 0x34;
+      case UARTPERIPHID3:
+        return 0x00;
+      case UARTPCELLID0:
+        return 0x0d;
+      case UARTPCELLID1:
+        return 0xf0;
+      case UARTPCELLID2:
+        return 0x05;
+      case UARTPCELLID3:
+        return 0xb1;
     }
     return super.readUint32(offset);
   }
