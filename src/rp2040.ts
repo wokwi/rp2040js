@@ -24,8 +24,9 @@ import { RPTBMAN } from './peripherals/tbman.js';
 import { RPTimer } from './peripherals/timer.js';
 import { RPUART } from './peripherals/uart.js';
 import { RPUSBController } from './peripherals/usb.js';
+import { RPWatchdog } from './peripherals/watchdog.js';
 import { RPSIO } from './sio.js';
-import { ConsoleLogger, Logger, LogLevel } from './utils/logging.js';
+import { ConsoleLogger, LogLevel, Logger } from './utils/logging.js';
 
 export const FLASH_START_ADDRESS = 0x10000000;
 export const RAM_START_ADDRESS = 0x20000000;
@@ -161,7 +162,7 @@ export class RP2040 {
     0x4004c: this.adc,
     0x40050: this.pwm,
     0x40054: new RPTimer(this, 'TIMER_BASE'),
-    0x40058: new UnimplementedPeripheral(this, 'WATCHDOG_BASE'),
+    0x40058: new RPWatchdog(this, 'WATCHDOG_BASE'),
     0x4005c: new RP2040RTC(this, 'RTC_BASE'),
     0x40060: new UnimplementedPeripheral(this, 'ROSC_BASE'),
     0x40064: new UnimplementedPeripheral(this, 'VREG_AND_CHIP_RESET_BASE'),
