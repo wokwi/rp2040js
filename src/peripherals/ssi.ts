@@ -7,6 +7,9 @@ const SSI_DR0 = 0x00000060;
 const SSI_SR_TFNF_BITS = 0x00000002;
 const SSI_SR_TFE_BITS = 0x00000004;
 const SSI_SR_RFNE_BITS = 0x00000008;
+/** Identification register */
+const SSI_IDR = 0x00000058;
+const SSI_VERSION_ID = 0x0000005c;
 
 const CMD_READ_STATUS = 0x05;
 
@@ -21,6 +24,10 @@ export class RPSSI extends BasePeripheral implements Peripheral {
         return 0;
       case SSI_SR:
         return SSI_SR_TFE_BITS | SSI_SR_RFNE_BITS | SSI_SR_TFNF_BITS;
+      case SSI_IDR:
+        return 0x51535049;
+      case SSI_VERSION_ID:
+        return 0x3430312a;
       case SSI_DR0:
         return this.dr0;
     }
