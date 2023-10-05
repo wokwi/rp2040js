@@ -36,6 +36,7 @@ const TXE = 1 << 8;
 const UARTEN = 1 << 0;
 
 // Interrupt bits
+const UARTTXINTR = 1 << 5;
 const UARTRXINTR = 1 << 4;
 
 export interface IUARTDMAChannels {
@@ -109,6 +110,8 @@ export class RPUART extends BasePeripheral implements Peripheral {
   }
 
   checkInterrupts() {
+    // TODO We should actually implement a proper FIFO for TX
+    this.interruptStatus |= UARTTXINTR;
     this.rp2040.setInterrupt(this.irq, !!(this.interruptStatus & this.interruptMask));
   }
 
@@ -125,8 +128,10 @@ export class RPUART extends BasePeripheral implements Peripheral {
         const value = this.rxFIFO.pull();
         if (!this.rxFIFO.empty) {
           this.interruptStatus |= UARTRXINTR;
-          this.checkInterrupts();
+        } else {
+          this.interruptStatus &= ~UARTRXINTR;
         }
+        this.checkInterrupts();
         return value;
       }
       case UARTFR:
