@@ -46,8 +46,6 @@ const RTC_1_SEC_MASK = 0x3f;
 export class RP2040RTC extends BasePeripheral implements Peripheral {
   setup0 = 0;
   setup1 = 0;
-  rtc1 = 0;
-  rtc0 = 0;
   ctrl = 0;
   baseline = new Date(2021, 0, 1);
   baselineMicros = 0;
