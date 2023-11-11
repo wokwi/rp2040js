@@ -11,14 +11,51 @@ const RTC_ENABLE_BITS = 0x01;
 const RTC_ACTIVE_BITS = 0x2;
 const RTC_LOAD_BITS = 0x10;
 
+const SETUP_0_YEAR_SHIFT = 12;
+const SETUP_0_YEAR_MASK = 0xfff;
+const SETUP_0_MONTH_SHIFT = 8;
+const SETUP_0_MONTH_MASK = 0xf;
+const SETUP_0_DAY_SHIFT = 0;
+const SETUP_0_DAY_MASK = 0x1f;
+
+const SETUP_1_DOTW_SHIFT = 24;
+const SETUP_1_DOTW_MASK = 0x7;
+const SETUP_1_HOUR_SHIFT = 16;
+const SETUP_1_HOUR_MASK = 0x1f;
+const SETUP_1_MIN_SHIFT = 8;
+const SETUP_1_MIN_MASK = 0x3f;
+const SETUP_1_SEC_SHIFT = 0;
+const SETUP_1_SEC_MASK = 0x3f;
+
+const RTC_0_YEAR_SHIFT = 12;
+const RTC_0_YEAR_MASK = 0xfff;
+const RTC_0_MONTH_SHIFT = 8;
+const RTC_0_MONTH_MASK = 0xf;
+const RTC_0_DAY_SHIFT = 0;
+const RTC_0_DAY_MASK = 0x1f;
+
+const RTC_1_DOTW_SHIFT = 24;
+const RTC_1_DOTW_MASK = 0x7;
+const RTC_1_HOUR_SHIFT = 16;
+const RTC_1_HOUR_MASK = 0x1f;
+const RTC_1_MIN_SHIFT = 8;
+const RTC_1_MIN_MASK = 0x3f;
+const RTC_1_SEC_SHIFT = 0;
+const RTC_1_SEC_MASK = 0x3f;
+
 export class RP2040RTC extends BasePeripheral implements Peripheral {
   setup0 = 0;
   setup1 = 0;
   rtc1 = 0;
   rtc0 = 0;
   ctrl = 0;
+  baseline = new Date(2021, 0, 1);
+  baselineMicros = 0;
 
   readUint32(offset: number) {
+    const date = new Date(
+      this.baseline.getTime() + (this.rp2040.clock.micros - this.baselineMicros) / 1000,
+    );
     switch (offset) {
       case RTC_SETUP0:
         return this.setup0;
@@ -29,9 +66,20 @@ export class RP2040RTC extends BasePeripheral implements Peripheral {
       case IRQ_SETUP_0:
         return 0;
       case RTC_RTC1:
-        return this.rtc1;
+        return (
+          ((date.getFullYear() & RTC_0_YEAR_MASK) << RTC_0_YEAR_SHIFT) |
+          (((date.getMonth() + 1) & RTC_0_MONTH_MASK) << RTC_0_MONTH_SHIFT) |
+          ((date.getDate() & RTC_0_DAY_MASK) << RTC_0_DAY_SHIFT)
+        );
       case RTC_RTC0:
-        return this.rtc0;
+        return (
+          ((date.getDay() & RTC_1_DOTW_MASK) << RTC_1_DOTW_SHIFT) |
+          ((date.getHours() & RTC_1_HOUR_MASK) << RTC_1_HOUR_SHIFT) |
+          ((date.getMinutes() & RTC_1_MIN_MASK) << RTC_1_MIN_SHIFT) |
+          ((date.getSeconds() & RTC_1_SEC_MASK) << RTC_1_SEC_SHIFT)
+        );
+      default:
+        break;
     }
     return super.readUint32(offset);
   }
@@ -55,8 +103,14 @@ export class RP2040RTC extends BasePeripheral implements Peripheral {
           this.ctrl |= RTC_ENABLE_BITS;
           this.ctrl |= RTC_ACTIVE_BITS;
           if (this.ctrl & RTC_LOAD_BITS) {
-            this.rtc1 = this.setup0;
-            this.rtc0 = this.setup1;
+            const year = (this.setup0 >> SETUP_0_YEAR_SHIFT) & SETUP_0_YEAR_MASK;
+            const month = (this.setup0 >> SETUP_0_MONTH_SHIFT) & SETUP_0_MONTH_MASK;
+            const day = (this.setup0 >> SETUP_0_DAY_SHIFT) & SETUP_0_DAY_MASK;
+            const hour = (this.setup1 >> SETUP_1_HOUR_SHIFT) & SETUP_1_HOUR_MASK;
+            const min = (this.setup1 >> SETUP_1_MIN_SHIFT) & SETUP_1_MIN_MASK;
+            const sec = (this.setup1 >> SETUP_1_SEC_SHIFT) & SETUP_1_SEC_MASK;
+            this.baseline = new Date(year, month - 1, day, hour, min, sec);
+            this.baselineMicros = this.rp2040.clock.micros;
             this.ctrl &= ~RTC_LOAD_BITS;
           }
         } else {
