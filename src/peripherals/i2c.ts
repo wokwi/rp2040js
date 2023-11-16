@@ -162,6 +162,10 @@ export class RPI2C extends BasePeripheral implements Peripheral {
   rxThreshold = 0;
   txThreshold = 0;
   control = IC_SLAVE_DISABLE | IC_RESTART_EN | (I2CSpeed.FastMode << SPEED_SHIFT) | MASTER_MODE;
+  ssClockHighPeriod = 0x0028;
+  ssClockLowPeriod = 0x002f;
+  fsClockHighPeriod = 0x0006;
+  fsClockLowPeriod = 0x000d;
   targetAddress = 0x55;
   slaveAddress = 0x55;
   abortSource = 0;
@@ -174,6 +178,14 @@ export class RPI2C extends BasePeripheral implements Peripheral {
 
   get speed() {
     return ((this.control >> SPEED_SHIFT) & SPEED_MASK) as I2CSpeed;
+  }
+
+  get sclLowPeriod() {
+    return this.speed === I2CSpeed.Standard ? this.ssClockLowPeriod : this.fsClockLowPeriod;
+  }
+
+  get sclHighPeriod() {
+    return this.speed === I2CSpeed.Standard ? this.ssClockHighPeriod : this.fsClockHighPeriod;
   }
 
   get masterBits() {
@@ -349,6 +361,14 @@ export class RPI2C extends BasePeripheral implements Peripheral {
         }
         this.clearInterrupts(R_RX_FULL);
         return this.rxFIFO.pull();
+      case IC_SS_SCL_HCNT:
+        return this.ssClockHighPeriod;
+      case IC_SS_SCL_LCNT:
+        return this.ssClockLowPeriod;
+      case IC_FS_SCL_HCNT:
+        return this.fsClockHighPeriod;
+      case IC_FS_SCL_LCNT:
+        return this.fsClockLowPeriod;
       case IC_INTR_STAT:
         return this.intStatus;
       case IC_INTR_MASK:
@@ -451,6 +471,22 @@ export class RPI2C extends BasePeripheral implements Peripheral {
           this.clearInterrupts(R_TX_EMPTY);
           this.nextCommand();
         }
+        return;
+
+      case IC_SS_SCL_HCNT:
+        this.ssClockHighPeriod = value & 0xffff;
+        return;
+
+      case IC_SS_SCL_LCNT:
+        this.ssClockLowPeriod = value & 0xffff;
+        return;
+
+      case IC_FS_SCL_HCNT:
+        this.fsClockHighPeriod = value & 0xffff;
+        return;
+
+      case IC_FS_SCL_LCNT:
+        this.fsClockLowPeriod = value & 0xffff;
         return;
 
       case IC_RX_TL:
