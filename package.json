@@ -48,13 +48,13 @@
     "prepare": "husky install",
     "format:check": "prettier --check **/*.{ts,js} !**/dist/** !**/node_modules/**",
     "lint": "eslint . --ext .ts",
-    "start": "ts-node --esm demo/emulator-run.ts",
-    "start:micropython": "ts-node --esm demo/micropython-run.ts",
-    "start:circuitpython": "ts-node --esm demo/micropython-run.ts --circuitpython",
-    "start:gdbdiff": "ts-node --esm debug/gdbdiff.ts",
+    "start": "tsx demo/emulator-run.ts",
+    "start:micropython": "tsx demo/micropython-run.ts",
+    "start:circuitpython": "tsx demo/micropython-run.ts --circuitpython",
+    "start:gdbdiff": "tsx debug/gdbdiff.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:micropython-spi": "ts-node --esm test/micropython-spi-test.ts"
+    "test:micropython-spi": "tsx test/micropython-spi-test.ts"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.2",
@@ -67,7 +67,7 @@
     "minimist": "^1.2.7",
     "prettier": "^3.0.3",
     "rimraf": "^5.0.5",
-    "ts-node": "^10.9.1",
+    "tsx": "^4.6.0",
     "typescript": "^5.2.2",
     "uf2": "^1.0.0",
     "vitest": "^0.34.5"
