@@ -1,4 +1,4 @@
-import { IClock, IClockTimer } from '../clock/clock.js';
+import { IClock } from '../clock/clock.js';
 
 export enum TimerMode {
   Increment,
@@ -8,7 +8,7 @@ export enum TimerMode {
 
 export class Timer32 {
   private baseValue = 0;
-  private baseMicros = 0;
+  private baseNanos = 0;
   private topValue = 0xffffffff;
   private prescalerValue = 1;
   private timerMode = TimerMode.Increment;
@@ -21,14 +21,14 @@ export class Timer32 {
   ) {}
 
   reset() {
-    this.baseMicros = this.clock.micros;
+    this.baseNanos = this.clock.nanos;
     this.baseValue = 0;
     this.updated();
   }
 
   set(value: number, zigZagDown = false) {
     this.baseValue = zigZagDown ? this.topValue * 2 - value : value;
-    this.baseMicros = this.clock.micros;
+    this.baseNanos = this.clock.nanos;
     this.updated();
   }
 
@@ -43,12 +43,12 @@ export class Timer32 {
   }
 
   get rawCounter() {
-    const { baseFreq, prescalerValue, baseMicros, baseValue, enabled, timerMode } = this;
+    const { baseFreq, prescalerValue, baseNanos, baseValue, enabled, timerMode } = this;
     if (!baseFreq || !prescalerValue || !enabled) {
       return this.baseValue;
     }
     const zigzag = timerMode == TimerMode.ZigZag;
-    const ticks = ((this.clock.micros - baseMicros) / 1e6) * (baseFreq / prescalerValue);
+    const ticks = ((this.clock.nanos - baseNanos) / 1e9) * (baseFreq / prescalerValue);
     const topModulo = zigzag ? this.topValue * 2 : this.topValue + 1;
     const delta = timerMode == TimerMode.Decrement ? topModulo - (ticks % topModulo) : ticks;
     let currentValue = Math.round(baseValue + delta);
@@ -82,7 +82,7 @@ export class Timer32 {
 
   set frequency(value: number) {
     this.baseValue = this.counter;
-    this.baseMicros = this.clock.micros;
+    this.baseNanos = this.clock.nanos;
     this.baseFreq = value;
     this.updated();
   }
@@ -93,15 +93,15 @@ export class Timer32 {
 
   set prescaler(value: number) {
     this.baseValue = this.counter;
-    this.baseMicros = this.clock.micros;
+    this.baseNanos = this.clock.nanos;
     this.enabled = this.prescalerValue !== 0;
     this.prescalerValue = value;
     this.updated();
   }
 
-  toMicros(cycles: number) {
+  toNanos(cycles: number) {
     const { baseFreq, prescalerValue } = this;
-    return (cycles * 1e6) / (baseFreq / prescalerValue);
+    return (cycles * 1e9) / (baseFreq / prescalerValue);
   }
 
   get enable() {
@@ -111,7 +111,7 @@ export class Timer32 {
   set enable(value: boolean) {
     if (value !== this.enabled) {
       if (value) {
-        this.baseMicros = this.clock.micros;
+        this.baseNanos = this.clock.nanos;
       } else {
         this.baseValue = this.counter;
       }
@@ -142,12 +142,13 @@ export class Timer32 {
 export class Timer32PeriodicAlarm {
   private targetValue = 0;
   private enabled = false;
-  private clockTimer?: IClockTimer;
+  private clockAlarm;
 
   constructor(
     readonly timer: Timer32,
     readonly callback: () => void,
   ) {
+    this.clockAlarm = this.timer.clock.createAlarm(this.handleAlarm);
     timer.listeners.push(this.update);
   }
 
@@ -219,14 +220,11 @@ export class Timer32PeriodicAlarm {
       cycleDelta = top + 1 - cycleDelta;
     }
     const cyclesToAlarm = cycleDelta >>> 0;
-    const microsToAlarm = timer.toMicros(cyclesToAlarm);
-    this.clockTimer = this.timer.clock.createTimer(microsToAlarm, this.handleAlarm);
+    const nanosToAlarm = timer.toNanos(cyclesToAlarm);
+    this.clockAlarm.schedule(nanosToAlarm);
   }
 
   private cancel() {
-    if (this.clockTimer) {
-      this.timer.clock.deleteTimer(this.clockTimer);
-      this.clockTimer = undefined;
-    }
+    this.clockAlarm.cancel();
   }
 }

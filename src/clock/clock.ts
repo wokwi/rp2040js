@@ -1,16 +1,12 @@
-export interface IClockTimer {
-  pause(currentMicros: number): void;
-  resume(currentMicros: number): void;
+export type AlarmCallback = () => void;
+
+export interface IAlarm {
+  schedule(deltaNanos: number): void;
+  cancel(): void;
 }
 
 export interface IClock {
-  readonly micros: number;
+  readonly nanos: number;
 
-  pause(): void;
-
-  resume(): void;
-
-  createTimer(deltaMicros: number, callback: () => void): IClockTimer;
-
-  deleteTimer(timer: IClockTimer): void;
+  createAlarm(callback: AlarmCallback): IAlarm;
 }

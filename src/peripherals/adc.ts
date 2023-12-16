@@ -84,16 +84,15 @@ export class RPADC extends BasePeripheral implements Peripheral {
    * Invoked whenever the emulated code performs an ADC read.
    *
    * The default implementation reads the result from the `channelValues` array, and then calls
-   * completeADCRead() after `sampleTime` milliseconds.
+   * completeADCRead() after `sampleTime` microseconds.
    *
    * If you override the default implementation, make sure to call `completeADCRead()` after
-   * `sampleTime` milliseconds (or else the ADC read will never complete).
+   * `sampleTime` microseconds (or else the ADC read will never complete).
    */
   onADCRead: (channel: number) => void = (channel) => {
     // Default implementation
-    this.rp2040.clock.createTimer(this.sampleTime, () =>
-      this.completeADCRead(this.channelValues[channel], false),
-    );
+    this.currentChannel = channel;
+    this.sampleAlarm.schedule(this.sampleTime * 1000);
   };
 
   readonly fifo = new FIFO(4);
@@ -110,6 +109,13 @@ export class RPADC extends BasePeripheral implements Peripheral {
   // Status
   busy = false;
   err = false;
+
+  currentChannel = 0;
+  /** Used to simulate ADC sample time */
+  sampleAlarm;
+
+  /** For scheduling multi-shot ADC capture */
+  multiShotAlarm;
 
   get temperatueEnable() {
     return this.cs & CS_TS_EN;
@@ -147,6 +153,14 @@ export class RPADC extends BasePeripheral implements Peripheral {
 
   constructor(rp2040: RP2040, name: string) {
     super(rp2040, name);
+    this.sampleAlarm = this.rp2040.clock.createAlarm(() =>
+      this.completeADCRead(this.channelValues[this.currentChannel], false),
+    );
+    this.multiShotAlarm = this.rp2040.clock.createAlarm(() => {
+      if (this.cs & CS_START_MANY) {
+        this.startADCRead();
+      }
+    });
   }
 
   checkInterrupts() {
@@ -213,11 +227,7 @@ export class RPADC extends BasePeripheral implements Peripheral {
       if (this.divider > sampleTicks) {
         // clock runs at 48MHz, subtract 2uS
         const micros = (this.divider - sampleTicks) / clockMHZ;
-        this.rp2040.clock.createTimer(micros, () => {
-          if (this.cs & CS_START_MANY) {
-            this.startADCRead();
-          }
-        });
+        this.multiShotAlarm.schedule(micros * 1000);
       } else {
         this.startADCRead();
       }

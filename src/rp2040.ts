@@ -1,5 +1,5 @@
 import { IClock } from './clock/clock.js';
-import { RealtimeClock } from './clock/realtime-clock.js';
+import { SimulationClock } from './clock/simulation-clock.js';
 import { CortexM0Core } from './cortex-m0-core.js';
 import { GPIOPin } from './gpio-pin.js';
 import { IRQ } from './irq.js';
@@ -133,11 +133,7 @@ export class RP2040 {
     }),
   ];
 
-  private stopped = true;
-
   public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
-
-  private executeTimer: NodeJS.Timeout | null = null;
 
   readonly peripherals: { [index: number]: Peripheral } = {
     0x18000: new RPSSI(this, 'SSI'),
@@ -179,10 +175,9 @@ export class RP2040 {
   public onBreak = (code: number) => {
     // TODO: raise HardFault exception
     // console.error('Breakpoint!', code);
-    this.stopped = true;
   };
 
-  constructor(readonly clock: IClock = new RealtimeClock()) {
+  constructor(readonly clock: IClock = new SimulationClock()) {
     this.reset();
   }
 
@@ -375,30 +370,5 @@ export class RP2040 {
 
   step() {
     this.core.executeInstruction();
-  }
-
-  execute() {
-    this.clock.resume();
-    this.executeTimer = null;
-    this.stopped = false;
-    for (let i = 0; i < 100000 && !this.stopped && !this.core.waiting; i++) {
-      this.core.executeInstruction();
-    }
-    if (!this.stopped) {
-      this.executeTimer = setTimeout(() => this.execute(), 0);
-    }
-  }
-
-  stop() {
-    this.stopped = true;
-    if (this.executeTimer != null) {
-      clearTimeout(this.executeTimer);
-      this.executeTimer = null;
-    }
-    this.clock.pause();
-  }
-
-  get executing() {
-    return !this.stopped;
   }
 }
