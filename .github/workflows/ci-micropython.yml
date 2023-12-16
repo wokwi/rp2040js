@@ -5,16 +5,22 @@ on:
     branches: [main]
 jobs:
   test-micropython:
-    name: Test and Lint
+    name: Micropython ${{ matrix.micropython_version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        micropython_version: [20210618-v1.16, 20210902-v1.17, 20220117-v1.18, 20220618-v1.19.1, 20230426-v1.20.0]
+        micropython_version:
+          - 20210618-v1.16
+          - 20210902-v1.17
+          - 20220117-v1.18
+          - 20220618-v1.19.1
+          - 20230426-v1.20.0
+          - 20231005-v1.21.0
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10' 
+          python-version: '3.10'
       - name: Install packages
         run: npm ci
       - name: Install Python requirements
