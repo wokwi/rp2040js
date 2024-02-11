@@ -11,10 +11,10 @@ jobs:
       matrix:
         sdk_version: [1.2.0, 1.3.1, 1.4.0]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache Pico SDK
         id: cache-pico-sdk
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/pico
           key: ${{ runner.os }}-pico-sdk-${{ matrix.sdk_version }}
