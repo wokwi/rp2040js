@@ -29,6 +29,7 @@ import { RPSIO } from './sio.js';
 import { ConsoleLogger, LogLevel, Logger } from './utils/logging.js';
 
 export const FLASH_START_ADDRESS = 0x10000000;
+export const FLASH_END_ADDRESS = 0x14000000;
 export const RAM_START_ADDRESS = 0x20000000;
 export const APB_START_ADDRESS = 0x40000000;
 export const DPRAM_START_ADDRESS = 0x50100000;
@@ -208,11 +209,14 @@ export class RP2040 {
     const { bootrom } = this;
     if (address < bootrom.length * 4) {
       return bootrom[address / 4];
-    } else if (
-      address >= FLASH_START_ADDRESS &&
-      address < FLASH_START_ADDRESS + this.flash.length
-    ) {
-      return this.flashView.getUint32(address - FLASH_START_ADDRESS, true);
+    } else if (address >= FLASH_START_ADDRESS && address < FLASH_END_ADDRESS) {
+      // Flash is mirrored four times:
+      // - 0x10000000 XIP
+      // - 0x11000000 XIP_NOALLOC
+      // - 0x12000000 XIP_NOCACHE
+      // - 0x13000000 XIP_NOCACHE_NOALLOC
+      const offset = address & 0x00ff_ffff;
+      return this.flashView.getUint32(offset, true);
     } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
     } else if (
