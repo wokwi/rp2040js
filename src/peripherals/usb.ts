@@ -1,5 +1,9 @@
+import { IAlarm } from '../clock/clock.js';
 import { IRQ } from '../irq.js';
+import { RP2040 } from '../rp2040.js';
 import { BasePeripheral } from './peripheral.js';
+
+const ENDPOINT_COUNT = 16;
 
 // USB DPSRAM Registers
 const EP1_IN_CONTROL = 0x8;
@@ -88,6 +92,17 @@ const SIE_WRITECLEAR_MASK =
   SIE_SETUP_REC |
   SIE_RESUME;
 
+class USBEndpointAlarm {
+  buffers: Uint8Array[] = [];
+
+  constructor(readonly alarm: IAlarm) {}
+
+  schedule(buffer: Uint8Array, delayNanos: number) {
+    this.buffers.push(buffer);
+    this.alarm.schedule(delayNanos);
+  }
+}
+
 export class RPUSBController extends BasePeripheral {
   private mainCtrl = 0;
   private intRaw = 0;
@@ -96,16 +111,48 @@ export class RPUSBController extends BasePeripheral {
   private sieStatus = 0;
   private buffStatus = 0;
 
+  private readonly endpointReadAlarms: USBEndpointAlarm[];
+  private readonly endpointWriteAlarms: USBEndpointAlarm[];
+
   onUSBEnabled?: () => void;
   onResetReceived?: () => void;
   onEndpointWrite?: (endpoint: number, buffer: Uint8Array) => void;
   onEndpointRead?: (endpoint: number, byteCount: number) => void;
 
   readDelayMicroseconds = 1;
-  writeDelayMicroseconds = 1;
+  writeDelayMicroseconds = 10; // Determined empirically
 
   get intStatus() {
     return (this.intRaw & this.intEnable) | this.intForce;
+  }
+
+  constructor(rp2040: RP2040, name: string) {
+    super(rp2040, name);
+    const clock = rp2040.clock;
+    this.endpointReadAlarms = [];
+    this.endpointWriteAlarms = [];
+    for (let i = 0; i < ENDPOINT_COUNT; ++i) {
+      this.endpointReadAlarms.push(
+        new USBEndpointAlarm(
+          clock.createAlarm(() => {
+            const buffer = this.endpointReadAlarms[i].buffers.shift();
+            if (buffer) {
+              this.finishRead(i, buffer);
+            }
+          }),
+        ),
+      );
+      this.endpointWriteAlarms.push(
+        new USBEndpointAlarm(
+          clock.createAlarm(() => {
+            for (const buffer of this.endpointWriteAlarms[i].buffers) {
+              this.onEndpointWrite?.(i, buffer);
+            }
+            this.endpointWriteAlarms[i].buffers = [];
+          }),
+        ),
+      );
+    }
   }
 
   readUint32(offset: number) {
@@ -199,6 +246,27 @@ export class RPUSBController extends BasePeripheral {
         interrupt = !!(control & USB_CTRL_INTERRUPT_PER_TRANSFER);
       }
 
+      if (doubleBuffer && (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_AVAILABLE) {
+        const bufferLength = (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_LEN_MASK;
+        const bufferOffset = this.getEndpointBufferOffset(endpoint, bufferOut) + USB_BUF1_OFFSET;
+        this.debug(
+          `Start USB transfer, endPoint=${endpoint}, direction=${
+            bufferOut ? 'out' : 'in'
+          } buffer=${bufferOffset.toString(16)} length=${bufferLength}`,
+        );
+        value &= ~(USB_BUF_CTRL_AVAILABLE << USB_BUF1_SHIFT);
+        this.rp2040.usbDPRAMView.setUint32(offset, value, true);
+        if (bufferOut) {
+          this.onEndpointRead?.(endpoint, bufferLength);
+        } else {
+          value &= ~(USB_BUF_CTRL_FULL << USB_BUF1_SHIFT);
+          this.rp2040.usbDPRAMView.setUint32(offset, value, true);
+          const buffer = this.rp2040.usbDPRAM.slice(bufferOffset, bufferOffset + bufferLength);
+          this.indicateBufferReady(endpoint, false);
+          this.endpointWriteAlarms[endpoint].schedule(buffer, this.writeDelayMicroseconds * 1000);
+        }
+      }
+
       const bufferLength = value & USB_BUF_CTRL_LEN_MASK;
       const bufferOffset = this.getEndpointBufferOffset(endpoint, bufferOut);
       this.debug(
@@ -217,52 +285,13 @@ export class RPUSBController extends BasePeripheral {
         if (interrupt || !doubleBuffer) {
           this.indicateBufferReady(endpoint, false);
         }
-        if (this.writeDelayMicroseconds) {
-          this.rp2040.clock.createTimer(this.writeDelayMicroseconds, () => {
-            this.onEndpointWrite?.(endpoint, buffer);
-          });
-        } else {
-          this.onEndpointWrite?.(endpoint, buffer);
-        }
-      }
-
-      if (doubleBuffer && (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_AVAILABLE) {
-        const bufferLength = (value >> USB_BUF1_SHIFT) & USB_BUF_CTRL_LEN_MASK;
-        const bufferOffset = this.getEndpointBufferOffset(endpoint, bufferOut) + USB_BUF1_OFFSET;
-        this.debug(
-          `Start USB transfer, endPoint=${endpoint}, direction=${
-            bufferOut ? 'out' : 'in'
-          } buffer=${bufferOffset.toString(16)} length=${bufferLength}`,
-        );
-        value &= ~(USB_BUF_CTRL_AVAILABLE << USB_BUF1_SHIFT);
-        this.rp2040.usbDPRAMView.setUint32(offset, value, true);
-        if (bufferOut) {
-          this.onEndpointRead?.(endpoint, bufferLength);
-        } else {
-          value &= ~(USB_BUF_CTRL_FULL << USB_BUF1_SHIFT);
-          this.rp2040.usbDPRAMView.setUint32(offset, value, true);
-          const buffer = this.rp2040.usbDPRAM.slice(bufferOffset, bufferOffset + bufferLength);
-          this.indicateBufferReady(endpoint, false);
-          if (this.writeDelayMicroseconds) {
-            this.rp2040.clock.createTimer(this.writeDelayMicroseconds, () => {
-              this.onEndpointWrite?.(endpoint, buffer);
-            });
-          } else {
-            this.onEndpointWrite?.(endpoint, buffer);
-          }
-        }
+        this.endpointWriteAlarms[endpoint].schedule(buffer, this.writeDelayMicroseconds * 1000);
       }
     }
   }
 
   endpointReadDone(endpoint: number, buffer: Uint8Array, delay = this.readDelayMicroseconds) {
-    if (delay) {
-      this.rp2040.clock.createTimer(delay, () => {
-        this.finishRead(endpoint, buffer);
-      });
-    } else {
-      this.finishRead(endpoint, buffer);
-    }
+    this.endpointReadAlarms[endpoint].schedule(buffer, delay * 1000);
   }
 
   private finishRead(endpoint: number, buffer: Uint8Array) {

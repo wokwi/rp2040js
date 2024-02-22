@@ -1,4 +1,3 @@
-import { IClockTimer } from '../clock/clock.js';
 import { IRQ } from '../irq.js';
 import { RP2040 } from '../rp2040.js';
 import { BasePeripheral, Peripheral } from './peripheral.js';
@@ -132,13 +131,14 @@ export class RPDMAChannel {
   private chainTo = 0;
   private ringMask = 0;
   private transferFn: () => void = () => 0;
-  private transferTimer: IClockTimer | null = null;
+  private transferAlarm;
 
   constructor(
     readonly dma: RPDMA,
     readonly rp2040: RP2040,
     readonly index: number,
   ) {
+    this.transferAlarm = rp2040.clock.createAlarm(this.transfer);
     this.reset();
   }
 
@@ -196,7 +196,6 @@ export class RPDMAChannel {
 
   transfer = () => {
     const { ctrl, dataSize, ringMask } = this;
-    this.transferTimer = null;
     this.transferFn();
     if (ctrl & INCR_READ) {
       if (ringMask && !(ctrl & RING_SEL)) {
@@ -228,26 +227,19 @@ export class RPDMAChannel {
   };
 
   scheduleTransfer() {
-    if (this.transferTimer) {
-      // Already scheduled; do nothing.
-      return;
-    }
     if (this.dma.dreq[this.treqValue] || this.treqValue === TREQ.Permanent) {
-      this.transferTimer = this.rp2040.clock.createTimer(0, this.transfer);
+      this.transferAlarm.schedule(0);
     } else {
       const delay = this.dma.getTimer(this.treqValue);
       if (delay) {
-        this.transferTimer = this.rp2040.clock.createTimer(delay, this.transfer);
+        this.transferAlarm.schedule(delay * 1000);
       }
     }
   }
 
   abort() {
     this.ctrl &= ~BUSY;
-    if (this.transferTimer) {
-      this.rp2040.clock.deleteTimer(this.transferTimer);
-      this.transferTimer = null;
-    }
+    this.transferAlarm.cancel();
   }
 
   readUint32(offset: number) {
@@ -336,9 +328,8 @@ export class RPDMAChannel {
         if (this.ctrl & EN && this.ctrl & BUSY) {
           this.scheduleTransfer();
         }
-        if (!(this.ctrl & EN) && this.transferTimer) {
-          this.rp2040.clock.deleteTimer(this.transferTimer);
-          this.transferTimer = null;
+        if (!(this.ctrl & EN)) {
+          this.transferAlarm.cancel();
         }
         break;
       }

@@ -1,11 +1,11 @@
-import { RP2040 } from '../src/index.js';
+import fs from 'fs';
+import minimist from 'minimist';
 import { GDBTCPServer } from '../src/gdb/gdb-tcp-server.js';
+import { Simulator } from '../src/simulator.js';
 import { USBCDC } from '../src/usb/cdc.js';
 import { ConsoleLogger, LogLevel } from '../src/utils/logging.js';
 import { bootromB1 } from './bootrom.js';
-import { loadUF2, loadMicropythonFlashImage, loadCircuitpythonFlashImage } from './load-flash.js';
-import fs from 'fs';
-import minimist from 'minimist';
+import { loadCircuitpythonFlashImage, loadMicropythonFlashImage, loadUF2 } from './load-flash.js';
 
 const args = minimist(process.argv.slice(2), {
   string: [
@@ -19,7 +19,8 @@ const args = minimist(process.argv.slice(2), {
 });
 const expectText = args['expect-text'];
 
-const mcu = new RP2040();
+const simulator = new Simulator();
+const mcu = simulator.rp2040;
 mcu.loadBootrom(bootromB1);
 mcu.logger = new ConsoleLogger(LogLevel.Error);
 
@@ -42,7 +43,7 @@ if (fs.existsSync('littlefs.img') && !args.circuitpython) {
 }
 
 if (args.gdb) {
-  const gdbServer = new GDBTCPServer(mcu, 3333);
+  const gdbServer = new GDBTCPServer(simulator, 3333);
   console.log(`RP2040 GDB Server ready! Listening on port ${gdbServer.port}`);
 }
 
@@ -89,5 +90,5 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
-mcu.core.PC = 0x10000000;
-mcu.execute();
+simulator.rp2040.core.PC = 0x10000000;
+simulator.execute();

@@ -48,11 +48,11 @@ export class RP2040RTC extends BasePeripheral implements Peripheral {
   setup1 = 0;
   ctrl = 0;
   baseline = new Date(2021, 0, 1);
-  baselineMicros = 0;
+  baselineNanos = 0;
 
   readUint32(offset: number) {
     const date = new Date(
-      this.baseline.getTime() + (this.rp2040.clock.micros - this.baselineMicros) / 1000,
+      this.baseline.getTime() + (this.rp2040.clock.nanos - this.baselineNanos) / 1_000_000,
     );
     switch (offset) {
       case RTC_SETUP0:
@@ -108,7 +108,7 @@ export class RP2040RTC extends BasePeripheral implements Peripheral {
             const min = (this.setup1 >> SETUP_1_MIN_SHIFT) & SETUP_1_MIN_MASK;
             const sec = (this.setup1 >> SETUP_1_SEC_SHIFT) & SETUP_1_SEC_MASK;
             this.baseline = new Date(year, month - 1, day, hour, min, sec);
-            this.baselineMicros = this.rp2040.clock.micros;
+            this.baselineNanos = this.rp2040.clock.nanos;
             this.ctrl &= ~RTC_LOAD_BITS;
           }
         } else {
