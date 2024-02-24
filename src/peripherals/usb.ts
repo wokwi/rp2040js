@@ -113,6 +113,7 @@ export class RPUSBController extends BasePeripheral {
 
   private readonly endpointReadAlarms: USBEndpointAlarm[];
   private readonly endpointWriteAlarms: USBEndpointAlarm[];
+  private readonly resetAlarm;
 
   onUSBEnabled?: () => void;
   onResetReceived?: () => void;
@@ -153,6 +154,10 @@ export class RPUSBController extends BasePeripheral {
         ),
       );
     }
+    this.resetAlarm = clock.createAlarm(() => {
+      this.sieStatus |= SIE_BUS_RESET;
+      this.sieStatusUpdated();
+    });
   }
 
   readUint32(offset: number) {
@@ -313,8 +318,7 @@ export class RPUSBController extends BasePeripheral {
   }
 
   resetDevice() {
-    this.sieStatus |= SIE_BUS_RESET;
-    this.sieStatusUpdated();
+    this.resetAlarm.schedule(10_000_000); // USB reset takes ~10ms
   }
 
   sendSetupPacket(setupPacket: Uint8Array) {
