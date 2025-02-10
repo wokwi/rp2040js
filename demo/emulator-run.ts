@@ -16,7 +16,7 @@ const simulator = new Simulator();
 const mcu = simulator.rp2040;
 mcu.loadBootrom(bootromB1);
 
-const imageName = args.image ?? 'hello_uart.hex'
+const imageName = args.image ?? 'hello_uart.hex';
 
 // Check the extension of the file
 const extension = imageName.split('.').pop();
