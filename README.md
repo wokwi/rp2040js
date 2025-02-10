@@ -28,6 +28,15 @@ npm install
 npm start
 ```
 
+You can also specify the path to the image on the command line and/or load an UF2 image:
+
+```sh
+npm run start -- --image ./my-pico-project.uf2
+```
+
+A GDB server will be available on port 3333, and the data written to UART0 will be printed
+to the console.
+
 ### MicroPython code
 
 To run the MicroPython demo, first download [RPI_PICO-20230426-v1.20.0.uf2](https://micropython.org/resources/firmware/RPI_PICO-20230426-v1.20.0.uf2), place it in the rp2040js root directory, then run:
