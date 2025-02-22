@@ -208,7 +208,7 @@ export class Timer32PeriodicAlarm {
       }
     }
     if (top != 0xffffffff) {
-      if (cycleDelta < 0) {
+      if (cycleDelta <= 0) {
         cycleDelta += top + 1;
       }
       if (targetValue > top) {
