@@ -34,7 +34,7 @@ export class BasePeripheral implements Peripheral {
   ) {}
 
   readUint32(offset: number) {
-    this.warn(`Unimplemented peripheral read from ${offset.toString(16)}`);
+    this.warn(`Unimplemented peripheral read from 0x${offset.toString(16)}`);
     if (offset > 0x1000) {
       this.warn('Unimplemented read from peripheral in the atomic operation region');
     }
@@ -42,7 +42,7 @@ export class BasePeripheral implements Peripheral {
   }
 
   writeUint32(offset: number, value: number) {
-    this.warn(`Unimplemented peripheral write to ${offset.toString(16)}: ${value}`);
+    this.warn(`Unimplemented peripheral write to 0x${offset.toString(16)}: 0x${value.toString(16)}`);
   }
 
   writeUint32Atomic(offset: number, value: number, atomicType: number) {
