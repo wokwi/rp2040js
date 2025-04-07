@@ -24,6 +24,7 @@ const USB_BUF1_SHIFT = 16;
 const USB_BUF1_OFFSET = 64;
 
 // USB Peripheral Register
+const ADDR_ENDP = 0x0;
 const MAIN_CTRL = 0x40;
 const SIE_STATUS = 0x50;
 const BUFF_STATUS = 0x58;
@@ -104,6 +105,7 @@ class USBEndpointAlarm {
 }
 
 export class RPUSBController extends BasePeripheral {
+  private addrEndp = 0;
   private mainCtrl = 0;
   private intRaw = 0;
   private intEnable = 0;
@@ -162,6 +164,8 @@ export class RPUSBController extends BasePeripheral {
 
   readUint32(offset: number) {
     switch (offset) {
+      case ADDR_ENDP:
+        return this.addrEndp & 0b1111000000001111111;
       case MAIN_CTRL:
         return this.mainCtrl;
       case SIE_STATUS:
@@ -184,6 +188,9 @@ export class RPUSBController extends BasePeripheral {
 
   writeUint32(offset: number, value: number) {
     switch (offset) {
+      case ADDR_ENDP:
+        this.addrEndp = value;
+        break;
       case MAIN_CTRL:
         this.mainCtrl = value & (SIM_TIMING | CONTROLLER_EN | HOST_NDEVICE);
         if (value & CONTROLLER_EN && !(value & HOST_NDEVICE)) {
