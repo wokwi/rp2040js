@@ -171,6 +171,7 @@ export class RPI2C extends BasePeripheral implements Peripheral {
   abortSource = 0;
   intRaw = 0;
   intEnable = 0;
+  private spikelen = 0x07;
 
   get intStatus() {
     return this.intRaw & this.intEnable;
@@ -428,11 +429,18 @@ export class RPI2C extends BasePeripheral implements Peripheral {
         return this.txFIFO.itemCount;
       case IC_RXFLR:
         return this.rxFIFO.itemCount;
+      case IC_SDA_HOLD:
+        return 0x01;
       case IC_TX_ABRT_SOURCE: {
         const value = this.abortSource;
         this.abortSource &= ABRT_SBYTE_NORSTRT; // Clear IC_TX_ABRT_SOURCE, expect for bit 9
         return value;
       }
+      case IC_ENABLE_STATUS:
+        // I2C status - read only. bit 0 reflects IC_ENABLE, bit 1,2 relate to i2c slave mode.
+        return this.enable & 0x1;
+      case IC_FS_SPKLEN:
+        return this.spikelen & 0xff;
       case IC_COMP_PARAM_1:
         // From the datasheet:
         // Note This register is not implemented and therefore reads as 0. If it was implemented it would be a constant read-only
@@ -489,6 +497,14 @@ export class RPI2C extends BasePeripheral implements Peripheral {
         this.fsClockLowPeriod = value & 0xffff;
         return;
 
+      case IC_SDA_HOLD:
+        if (!(value & ENABLE)) {
+          if (value != 0x1) {
+            this.warn('Unimplemented write to IC_SDA_HOLD');
+          }
+        }
+        return;
+
       case IC_RX_TL:
         this.rxThreshold = value & 0xff;
         if (this.rxThreshold > this.rxFIFO.size) {
@@ -520,6 +536,12 @@ export class RPI2C extends BasePeripheral implements Peripheral {
         }
         this.enable = value;
         this.nextCommand(); // TX_CMD_BLOCK may have changed
+        return;
+
+      case IC_FS_SPKLEN:
+        if (!(value & ENABLE) && value > 0) {
+          this.spikelen = value;
+        }
         return;
 
       default:

@@ -7,6 +7,7 @@ export enum GPIOPinState {
   Input,
   InputPullUp,
   InputPullDown,
+  InputBusKeeper,
 }
 
 export const FUNCTION_PWM = 4;
@@ -186,10 +187,13 @@ export class GPIOPin {
       return this.outputValue ? GPIOPinState.High : GPIOPinState.Low;
     } else {
       // TODO: check what happens when we enable both pullup/pulldown
-      if (this.pulldownEnabled) {
+      // ANSWER: It is valid, see: 2.19.4.1. Bus Keeper Mode, datasheet p240
+      if (this.pulldownEnabled && this.pullupEnabled) {
+        // Pull high when high, pull low when low:
+        return GPIOPinState.InputBusKeeper;
+      } else if (this.pulldownEnabled) {
         return GPIOPinState.InputPullDown;
-      }
-      if (this.pullupEnabled) {
+      } else if (this.pullupEnabled) {
         return GPIOPinState.InputPullUp;
       }
       return GPIOPinState.Input;
