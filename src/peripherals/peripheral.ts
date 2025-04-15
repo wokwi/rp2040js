@@ -42,7 +42,9 @@ export class BasePeripheral implements Peripheral {
   }
 
   writeUint32(offset: number, value: number) {
-    this.warn(`Unimplemented peripheral write to 0x${offset.toString(16)}: 0x${value.toString(16)}`);
+    this.warn(
+      `Unimplemented peripheral write to 0x${offset.toString(16)}: 0x${value.toString(16)}`,
+    );
   }
 
   writeUint32Atomic(offset: number, value: number, atomicType: number) {

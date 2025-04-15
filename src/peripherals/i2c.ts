@@ -440,7 +440,7 @@ export class RPI2C extends BasePeripheral implements Peripheral {
         // I2C status - read only. bit 0 reflects IC_ENABLE, bit 1,2 relate to i2c slave mode.
         return this.enable & 0x1;
       case IC_FS_SPKLEN:
-        return this.spikelen & 0xff
+        return this.spikelen & 0xff;
       case IC_COMP_PARAM_1:
         // From the datasheet:
         // Note This register is not implemented and therefore reads as 0. If it was implemented it would be a constant read-only
@@ -500,7 +500,7 @@ export class RPI2C extends BasePeripheral implements Peripheral {
       case IC_SDA_HOLD:
         if (!(value & ENABLE)) {
           if (value != 0x1) {
-            this.warn('Unimplemented write to IC_SDA_HOLD')
+            this.warn('Unimplemented write to IC_SDA_HOLD');
           }
         }
         return;

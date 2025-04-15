@@ -191,11 +191,9 @@ export class GPIOPin {
       if (this.pulldownEnabled && this.pullupEnabled) {
         // Pull high when high, pull low when low:
         return GPIOPinState.InputBusKeeper;
-      }
-      else if (this.pulldownEnabled) {
+      } else if (this.pulldownEnabled) {
         return GPIOPinState.InputPullDown;
-      }
-      else if (this.pullupEnabled) {
+      } else if (this.pullupEnabled) {
         return GPIOPinState.InputPullUp;
       }
       return GPIOPinState.Input;
