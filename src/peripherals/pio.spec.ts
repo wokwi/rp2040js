@@ -56,6 +56,7 @@ const SM0_PINCTRL = 0x502000dc;
 const SM2_INSTR = 0x50200108;
 const INTR = 0x50200128;
 const IRQ0_INTE = 0x5020012c;
+const FDEBUG = 0x50200008; // Debug register
 
 const NVIC_ISPR = 0xe000e200;
 const NVIC_ICPR = 0xe000e280;
@@ -84,6 +85,9 @@ const EXECCTRL_STATUS_SEL = 1 << 4;
 const EXECCTRL_WRAP_BOTTOM_SHIFT = 7;
 const EXECCTRL_WRAP_TOP_SHIFT = 12;
 const EXECCTRL_STATUS_N_SHIFT = 0;
+
+// FDEBUG bits
+const FDEBUG_TXSTALL = 1 << 24;
 
 const DBG_PADOUT = 0x5020003c;
 
@@ -557,6 +561,38 @@ describe('PIO', () => {
     await cpu.writeUint32(SM0_INSTR, pioPULL(false, false));
     expect((await cpu.readUint32(INTR)) & INTR_SM0_TXNFULL).toEqual(INTR_SM0_TXNFULL);
     expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(PIO_IRQ0);
+  });
+
+  it('should set TXSTALL flag in FDEBUG when trying to pull from an empty TX FIFO and only clear it after TX is no longer stalled', async () => {
+    await resetStateMachines();
+
+    // Clear FDEBUG register
+    await cpu.writeUint32(FDEBUG, 0xffffffff);
+    expect(await cpu.readUint32(FDEBUG)).toBe(0);
+
+    // Make sure TX FIFO is empty
+    expect(await cpu.readUint32(FLEVEL)).toEqual(0 << TX0_SHIFT);
+
+    // Attempt to pull from an empty TX FIFO
+    await cpu.writeUint32(SM0_INSTR, pioPULL(false, false));
+
+    // Check that the TXSTALL flag is set
+    expect((await cpu.readUint32(FDEBUG)) & (FDEBUG_TXSTALL << 0)).toEqual(FDEBUG_TXSTALL << 0);
+
+    // Try clearing the TXSTALL flag while TX FIFO is still empty
+    await cpu.writeUint32(FDEBUG, FDEBUG_TXSTALL << 0);
+
+    // Verify the flag is NOT cleared because TX is still stalled
+    expect((await cpu.readUint32(FDEBUG)) & (FDEBUG_TXSTALL << 0)).toEqual(FDEBUG_TXSTALL << 0);
+
+    // Push something to TX FIFO to unstall it
+    await cpu.writeUint32(TXF0, 42);
+
+    // Now try clearing the flag again
+    await cpu.writeUint32(FDEBUG, FDEBUG_TXSTALL << 0);
+
+    // Now the flag should be cleared
+    expect((await cpu.readUint32(FDEBUG)) & (FDEBUG_TXSTALL << 0)).toEqual(0);
   });
 
   it('should update RXFNEMPTY flag in INTR according to the level of the RX FIFO (issue #73)', async () => {

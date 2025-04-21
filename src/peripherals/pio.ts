@@ -187,6 +187,7 @@ export class StateMachine {
       return;
     }
     this.txFIFO.push(value);
+    this.pio.txStall &= ~(FDEBUG_TXSTALL << this.index);
     this.updateDMATx();
     this.checkWait();
     if (this.txFIFO.full) {
@@ -200,6 +201,7 @@ export class StateMachine {
       return 0;
     }
     const result = this.rxFIFO.pull();
+    this.pio.rxStall &= ~(FDEBUG_RXSTALL << this.index);
     this.updateDMARx();
     this.checkWait();
     if (this.rxFIFO.empty) {
@@ -504,7 +506,8 @@ export class StateMachine {
             this.updateDMARx();
             this.pio.checkInterrupts();
           } else {
-            this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
+            this.pio.rxStall |= FDEBUG_RXSTALL << this.index;
+            this.pio.fdebug |= this.pio.rxStall;
             this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
           }
           this.inputShiftCount = 0;
@@ -523,7 +526,8 @@ export class StateMachine {
             this.updateDMATx();
             this.pio.checkInterrupts();
           } else {
-            this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
+            this.pio.txStall |= FDEBUG_TXSTALL << this.index;
+            this.pio.fdebug |= this.pio.txStall;
             this.wait(WaitType.Out, false, arg);
           }
         }
@@ -556,7 +560,8 @@ export class StateMachine {
             this.updateDMATx();
             this.pio.checkInterrupts();
           } else {
-            this.pio.fdebug |= FDEBUG_TXSTALL << this.index;
+            this.pio.txStall |= FDEBUG_TXSTALL << this.index;
+            this.pio.fdebug |= this.pio.txStall;
             if (block) {
               this.wait(WaitType.txFIFO, false, 0);
             } else {
@@ -578,7 +583,8 @@ export class StateMachine {
             this.updateDMARx();
             this.pio.checkInterrupts();
           } else {
-            this.pio.fdebug |= FDEBUG_RXSTALL << this.index;
+            this.pio.rxStall |= FDEBUG_RXSTALL << this.index;
+            this.pio.fdebug |= this.pio.rxStall;
             if (block) {
               this.wait(WaitType.rxFIFO, false, this.inputShiftReg);
             }
@@ -928,6 +934,8 @@ export class RPPIO extends BasePeripheral implements Peripheral {
 
   stopped = true;
   fdebug = 0;
+  txStall = 0;
+  rxStall = 0;
   inputSyncBypass = 0;
   irq = 0;
   pinValues = 0;
@@ -1098,6 +1106,7 @@ export class RPPIO extends BasePeripheral implements Peripheral {
       }
       case FDEBUG:
         this.fdebug &= ~this.rawWriteValue;
+        this.fdebug |= this.txStall | this.rxStall;
         break;
       case TXF0:
         this.machines[0].writeFIFO(value);
