@@ -57,16 +57,15 @@
     "test:micropython-spi": "tsx test/micropython-spi-test.ts"
   },
   "devDependencies": {
-    "@types/minimist": "^1.2.2",
     "@types/node": "^18",
     "@typescript-eslint/eslint-plugin": "^6.7.3",
     "@typescript-eslint/parser": "^6.7.3",
     "eslint": "^8.50.0",
     "husky": "^8.0.3",
     "lint-staged": "^15.4.3",
-    "minimist": "^1.2.7",
     "prettier": "^3.0.3",
     "rimraf": "^5.0.5",
+    "sade": "^1.8.1",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "uf2": "^1.0.0",
