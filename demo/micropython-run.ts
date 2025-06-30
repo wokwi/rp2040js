@@ -56,22 +56,24 @@ function handleDeviceConnected(cdc: USBCDC, useCircuitPython: boolean) {
   cdc.sendSerialByte('\n'.charCodeAt(0));
 }
 
-function handleSerialData(value: Uint8Array, expectText: string | null) {
+function testWriteSerialData(value: Uint8Array, expectText: string, decoder: TextDecoder) {
   process.stdout.write(value);
-  let currentLine = '';
 
-  for (const byte of value) {
-    const char = String.fromCharCode(byte);
-    if (char === '\n') {
-      if (expectText && currentLine.includes(expectText)) {
-        console.log(`Expected text found: "${expectText}"`);
-        console.log('TEST PASSED.');
-        process.exit(0);
-      }
-      currentLine = '';
-    } else {
-      currentLine += char;
-    }
+  const current = decoder.decode(value);
+
+  if (current.includes(expectText)) {
+    console.log(`\nExpected text found: "${expectText}"`);
+    console.log('TEST PASSED.');
+    process.exit(0);
+  }
+}
+
+function installSerialDataWriter(cdc: USBCDC, expectText: string | null) {
+  if (expectText) {
+    const decoder = new TextDecoder();
+    cdc.onSerialData = (value) => testWriteSerialData(value, expectText, decoder);
+  } else {
+    cdc.onSerialData = (value) => process.stdout.write(value);
   }
 }
 
@@ -90,7 +92,7 @@ function simulateMicropythonImage(opts: CliOptions) {
 
   const cdc = new USBCDC(mcu.usbCtrl);
   cdc.onDeviceConnected = () => handleDeviceConnected(cdc, opts['circuit-python']);
-  cdc.onSerialData = (value) => handleSerialData(value, opts['expect-text']);
+  installSerialDataWriter(cdc, opts['expect-text']);
 
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
