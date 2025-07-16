@@ -1,3 +1,5 @@
+![](../../actions/workflows/ci-test.yml/badge.svg) ![](../../actions/workflows/ci-micropython.yml/badge.svg) ![](../../actions/workflows/ci-pico-sdk.yml/badge.svg)
+
 # rp2040js
 
 Raspberry Pi Pico Emulator for the [Wokwi Simulation Platform](https://wokwi.com). It blinks, runs Arduino code, and even the MicroPython REPL!
