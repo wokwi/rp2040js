@@ -58,7 +58,7 @@ A GDB server on port 3333 can be enabled by specifying the `--gdb` flag:
 npm run start:micropython -- --gdb
 ```
 
-For using the MicroPython demo code in tests, the `--expect-text` can come handy: it will look for the given text in the serial output and exit with code 0 if found, or 1 if not found. You can find an example in [the MicroPython CI test](./github/workflows/ci-micropython.yml).
+For using the MicroPython demo code in tests, the `--expect-text` can come handy: it will look for the given text in the serial output and exit with code 0 if found, or 1 if not found. You can find an example in [the MicroPython CI test](./.github/workflows/ci-micropython.yml).
 
 #### Filesystem support
 
