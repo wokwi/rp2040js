@@ -25,6 +25,7 @@ import { RPTimer } from './peripherals/timer.js';
 import { RPUART } from './peripherals/uart.js';
 import { RPUSBController } from './peripherals/usb.js';
 import { RPWatchdog } from './peripherals/watchdog.js';
+import { RPXOSC } from './peripherals/xosc.js';
 import { RPSIO } from './sio.js';
 import { ConsoleLogger, LogLevel, Logger } from './utils/logging.js';
 
@@ -146,7 +147,7 @@ export class RP2040 {
     0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
     0x4001c: new RPPADS(this, 'PADS_BANK0_BASE', 'bank0'),
     0x40020: new RPPADS(this, 'PADS_QSPI_BASE', 'qspi'),
-    0x40024: new UnimplementedPeripheral(this, 'XOSC_BASE'),
+    0x40024: new RPXOSC(this, 'XOSC_BASE'),
     0x40028: new UnimplementedPeripheral(this, 'PLL_SYS_BASE'),
     0x4002c: new UnimplementedPeripheral(this, 'PLL_USB_BASE'),
     0x40030: new RPBUSCTRL(this, 'BUSCTRL_BASE'),
