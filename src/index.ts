@@ -21,4 +21,12 @@ export {
   setDeviceAddressPacket,
   setDeviceConfigurationPacket,
 } from './usb/setup.js';
+export {
+  parseSetupPacket,
+  StandardRequest,
+  DescriptorType as USBDescriptorType,
+  type USBDevice,
+  type USBTransferResult,
+  type USBTransferStatus,
+} from './usb/usb-device.js';
 export { ConsoleLogger, LogLevel, type Logger } from './utils/logging.js';
