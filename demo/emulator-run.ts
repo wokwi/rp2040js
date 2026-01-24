@@ -1,10 +1,10 @@
 import * as fs from 'fs';
+import minimist from 'minimist';
 import { GDBTCPServer } from '../src/gdb/gdb-tcp-server.js';
 import { Simulator } from '../src/simulator.js';
 import { bootromB1 } from './bootrom.js';
 import { loadHex } from './intelhex.js';
 import { loadUF2 } from './load-flash.js';
-import minimist from 'minimist';
 
 const args = minimist(process.argv.slice(2), {
   string: [

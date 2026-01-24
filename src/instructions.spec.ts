@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestDriver } from '../test-utils/create-test-driver.js';
-import { ICortexTestDriver } from '../test-utils/test-driver.js';
 import { RP2040TestDriver } from '../test-utils/test-driver-rp2040.js';
+import { ICortexTestDriver } from '../test-utils/test-driver.js';
 import { RAM_START_ADDRESS, RP2040 } from './rp2040.js';
 import {
   opcodeADCS,

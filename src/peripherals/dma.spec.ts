@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RP2040 } from '../rp2040.js';
 import { MockClock } from '../clock/mock-clock.js';
+import { RP2040 } from '../rp2040.js';
 import { bit } from '../utils/bit.js';
 
 const CH2_WRITE_ADDR = 0x50000084;

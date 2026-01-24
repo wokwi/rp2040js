@@ -1,5 +1,5 @@
-import { RP2040 } from './rp2040.js';
 import { Interpolator } from './interpolator.js';
+import { RP2040 } from './rp2040.js';
 
 const CPUID = 0x000;
 

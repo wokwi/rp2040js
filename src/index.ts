@@ -22,9 +22,9 @@ export {
   setDeviceConfigurationPacket,
 } from './usb/setup.js';
 export {
-  parseSetupPacket,
   StandardRequest,
   DescriptorType as USBDescriptorType,
+  parseSetupPacket,
   type USBDevice,
   type USBTransferResult,
   type USBTransferStatus,

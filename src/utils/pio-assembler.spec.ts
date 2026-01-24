@@ -1,22 +1,22 @@
-import { it, describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
-  pioJMP,
-  pioWAIT,
-  pioIN,
-  pioOUT,
-  pioPUSH,
-  pioPULL,
-  pioMOV,
-  pioIRQ,
-  pioSET,
   PIO_COND_PIN,
-  PIO_WAIT_SRC_GPIO,
-  PIO_SRC_X,
   PIO_DEST_Y,
   PIO_MOV_DEST_X,
   PIO_OP_INVERT,
   PIO_SRC_STATUS,
+  PIO_SRC_X,
+  PIO_WAIT_SRC_GPIO,
+  pioIN,
+  pioIRQ,
+  pioJMP,
+  pioMOV,
+  pioOUT,
+  pioPULL,
+  pioPUSH,
+  pioSET,
+  pioWAIT,
 } from './pio-assembler.js';
 
 describe('pio-assembler', () => {

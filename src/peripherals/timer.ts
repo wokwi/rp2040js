@@ -1,4 +1,4 @@
-import { IClock, IAlarm } from '../clock/clock.js';
+import { IAlarm, IClock } from '../clock/clock.js';
 import { IRQ } from '../irq.js';
 import { RP2040 } from '../rp2040.js';
 import { BasePeripheral, Peripheral } from './peripheral.js';
