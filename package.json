@@ -2,7 +2,10 @@
   "name": "rp2040js",
   "version": "1.3.0",
   "description": "Raspberry Pi Pico (RP2040) Emulator",
-  "repository": "https://github.com/wokwi/rp2040js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wokwi/rp2040js.git"
+  },
   "keywords": [
     "rp2040",
     "raspberry pi pico",
