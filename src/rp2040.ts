@@ -13,6 +13,7 @@ import { RPPADS } from './peripherals/pads.js';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral.js';
 import { RPPIO } from './peripherals/pio.js';
 import { RPPPB } from './peripherals/ppb.js';
+import { RPPSM } from './peripherals/psm.js';
 import { RPPWM } from './peripherals/pwm.js';
 import { RPReset } from './peripherals/reset.js';
 import { RP2040RTC } from './peripherals/rtc.js';
@@ -142,7 +143,7 @@ export class RP2040 {
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
     0x40008: new RPClocks(this, 'CLOCKS_BASE'),
     0x4000c: new RPReset(this, 'RESETS_BASE'),
-    0x40010: new UnimplementedPeripheral(this, 'PSM_BASE'),
+    0x40010: new RPPSM(this, 'PSM_BASE'),
     0x40014: new RPIO(this, 'IO_BANK0_BASE'),
     0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
     0x4001c: new RPPADS(this, 'PADS_BANK0_BASE', 'bank0'),
