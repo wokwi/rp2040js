@@ -302,6 +302,28 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.pc).toEqual(0x20000014);
   });
 
+  it('should execute `add r7, pc` instruction with correct PC+4 value (word-aligned)', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeADDreg(r7, pc));
+    await cpu.setRegisters({ r7: 0 });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    // PC value used by ADD should be instruction address + 4
+    expect(registers.r7).toEqual(0x20000004);
+  });
+
+  it('should execute `add r7, pc` instruction with correct PC+4 value (half-word-aligned)', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeNOP());
+    await cpu.writeUint16(0x20000002, opcodeADDreg(r7, pc));
+    await cpu.setRegisters({ r7: 0 });
+    await cpu.singleStep();
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    // PC value used by ADD should be instruction address + 4 (no word-alignment)
+    expect(registers.r7).toEqual(0x20000006);
+  });
+
   it('should execute `adr r4, #0x50` instruction and set the overflow flag correctly', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADR(r4, 0x50));
