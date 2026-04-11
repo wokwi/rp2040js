@@ -3,6 +3,7 @@ export { GDBServer } from './gdb/gdb-server.js';
 export { GPIOPin, GPIOPinState } from './gpio-pin.js';
 export { I2CMode, I2CSpeed, RPI2C } from './peripherals/i2c.js';
 export { BasePeripheral, type Peripheral } from './peripherals/peripheral.js';
+export { RPPIO, StateMachine } from './peripherals/pio.js';
 export { RPUSBController } from './peripherals/usb.js';
 export { RP2040 } from './rp2040.js';
 export { Simulator } from './simulator.js';
@@ -29,4 +30,5 @@ export {
   type USBTransferResult,
   type USBTransferStatus,
 } from './usb/usb-device.js';
+export { FIFO } from './utils/fifo.js';
 export { ConsoleLogger, LogLevel, type Logger } from './utils/logging.js';
