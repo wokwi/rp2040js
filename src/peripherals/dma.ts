@@ -397,7 +397,7 @@ export class RPDMA extends BasePeripheral implements Peripheral {
   }
 
   readUint32(offset: number) {
-    if ((offset & 0x7ff) <= CHANNEL_REGISTERS_SIZE) {
+    if ((offset & 0x7ff) < CHANNEL_REGISTERS_SIZE) {
       const channelIndex = (offset & 0x7ff) >> 6;
       return this.channels[channelIndex].readUint32(offset & CHANNEL_REGISTERS_MASK);
     }
@@ -431,7 +431,7 @@ export class RPDMA extends BasePeripheral implements Peripheral {
   }
 
   writeUint32(offset: number, value: number) {
-    if ((offset & 0x7ff) <= CHANNEL_REGISTERS_SIZE) {
+    if ((offset & 0x7ff) < CHANNEL_REGISTERS_SIZE) {
       const channelIndex = (offset & 0x7ff) >> 6;
       this.channels[channelIndex].writeUint32(offset & CHANNEL_REGISTERS_MASK, value);
       return;
