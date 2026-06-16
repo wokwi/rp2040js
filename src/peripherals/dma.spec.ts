@@ -13,6 +13,10 @@ const CH6_TRANS_COUNT = 0x50000188;
 const CH6_CTRL_TRIG = 0x5000018c;
 const INTR = 0x50000400;
 
+// First offset past the 12 per-channel register blocks (12 * 0x40 = 0x300).
+const DMA_BASE = 0x50000000;
+const PAST_CHANNELS = DMA_BASE + 0x300;
+
 const EN = bit(0);
 const DATA_SIZE_SHIFT = 2;
 const INCR_WRITE = bit(5);
@@ -95,5 +99,15 @@ describe('DMA', () => {
     expect(cpu.readUint16(DEST_ADDR + 24)).toEqual(0x70);
     expect(cpu.readUint16(DEST_ADDR + 28)).toEqual(0x80);
     expect(cpu.readUint16(DEST_ADDR + 32)).toEqual(0x0);
+  });
+
+  it('should not dispatch the offset just past the channel registers to a non-existent channel', () => {
+    const clock = new MockClock();
+    const cpu = new RP2040(clock);
+
+    // Offset 0x300 is the first address after the 12 channel register blocks.
+    // It must not be routed to channel index 12 (0x300 >> 6), which does not exist.
+    expect(() => cpu.readUint32(PAST_CHANNELS)).not.toThrow();
+    expect(() => cpu.writeUint32(PAST_CHANNELS, 0x1234)).not.toThrow();
   });
 });
