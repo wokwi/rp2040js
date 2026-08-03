@@ -59,6 +59,12 @@ export class GPIOPin {
     readonly rp2040: RP2040,
     readonly index: number,
     readonly name = index.toString(),
+    // True only for the 6 dedicated QSPI pins (rp2040.qspi) - unlike general-purpose GPIOs, which
+    // need an explicit SIO/PWM/PIO function-select before OUTOVER has any visible effect on
+    // .value, these are permanently wired to the XIP/SSI peripheral with no separate "not driving
+    // the bus" state to model. Real firmware (e.g. flash_cs_force() bit-banging QSPI_SS) only ever
+    // touches OUTOVER on these pins, relying on output-enable already effectively being on.
+    private readonly alwaysOutputEnabled = false,
   ) {}
 
   get rawInterrupt() {
@@ -114,6 +120,10 @@ export class GPIOPin {
   }
 
   get rawOutputEnable() {
+    if (this.alwaysOutputEnabled) {
+      return true;
+    }
+
     const { index, rp2040, functionSelect } = this;
     const bitmask = 1 << index;
     switch (functionSelect) {

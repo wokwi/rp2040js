@@ -110,12 +110,12 @@ export class RP2040 {
   ];
 
   readonly qspi = [
-    new GPIOPin(this, 0, 'SCLK'),
-    new GPIOPin(this, 1, 'SS'),
-    new GPIOPin(this, 2, 'SD0'),
-    new GPIOPin(this, 3, 'SD1'),
-    new GPIOPin(this, 4, 'SD2'),
-    new GPIOPin(this, 5, 'SD3'),
+    new GPIOPin(this, 0, 'SCLK', true),
+    new GPIOPin(this, 1, 'SS', true),
+    new GPIOPin(this, 2, 'SD0', true),
+    new GPIOPin(this, 3, 'SD1', true),
+    new GPIOPin(this, 4, 'SD2', true),
+    new GPIOPin(this, 5, 'SD3', true),
   ];
 
   readonly dma = new RPDMA(this, 'DMA');
@@ -145,7 +145,7 @@ export class RP2040 {
     0x4000c: new RPReset(this, 'RESETS_BASE'),
     0x40010: new RPPSM(this, 'PSM_BASE'),
     0x40014: new RPIO(this, 'IO_BANK0_BASE'),
-    0x40018: new UnimplementedPeripheral(this, 'IO_QSPI_BASE'),
+    0x40018: new RPIO(this, 'IO_QSPI_BASE', this.qspi),
     0x4001c: new RPPADS(this, 'PADS_BANK0_BASE', 'bank0'),
     0x40020: new RPPADS(this, 'PADS_QSPI_BASE', 'qspi'),
     0x40024: new RPXOSC(this, 'XOSC_BASE'),
