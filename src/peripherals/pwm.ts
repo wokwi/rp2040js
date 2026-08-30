@@ -115,12 +115,15 @@ class PWMChannel {
         if (value & CSR_EN && !(this.csr & CSR_EN)) {
           this.updateDoubleBuffered();
         }
+        // PH_ADV and PH_RET are self-clearing, so they never appear in the stored csr value
         this.csr = value & ~(CSR_PH_ADV | CSR_PH_RET);
-        if (this.csr & CSR_PH_ADV) {
-          this.timer.advance(1);
-        }
-        if (this.csr & CSR_PH_RET) {
-          this.timer.advance(-1);
+        if (this.timer.enable) {
+          if (value & CSR_PH_ADV) {
+            this.timer.advance(1);
+          }
+          if (value & CSR_PH_RET) {
+            this.timer.advance(-1);
+          }
         }
         this.divMode = (this.csr >> CSR_DIVMODE_SHIFT) & CSR_DIVMODE_MASK;
         this.setBDirection(this.divMode === PWMDivMode.FreeRunning);

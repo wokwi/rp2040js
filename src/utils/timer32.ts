@@ -40,6 +40,11 @@ export class Timer32 {
    */
   advance(delta: number) {
     this.baseValue += delta;
+    if (this.topValue !== 0xffffffff) {
+      // Keep the base value in range, so that retarding past 0 wraps around to the top
+      const topModulo = this.timerMode === TimerMode.ZigZag ? this.topValue * 2 : this.topValue + 1;
+      this.baseValue = ((this.baseValue % topModulo) + topModulo) % topModulo;
+    }
   }
 
   get rawCounter() {
