@@ -45,6 +45,7 @@ export class Timer32 {
       const topModulo = this.timerMode === TimerMode.ZigZag ? this.topValue * 2 : this.topValue + 1;
       this.baseValue = ((this.baseValue % topModulo) + topModulo) % topModulo;
     }
+    this.updated();
   }
 
   get rawCounter() {

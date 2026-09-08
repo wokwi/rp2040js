@@ -117,7 +117,7 @@ class PWMChannel {
         }
         // PH_ADV and PH_RET are self-clearing, so they never appear in the stored csr value
         this.csr = value & ~(CSR_PH_ADV | CSR_PH_RET);
-        if (this.timer.enable) {
+        if (value & CSR_EN) {
           if (value & CSR_PH_ADV) {
             this.timer.advance(1);
           }
