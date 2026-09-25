@@ -6,7 +6,7 @@ on:
 jobs:
   test-micropython:
     name: Micropython ${{ matrix.micropython_version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         micropython_version:
@@ -17,10 +17,13 @@ jobs:
           - 20230426-v1.20.0
           - 20231005-v1.21.0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
       - name: Install packages
         run: npm ci
       - name: Install Python requirements

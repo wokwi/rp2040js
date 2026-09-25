@@ -6,7 +6,7 @@ on:
 jobs:
   test-pico-sdk:
     name: Test Pi Pico SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         sdk_version:
@@ -17,10 +17,10 @@ jobs:
           - 2.0.0
           - 2.1.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Cache Pico SDK
         id: cache-pico-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/pico
           key: ${{ runner.os }}-pico-sdk-${{ matrix.sdk_version }}
@@ -41,6 +41,9 @@ jobs:
         env:
           SDK_VERSION: ${{ matrix.sdk_version }}
           PICO_SDK_PATH: ~/pico/pico-sdk
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
       - name: Install NPM packages
         run: npm ci
       - name: Test "Hello World" example
