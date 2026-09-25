@@ -12,6 +12,7 @@ import { RPIO } from './peripherals/io.js';
 import { RPPADS } from './peripherals/pads.js';
 import { Peripheral, UnimplementedPeripheral } from './peripherals/peripheral.js';
 import { RPPIO } from './peripherals/pio.js';
+import { RPPLL } from './peripherals/pll.js';
 import { RPPPB } from './peripherals/ppb.js';
 import { RPPSM } from './peripherals/psm.js';
 import { RPPWM } from './peripherals/pwm.js';
@@ -58,6 +59,15 @@ export class RP2040 {
   /* Clocks */
   clkSys = 125 * MHz;
   clkPeri = 125 * MHz;
+
+  /** Crystal oscillator frequency. 12 MHz on the Raspberry Pi Pico and most other boards. */
+  xoscFreq = 12 * MHz;
+  /** Ring oscillator frequency. Varies with voltage/temperature on real silicon. */
+  roscFreq = 6.5 * MHz;
+
+  readonly pllSys = new RPPLL(this, 'PLL_SYS_BASE');
+  readonly pllUsb = new RPPLL(this, 'PLL_USB_BASE');
+  readonly clocks = new RPClocks(this, 'CLOCKS_BASE');
 
   readonly ppb = new RPPPB(this, 'PPB');
   readonly sio = new RPSIO(this);
@@ -141,7 +151,7 @@ export class RP2040 {
     0x18000: new RPSSI(this, 'SSI'),
     0x40000: new RP2040SysInfo(this, 'SYSINFO_BASE'),
     0x40004: new RP2040SysCfg(this, 'SYSCFG'),
-    0x40008: new RPClocks(this, 'CLOCKS_BASE'),
+    0x40008: this.clocks,
     0x4000c: new RPReset(this, 'RESETS_BASE'),
     0x40010: new RPPSM(this, 'PSM_BASE'),
     0x40014: new RPIO(this, 'IO_BANK0_BASE'),
@@ -149,8 +159,8 @@ export class RP2040 {
     0x4001c: new RPPADS(this, 'PADS_BANK0_BASE', 'bank0'),
     0x40020: new RPPADS(this, 'PADS_QSPI_BASE', 'qspi'),
     0x40024: new RPXOSC(this, 'XOSC_BASE'),
-    0x40028: new UnimplementedPeripheral(this, 'PLL_SYS_BASE'),
-    0x4002c: new UnimplementedPeripheral(this, 'PLL_USB_BASE'),
+    0x40028: this.pllSys,
+    0x4002c: this.pllUsb,
     0x40030: new RPBUSCTRL(this, 'BUSCTRL_BASE'),
     0x40034: this.uart[0],
     0x40038: this.uart[1],
@@ -234,6 +244,23 @@ export class RP2040 {
 
     this.logger.warn(LOG_NAME, `Read from invalid memory address: ${address.toString(16)}`);
     return 0xffffffff;
+  }
+
+  /**
+   * Recomputes `clkSys` from the PLL and CLOCKS registers and retunes the timers that count
+   * clk_sys cycles. Until firmware configures the clock tree, `clkSys` keeps its default.
+   */
+  updateClocks() {
+    const clkSys = this.clocks.sysFreq;
+    // 0 means clk_sys is fed from an unmodelled or unconfigured source: keep the last value
+    if (!clkSys || clkSys === this.clkSys) {
+      return;
+    }
+    this.clkSys = clkSys;
+    this.ppb.systickTimer.frequency = clkSys;
+    for (const channel of this.pwm.channels) {
+      channel.timer.frequency = this.pwm.clockFreq;
+    }
   }
 
   findPeripheral(address: number) {

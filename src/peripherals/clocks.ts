@@ -34,6 +34,38 @@ const CLK_RTC_SELECTED = 0x74;
 const CLK_SYS_RESUS_CTRL = 0x78;
 const CLK_SYS_RESUS_STATUS = 0x7c;
 
+// CLK_REF_CTRL
+const CLK_REF_CTRL_SRC_MASK = 0x3;
+const CLK_REF_CTRL_SRC_ROSC = 0x0;
+const CLK_REF_CTRL_SRC_AUX = 0x1;
+const CLK_REF_CTRL_SRC_XOSC = 0x2;
+const CLK_REF_CTRL_AUXSRC_SHIFT = 5;
+const CLK_REF_CTRL_AUXSRC_MASK = 0x3;
+const CLK_REF_CTRL_AUXSRC_PLL_USB = 0x0;
+
+// CLK_REF_DIV has no fractional part, only INT (bits 9:8)
+const CLK_REF_DIV_INT_BITS = 0x300;
+
+// CLK_SYS_CTRL
+const CLK_SYS_CTRL_SRC_MASK = 0x1;
+const CLK_SYS_CTRL_SRC_REF = 0x0;
+const CLK_SYS_CTRL_AUXSRC_SHIFT = 5;
+const CLK_SYS_CTRL_AUXSRC_MASK = 0x7;
+const CLK_SYS_CTRL_AUXSRC_PLL_SYS = 0x0;
+const CLK_SYS_CTRL_AUXSRC_PLL_USB = 0x1;
+const CLK_SYS_CTRL_AUXSRC_ROSC = 0x2;
+const CLK_SYS_CTRL_AUXSRC_XOSC = 0x3;
+
+// CLK_x_DIV: 24.8 fixed point (INT bits 31:8, FRAC bits 7:0)
+const CLK_DIV_INT_SHIFT = 8;
+const CLK_DIV_FRAC_MASK = 0xff;
+
+/** Decodes a CLK_x_DIV register value. INT = 0 means divide by 2^16. */
+function clockDivisor(div: number) {
+  const int = div >>> CLK_DIV_INT_SHIFT;
+  return int ? int + (div & CLK_DIV_FRAC_MASK) / 256 : 0x10000;
+}
+
 export class RPClocks extends BasePeripheral implements Peripheral {
   gpout0Ctrl = 0;
   gpout0Div = 0x100;
@@ -57,6 +89,51 @@ export class RPClocks extends BasePeripheral implements Peripheral {
   rtcDiv = 0x100;
   constructor(rp2040: RP2040, name: string) {
     super(rp2040, name);
+  }
+
+  /** clk_ref frequency, in Hz. GPIN0/GPIN1 are not modelled and yield 0. */
+  get refFreq() {
+    return this.refSourceFreq / clockDivisor(this.refDiv & CLK_REF_DIV_INT_BITS);
+  }
+
+  /** clk_sys frequency, in Hz. GPIN0/GPIN1 are not modelled and yield 0. */
+  get sysFreq() {
+    return this.sysSourceFreq / clockDivisor(this.sysDiv);
+  }
+
+  private get refSourceFreq() {
+    const { rp2040 } = this;
+    switch (this.refCtrl & CLK_REF_CTRL_SRC_MASK) {
+      case CLK_REF_CTRL_SRC_ROSC:
+        return rp2040.roscFreq;
+      case CLK_REF_CTRL_SRC_XOSC:
+        return rp2040.xoscFreq;
+      case CLK_REF_CTRL_SRC_AUX: {
+        const auxsrc = (this.refCtrl >>> CLK_REF_CTRL_AUXSRC_SHIFT) & CLK_REF_CTRL_AUXSRC_MASK;
+        return auxsrc === CLK_REF_CTRL_AUXSRC_PLL_USB ? rp2040.pllUsb.frequency : 0;
+      }
+      default:
+        return 0;
+    }
+  }
+
+  private get sysSourceFreq() {
+    const { rp2040 } = this;
+    if ((this.sysCtrl & CLK_SYS_CTRL_SRC_MASK) === CLK_SYS_CTRL_SRC_REF) {
+      return this.refFreq;
+    }
+    switch ((this.sysCtrl >>> CLK_SYS_CTRL_AUXSRC_SHIFT) & CLK_SYS_CTRL_AUXSRC_MASK) {
+      case CLK_SYS_CTRL_AUXSRC_PLL_SYS:
+        return rp2040.pllSys.frequency;
+      case CLK_SYS_CTRL_AUXSRC_PLL_USB:
+        return rp2040.pllUsb.frequency;
+      case CLK_SYS_CTRL_AUXSRC_ROSC:
+        return rp2040.roscFreq;
+      case CLK_SYS_CTRL_AUXSRC_XOSC:
+        return rp2040.xoscFreq;
+      default:
+        return 0;
+    }
   }
 
   readUint32(offset: number) {
@@ -157,15 +234,19 @@ export class RPClocks extends BasePeripheral implements Peripheral {
         break;
       case CLK_REF_CTRL:
         this.refCtrl = value;
+        this.rp2040.updateClocks();
         break;
       case CLK_REF_DIV:
         this.refDiv = value;
+        this.rp2040.updateClocks();
         break;
       case CLK_SYS_CTRL:
         this.sysCtrl = value;
+        this.rp2040.updateClocks();
         break;
       case CLK_SYS_DIV:
         this.sysDiv = value;
+        this.rp2040.updateClocks();
         break;
       case CLK_PERI_CTRL:
         this.periCtrl = value;
