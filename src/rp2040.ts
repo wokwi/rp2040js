@@ -255,10 +255,15 @@ export class RP2040 {
   }
 
   /**
-   * Recomputes `clkSys` from the PLL and CLOCKS registers and retunes the timers that count
-   * clk_sys cycles. Until firmware configures the clock tree, `clkSys` keeps its default.
+   * Recomputes `clkSys` and `clkPeri` from the PLL and CLOCKS registers and updates the
+   * peripherals derived from them. Until firmware configures the clock tree, each keeps its default.
    */
   updateClocks() {
+    this.updateClkSys();
+    this.updateClkPeri();
+  }
+
+  private updateClkSys() {
     const clkSys = this.clocks.sysFreq;
     // 0 means clk_sys is fed from an unmodelled or unconfigured source: keep the last value
     if (!clkSys || clkSys === this.clkSys) {
@@ -272,6 +277,18 @@ export class RP2040 {
     }
     for (const listener of this.clockListeners) {
       listener(clkSys, oldClkSys);
+    }
+  }
+
+  private updateClkPeri() {
+    const clkPeri = this.clocks.periFreq;
+    // 0 means the clock generator is stopped, or the source is one we do not model
+    if (!clkPeri || clkPeri === this.clkPeri) {
+      return;
+    }
+    this.clkPeri = clkPeri;
+    for (const uart of this.uart) {
+      uart.clkPeriChanged();
     }
   }
 
