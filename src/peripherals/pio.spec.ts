@@ -40,6 +40,7 @@ import {
 } from '../utils/pio-assembler.js';
 
 const CTRL = 0x50200000;
+const FSTAT = 0x50200004;
 const FLEVEL = 0x5020000c;
 const TXF0 = 0x50200010;
 const RXF0 = 0x50200020;
@@ -72,6 +73,7 @@ const RX0_SHIFT = 4;
 
 // SM0_SHIFTCTRL bits:
 const FJOIN_RX = 1 << 30;
+const FJOIN_TX = 1 << 31;
 const IN_SHIFTDIR = 1 << 18;
 const OUT_SHIFTDIR = 1 << 19;
 const SHIFTCTRL_AUTOPULL = 1 << 17;
@@ -88,6 +90,13 @@ const EXECCTRL_STATUS_N_SHIFT = 0;
 
 // FDEBUG bits
 const FDEBUG_TXSTALL = 1 << 24;
+const FDEBUG_TXOVER = 1 << 16;
+
+// FSTAT bits (SM0)
+const FSTAT_RXFULL = 1 << 0;
+const FSTAT_RXEMPTY = 1 << 8;
+const FSTAT_TXFULL = 1 << 16;
+const FSTAT_TXEMPTY = 1 << 24;
 
 const DBG_PADOUT = 0x5020003c;
 
@@ -614,5 +623,61 @@ describe('PIO', () => {
     await cpu.writeUint32(NVIC_ICPR, PIO_IRQ0);
     expect((await cpu.readUint32(INTR)) & INTR_SM0_RXNEMPTY).toEqual(0);
     expect((await cpu.readUint32(NVIC_ISPR)) & PIO_IRQ0).toEqual(0);
+  });
+
+  describe('FIFO join (FJOIN_TX / FJOIN_RX)', () => {
+    it('should provide an 8-deep TX FIFO when FJOIN_TX is set', async () => {
+      await resetStateMachines();
+      await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_TX);
+
+      // Push 8 words; with the joined FIFO none should overflow
+      for (let i = 0; i < 8; i++) {
+        await cpu.writeUint32(TXF0, 0x1000 + i);
+      }
+      expect((await cpu.readUint32(FLEVEL)) & 0xf).toEqual(8); // TX0 level = 8
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_TXFULL).toEqual(FSTAT_TXFULL);
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_TXEMPTY).toEqual(0);
+
+      // A 9th push overflows and sets the TXOVER flag in FDEBUG
+      await cpu.writeUint32(FDEBUG, 0xffffffff);
+      await cpu.writeUint32(TXF0, 0xdead);
+      expect((await cpu.readUint32(FDEBUG)) & FDEBUG_TXOVER).toEqual(FDEBUG_TXOVER);
+      expect((await cpu.readUint32(FLEVEL)) & 0xf).toEqual(8);
+
+      // The donated RX FIFO is disabled: it reads back as both empty and full
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_RXEMPTY).toEqual(FSTAT_RXEMPTY);
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_RXFULL).toEqual(FSTAT_RXFULL);
+    });
+
+    it('should provide an 8-deep RX FIFO when FJOIN_RX is set', async () => {
+      await resetStateMachines();
+      await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_RX);
+
+      // SET X, then IN X, 32 + PUSH eight times to fill the joined RX FIFO
+      await cpu.writeUint32(SM0_INSTR, pioSET(PIO_DEST_X, 0x15));
+      for (let i = 0; i < 8; i++) {
+        await cpu.writeUint32(SM0_INSTR, pioIN(PIO_SRC_X, 32));
+        await cpu.writeUint32(SM0_INSTR, pioPUSH(false, false));
+      }
+      expect(((await cpu.readUint32(FLEVEL)) >> RX0_SHIFT) & 0xf).toEqual(8); // RX0 level = 8
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_RXFULL).toEqual(FSTAT_RXFULL);
+
+      // The donated TX FIFO is disabled: it reads back as both empty and full
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_TXEMPTY).toEqual(FSTAT_TXEMPTY);
+      expect((await cpu.readUint32(FSTAT)) & FSTAT_TXFULL).toEqual(FSTAT_TXFULL);
+    });
+
+    it('should empty both FIFOs when the join configuration changes', async () => {
+      await resetStateMachines();
+
+      // Fill the (unjoined, 4-deep) TX FIFO
+      await cpu.writeUint32(TXF0, 1);
+      await cpu.writeUint32(TXF0, 2);
+      expect((await cpu.readUint32(FLEVEL)) & 0xf).toEqual(2);
+
+      // Joining the FIFOs clears them (datasheet §3.5.4)
+      await cpu.writeUint32(SM0_SHIFTCTRL, FJOIN_TX);
+      expect((await cpu.readUint32(FLEVEL)) & 0xf).toEqual(0);
+    });
   });
 });
