@@ -86,6 +86,33 @@ describe('RPClocks', () => {
     expect(rp2040.clkSys).toEqual(200 * MHz);
   });
 
+  it('should notify clock listeners when clk_sys changes', () => {
+    const rp2040 = new RP2040(new MockClock());
+    const calls: Array<[number, number]> = [];
+    rp2040.addClockListener((clkSys, oldClkSys) => calls.push([clkSys, oldClkSys]));
+    setSysClock(rp2040, { fbdiv: 100, postdiv1: 6, postdiv2: 1 });
+    expect(calls.at(-1)).toEqual([200 * MHz, 12 * MHz]);
+  });
+
+  it('should not notify clock listeners when clk_sys is unchanged', () => {
+    const rp2040 = new RP2040(new MockClock());
+    setSysClock(rp2040, { fbdiv: 100, postdiv1: 6, postdiv2: 1 });
+    let calls = 0;
+    rp2040.addClockListener(() => calls++);
+    // Re-selecting the same source leaves clk_sys at 200 MHz
+    rp2040.writeUint32(CLK_SYS_CTRL, CLK_SYS_SRC_AUX | CLK_SYS_AUXSRC_PLL_SYS);
+    expect(calls).toEqual(0);
+  });
+
+  it('should stop notifying a clock listener after it unsubscribes', () => {
+    const rp2040 = new RP2040(new MockClock());
+    let calls = 0;
+    const unsubscribe = rp2040.addClockListener(() => calls++);
+    unsubscribe();
+    setSysClock(rp2040, { fbdiv: 100, postdiv1: 6, postdiv2: 1 });
+    expect(calls).toEqual(0);
+  });
+
   it('should retune systick and the PWM timers when clk_sys changes', () => {
     const rp2040 = new RP2040(new MockClock());
     setSysClock(rp2040, { fbdiv: 100, postdiv1: 6, postdiv2: 1 });

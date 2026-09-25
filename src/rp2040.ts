@@ -40,6 +40,12 @@ export const SIO_START_ADDRESS = 0xd0000000;
 
 const LOG_NAME = 'RP2040';
 
+/**
+ * Notified after clk_sys changes. Listeners that cache a frequency derived from clk_sys
+ * (PIO clock dividers, for instance) use this to re-derive it.
+ */
+export type ClockListener = (clkSys: number, oldClkSys: number) => void;
+
 const KB = 1024;
 const MB = 1024 * KB;
 const MHz = 1_000_000;
@@ -146,6 +152,8 @@ export class RP2040 {
   ];
 
   public logger: Logger = new ConsoleLogger(LogLevel.Debug, true);
+
+  private readonly clockListeners = new Set<ClockListener>();
 
   readonly peripherals: { [index: number]: Peripheral } = {
     0x18000: new RPSSI(this, 'SSI'),
@@ -256,11 +264,21 @@ export class RP2040 {
     if (!clkSys || clkSys === this.clkSys) {
       return;
     }
+    const oldClkSys = this.clkSys;
     this.clkSys = clkSys;
     this.ppb.systickTimer.frequency = clkSys;
     for (const channel of this.pwm.channels) {
       channel.timer.frequency = this.pwm.clockFreq;
     }
+    for (const listener of this.clockListeners) {
+      listener(clkSys, oldClkSys);
+    }
+  }
+
+  /** Registers a listener to be notified whenever clk_sys changes. Returns an unsubscribe function. */
+  addClockListener(listener: ClockListener) {
+    this.clockListeners.add(listener);
+    return () => this.clockListeners.delete(listener);
   }
 
   findPeripheral(address: number) {
