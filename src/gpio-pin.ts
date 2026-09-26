@@ -39,6 +39,12 @@ const IRQ_LEVEL_LOW = 1 << 0;
 
 export class GPIOPin {
   private rawInputValue = false;
+  // Whether something has ever actively driven this pin via setInputValue() (a button/peripheral
+  // model wired to it) - as opposed to it just floating. Real hardware resolves a floating pin's
+  // read to whichever pull resistor is enabled instead of a fixed low; rawInputValue alone can't
+  // distinguish "actively driven low" from "never driven" (both start/stay false), so firmware
+  // reading an undriven, pulled-up pin would otherwise always see it as low regardless of the pull.
+  private driven = false;
   private lastValue = this.value;
 
   ctrl: number = 0x1f;
@@ -53,6 +59,12 @@ export class GPIOPin {
     readonly rp2040: RP2040,
     readonly index: number,
     readonly name = index.toString(),
+    // True only for the 6 dedicated QSPI pins (rp2040.qspi) - unlike general-purpose GPIOs, which
+    // need an explicit SIO/PWM/PIO function-select before OUTOVER has any visible effect on
+    // .value, these are permanently wired to the XIP/SSI peripheral with no separate "not driving
+    // the bus" state to model. Real firmware (e.g. flash_cs_force() bit-banging QSPI_SS) only ever
+    // touches OUTOVER on these pins, relying on output-enable already effectively being on.
+    private readonly alwaysOutputEnabled = false,
   ) {}
 
   get rawInterrupt() {
@@ -108,6 +120,10 @@ export class GPIOPin {
   }
 
   get rawOutputEnable() {
+    if (this.alwaysOutputEnabled) {
+      return true;
+    }
+
     const { index, rp2040, functionSelect } = this;
     const bitmask = 1 << index;
     switch (functionSelect) {
@@ -149,8 +165,27 @@ export class GPIOPin {
     }
   }
 
+  /**
+   * The pad's actual electrical reading: whatever last actively drove it, or - if nothing ever
+   * has - resolved from whichever pull resistor is enabled (matching real hardware; a floating
+   * pin isn't guaranteed low). Bus-keeper mode (both pulls enabled) and no-pulls both fall back
+   * to the plain rawInputValue default, same as before this resolution existed.
+   */
+  private get effectiveRawInputValue() {
+    if (this.driven) {
+      return this.rawInputValue;
+    }
+    if (this.pullupEnabled && !this.pulldownEnabled) {
+      return true;
+    }
+    if (this.pulldownEnabled && !this.pullupEnabled) {
+      return false;
+    }
+    return this.rawInputValue;
+  }
+
   get inputValue() {
-    return applyOverride(this.rawInputValue && this.inputEnable, this.inputOverride);
+    return applyOverride(this.effectiveRawInputValue && this.inputEnable, this.inputOverride);
   }
 
   get irqValue() {
@@ -172,7 +207,7 @@ export class GPIOPin {
     const irqToProc = this.irqValue ? 1 << 26 : 0;
     const irqFromPad = this.rawInterrupt ? 1 << 24 : 0;
     const inToPeri = this.inputValue ? 1 << 19 : 0;
-    const inFromPad = this.rawInputValue ? 1 << 17 : 0;
+    const inFromPad = this.effectiveRawInputValue ? 1 << 17 : 0;
     const oeToPad = this.outputEnable ? 1 << 13 : 0;
     const oeFromPeri = this.rawOutputEnable ? 1 << 12 : 0;
     const outToPad = this.outputValue ? 1 << 9 : 0;
@@ -201,6 +236,16 @@ export class GPIOPin {
   }
 
   setInputValue(value: boolean) {
+    this.driven = true;
+    this.applyInputValue(value);
+  }
+
+  /**
+   * Shared by setInputValue() (an actual external drive) and refreshInput() (just re-evaluating
+   * IRQ/PWM/PIO wait state after e.g. inputEnable toggled) - only the former should mark the pin
+   * as driven, so `driven` is set in setInputValue() itself, not here.
+   */
+  private applyInputValue(value: boolean) {
     this.rawInputValue = value;
     const prevIrqValue = this.irqValue;
     if (value && this.inputEnable) {
@@ -241,7 +286,7 @@ export class GPIOPin {
   }
 
   refreshInput() {
-    this.setInputValue(this.rawInputValue);
+    this.applyInputValue(this.rawInputValue);
   }
 
   updateIRQValue(value: number) {
