@@ -231,12 +231,14 @@ export class RP2040 {
       // - 0x12000000 XIP_NOCACHE
       // - 0x13000000 XIP_NOCACHE_NOALLOC
       const offset = address & 0x00ff_ffff;
-      return this.flashView.getUint32(offset, true);
-    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+      if (offset + 3 < this.flash.length) {
+        return this.flashView.getUint32(offset, true);
+      }
+    } else if (address >= RAM_START_ADDRESS && address + 3 < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint32(address - RAM_START_ADDRESS, true);
     } else if (
       address >= DPRAM_START_ADDRESS &&
-      address < DPRAM_START_ADDRESS + this.usbDPRAM.length
+      address + 3 < DPRAM_START_ADDRESS + this.usbDPRAM.length
     ) {
       return this.usbDPRAMView.getUint32(address - DPRAM_START_ADDRESS, true);
     } else if (address >>> 12 === 0xe000e) {
@@ -304,9 +306,9 @@ export class RP2040 {
 
   /** We assume the address is 16-bit aligned */
   readUint16(address: number) {
-    if (address >= FLASH_START_ADDRESS && address < FLASH_START_ADDRESS + this.flash.length) {
+    if (address >= FLASH_START_ADDRESS && address + 1 < FLASH_START_ADDRESS + this.flash.length) {
       return this.flashView.getUint16(address - FLASH_START_ADDRESS, true);
-    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+    } else if (address >= RAM_START_ADDRESS && address + 1 < RAM_START_ADDRESS + this.sram.length) {
       return this.sramView.getUint16(address - RAM_START_ADDRESS, true);
     }
 
@@ -337,14 +339,14 @@ export class RP2040 {
       bootrom[address / 4] = value;
     } else if (
       address >= FLASH_START_ADDRESS &&
-      address < FLASH_START_ADDRESS + this.flash.length
+      address + 3 < FLASH_START_ADDRESS + this.flash.length
     ) {
       this.flashView.setUint32(address - FLASH_START_ADDRESS, value, true);
-    } else if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+    } else if (address >= RAM_START_ADDRESS && address + 3 < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint32(address - RAM_START_ADDRESS, value, true);
     } else if (
       address >= DPRAM_START_ADDRESS &&
-      address < DPRAM_START_ADDRESS + this.usbDPRAM.length
+      address + 3 < DPRAM_START_ADDRESS + this.usbDPRAM.length
     ) {
       const offset = address - DPRAM_START_ADDRESS;
       this.usbDPRAMView.setUint32(offset, value, true);
@@ -387,7 +389,7 @@ export class RP2040 {
     // we assume that addess is 16-bit aligned.
     // Ideally we should generate a fault if not!
 
-    if (address >= RAM_START_ADDRESS && address < RAM_START_ADDRESS + this.sram.length) {
+    if (address >= RAM_START_ADDRESS && address + 1 < RAM_START_ADDRESS + this.sram.length) {
       this.sramView.setUint16(address - RAM_START_ADDRESS, value, true);
       return;
     }
@@ -399,6 +401,12 @@ export class RP2040 {
       const atomicType = (alignedAddress & 0x3000) >> 12;
       const offset = alignedAddress & 0xfff;
       peripheral.writeUint32Atomic(offset, (value & 0xffff) | ((value & 0xffff) << 16), atomicType);
+      return;
+    }
+    if (offset === 3) {
+      // The halfword spans two words
+      this.writeUint8(address, value & 0xff);
+      this.writeUint8(address + 1, (value >> 8) & 0xff);
       return;
     }
     const originalValue = this.readUint32(alignedAddress);

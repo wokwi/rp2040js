@@ -51,6 +51,44 @@ describe('RP2040', () => {
     });
   });
 
+  describe('Memory access bounds', () => {
+    const regions = [
+      { name: 'SRAM', end: 0x20042000 },
+      { name: 'flash', end: 0x11000000 },
+      { name: 'USB DPRAM', end: 0x50101000 },
+    ];
+
+    function createRP2040() {
+      const rp2040 = new RP2040();
+      rp2040.logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      return rp2040;
+    }
+
+    it('should split an unaligned halfword write across two words', () => {
+      const rp2040 = createRP2040();
+      rp2040.writeUint16(0x10000003, 0xbeef);
+      expect(rp2040.flash[3]).toEqual(0xef);
+      expect(rp2040.flash[4]).toEqual(0xbe);
+    });
+
+    it.each(regions)('should access the last word of $name', ({ end }) => {
+      const rp2040 = createRP2040();
+      rp2040.writeUint32(end - 4, 0x12345678);
+      expect(rp2040.readUint32(end - 4)).toEqual(0x12345678);
+      expect(rp2040.readUint16(end - 2)).toEqual(0x1234);
+    });
+
+    it.each(regions)('should not throw on accesses running past the end of $name', ({ end }) => {
+      const rp2040 = createRP2040();
+      for (let address = end - 3; address < end; address++) {
+        expect(() => rp2040.readUint16(address)).not.toThrow();
+        expect(() => rp2040.writeUint16(address, 0)).not.toThrow();
+        expect(() => rp2040.readUint32(address)).not.toThrow();
+        expect(() => rp2040.writeUint32(address, 0)).not.toThrow();
+      }
+    });
+  });
+
   describe('exceptionEntry and exceptionReturn', () => {
     it('should execute an exception handler and return from it correctly', () => {
       const INT1 = 1 << 1;
