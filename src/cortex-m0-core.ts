@@ -552,21 +552,21 @@ export class CortexM0Core {
     }
   }
 
-  private substractUpdateFlags(minuend: number, subtrahend: number) {
-    const result = minuend - subtrahend;
+  private substractUpdateFlags(minuend: number, subtrahend: number, borrow = 0) {
+    const result = minuend - subtrahend - borrow;
     this.N = !!(result & 0x80000000);
     this.Z = (result & 0xffffffff) === 0;
-    this.C = minuend >= subtrahend;
+    this.C = minuend >= subtrahend + borrow;
     this.V =
       (!!(result & 0x80000000) && !(minuend & 0x80000000) && !!(subtrahend & 0x80000000)) ||
       (!(result & 0x80000000) && !!(minuend & 0x80000000) && !(subtrahend & 0x80000000));
     return result;
   }
 
-  private addUpdateFlags(addend1: number, addend2: number) {
-    const unsignedSum = (addend1 + addend2) >>> 0;
-    const signedSum = (addend1 | 0) + (addend2 | 0);
-    const result = addend1 + addend2;
+  private addUpdateFlags(addend1: number, addend2: number, carry = 0) {
+    const unsignedSum = (addend1 + addend2 + carry) >>> 0;
+    const signedSum = (addend1 | 0) + (addend2 | 0) + carry;
+    const result = addend1 + addend2 + carry;
     this.N = !!(result & 0x80000000);
     this.Z = (result & 0xffffffff) === 0;
     this.C = result === unsignedSum ? false : true;
@@ -603,8 +603,9 @@ export class CortexM0Core {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
       this.registers[Rdn] = this.addUpdateFlags(
+        this.registers[Rdn],
         this.registers[Rm],
-        this.registers[Rdn] + (this.C ? 1 : 0),
+        this.C ? 1 : 0,
       );
     }
     // ADD (register = SP plus immediate)
@@ -692,7 +693,7 @@ export class CortexM0Core {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = (result & 0xffffffff) === 0;
-      this.C = input & (1 << (shiftN - 1)) ? true : false;
+      this.C = shiftN ? !!(input & (1 << (shiftN - 1))) : this.C;
     }
     // B (with cond)
     else if (opcode >> 12 === 0b1101 && ((opcode >> 9) & 0x7) !== 0b111) {
@@ -944,7 +945,7 @@ export class CortexM0Core {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
-      this.C = shiftCount ? !!(input & (1 << (32 - shiftCount))) : this.C;
+      this.C = shiftCount ? shiftCount <= 32 && !!(input & (1 << (32 - shiftCount))) : this.C;
     }
     // LSRS (immediate)
     else if (opcode >> 11 === 0b00001) {
@@ -968,7 +969,7 @@ export class CortexM0Core {
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
-      this.C = shiftAmount <= 32 ? !!((input >>> (shiftAmount - 1)) & 0x1) : false;
+      this.C = shiftAmount ? shiftAmount <= 32 && !!((input >>> (shiftAmount - 1)) & 0x1) : this.C;
     }
     // MOV
     else if (opcode >> 8 === 0b01000110) {
@@ -1108,12 +1109,13 @@ export class CortexM0Core {
       const Rm = (opcode >> 3) & 0x7;
       const Rdn = opcode & 0x7;
       const input = this.registers[Rdn];
-      const shift = (this.registers[Rm] & 0xff) % 32;
+      const shiftN = this.registers[Rm] & 0xff;
+      const shift = shiftN % 32;
       const result = (input >>> shift) | (input << (32 - shift));
       this.registers[Rdn] = result;
       this.N = !!(result & 0x80000000);
       this.Z = result === 0;
-      this.C = !!(result & 0x80000000);
+      this.C = shiftN ? !!(result & 0x80000000) : this.C;
     }
     // NEGS / RSBS
     else if (opcode >> 6 === 0b0100001001) {
@@ -1131,7 +1133,8 @@ export class CortexM0Core {
       const Rdn = opcode & 0x7;
       this.registers[Rdn] = this.substractUpdateFlags(
         this.registers[Rdn],
-        this.registers[Rm] + (1 - (this.C ? 1 : 0)),
+        this.registers[Rm],
+        this.C ? 0 : 1,
       );
     }
     // SEV

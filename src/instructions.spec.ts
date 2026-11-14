@@ -145,6 +145,17 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.V).toEqual(true);
   });
 
+  it('should set the overflow flag for `adcs r5, r4` when r5 + carry overflows', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeADCS(r5, r4));
+    await cpu.setRegisters({ r4: 0, r5: 0x7fffffff, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r5).toEqual(0x80000000);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(true);
+  });
+
   it('should not set the overflow flag when executing `adcs r3, r2` adding 0 to 0 with carry', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeADCS(r3, r2));
@@ -434,6 +445,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.N).toEqual(true);
     expect(registers.Z).toEqual(false);
     expect(registers.C).toEqual(true);
+  });
+
+  it('should keep the carry flag for `asrs r3, r4` when shift is 0', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeASRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x80000000, r4: 0x100, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0x80000000);
+    expect(registers.C).toEqual(false);
   });
 
   it('should execute `bics r0, r3` correctly', async () => {
@@ -1056,6 +1077,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.Z).toEqual(true);
   });
 
+  it('should clear the carry flag for `lsls r3, r4` when shift > 32', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeLSLSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x80000000, r4: 33, C: true });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0);
+    expect(registers.C).toEqual(false);
+  });
+
   it('should execute a `lsls r5, r5, #18` instruction with carry', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeLSLSimm(r5, r5, 18));
@@ -1086,6 +1117,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     const registers = await cpu.readRegisters();
     expect(registers.r2).toEqual(0);
     expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(false);
+  });
+
+  it('should keep the carry flag for `lsrs r3, r4` when shift is 0', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeLSRSreg(r3, r4));
+    await cpu.setRegisters({ r3: 0x80000000, r4: 0x100, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r3).toEqual(0x80000000);
     expect(registers.C).toEqual(false);
   });
 
@@ -1193,6 +1234,16 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.C).toEqual(true);
   });
 
+  it('should keep the carry flag for `ror r5, r3` when shift is 0', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeROR(r5, r3));
+    await cpu.setRegisters({ r5: 0x80000000, r3: 0x100, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r5).toEqual(0x80000000);
+    expect(registers.C).toEqual(false);
+  });
+
   it('should execute a `ror r5, r3` instruction when r3 > 32', async () => {
     await cpu.setPC(0x20000000);
     await cpu.writeUint16(0x20000000, opcodeROR(r5, r3));
@@ -1243,6 +1294,17 @@ describe('Cortex-M0+ Instruction Set', () => {
     expect(registers.r0).toEqual(0);
     expect(registers.N).toEqual(false);
     expect(registers.Z).toEqual(true);
+    expect(registers.C).toEqual(false);
+    expect(registers.V).toEqual(false);
+  });
+
+  it('should not set the overflow flag when the borrow reaches the sign bit in `sbcs r0, r3`', async () => {
+    await cpu.setPC(0x20000000);
+    await cpu.writeUint16(0x20000000, opcodeSBCS(r0, r3));
+    await cpu.setRegisters({ r0: 0, r3: 0x7fffffff, C: false });
+    await cpu.singleStep();
+    const registers = await cpu.readRegisters();
+    expect(registers.r0).toEqual(0x80000000);
     expect(registers.C).toEqual(false);
     expect(registers.V).toEqual(false);
   });
