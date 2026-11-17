@@ -11,6 +11,7 @@ const args = minimist(process.argv.slice(2), {
   string: [
     'image', // UF2 image to load; defaults to "RPI_PICO-20230426-v1.20.0.uf2"
     'expect-text', // Text to expect on the serial console, process will exit with code 0 if found
+    'littlefs', // LittleFS image to auto-mount; defaults to "littlefs.img"
   ],
   boolean: [
     'gdb', // start GDB server on 3333
@@ -33,9 +34,10 @@ if (!args.circuitpython) {
 console.log(`Loading uf2 image ${imageName}`);
 loadUF2(imageName, mcu);
 
-if (fs.existsSync('littlefs.img') && !args.circuitpython) {
-  console.log(`Loading uf2 image littlefs.img`);
-  loadMicropythonFlashImage('littlefs.img', mcu);
+const littlefsImage: string = args.littlefs ?? 'littlefs.img';
+if (fs.existsSync(littlefsImage) && !args.circuitpython) {
+  console.log(`Loading littlefs image ${littlefsImage}`);
+  loadMicropythonFlashImage(littlefsImage, mcu);
 } else if (fs.existsSync('fat12.img') && args.circuitpython) {
   loadCircuitpythonFlashImage('fat12.img', mcu);
   // Instead of reading from file, it would also be possible to generate the LittleFS image on-the-fly here, e.g. using

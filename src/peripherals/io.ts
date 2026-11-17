@@ -1,3 +1,4 @@
+import { GPIOPin } from '../gpio-pin.js';
 import { RP2040 } from '../rp2040.js';
 import { BasePeripheral, Peripheral } from './peripheral.js';
 
@@ -8,15 +9,23 @@ const PROC0_INTF0 = 0x110;
 const PROC0_INTS0 = 0x120;
 const PROC0_INTS3 = 0x12c;
 
+/**
+ * The CTRL/STATUS/INTR register block shared by IO_BANK0 (rp2040.gpio, the default, 30
+ * general-purpose pins) and IO_QSPI (rp2040.qspi, 6 dedicated QSPI pins - same register layout,
+ * just a different, smaller pin list) - pass `pins` explicitly for the latter.
+ */
 export class RPIO extends BasePeripheral implements Peripheral {
-  constructor(rp2040: RP2040, name: string) {
+  readonly pins: GPIOPin[];
+
+  constructor(rp2040: RP2040, name: string, pins?: GPIOPin[]) {
     super(rp2040, name);
+    this.pins = pins ?? rp2040.gpio;
   }
 
   getPinFromOffset(offset: number) {
     const gpioIndex = offset >>> 3;
     return {
-      gpio: this.rp2040.gpio[gpioIndex],
+      gpio: this.pins[gpioIndex],
       isCtrl: !!(offset & 0x4),
     };
   }
@@ -29,10 +38,10 @@ export class RPIO extends BasePeripheral implements Peripheral {
     if (offset >= INTR0 && offset <= PROC0_INTS3) {
       const startIndex = (offset & 0xf) * 2;
       const register = offset & ~0xf;
-      const { gpio } = this.rp2040;
+      const { pins } = this;
       let result = 0;
       for (let index = 7; index >= 0; index--) {
-        const pin = gpio[index + startIndex];
+        const pin = pins[index + startIndex];
         if (!pin) {
           continue;
         }
@@ -69,9 +78,9 @@ export class RPIO extends BasePeripheral implements Peripheral {
     if (offset >= INTR0 && offset <= PROC0_INTS3) {
       const startIndex = (offset & 0xf) * 2;
       const register = offset & ~0xf;
-      const { gpio } = this.rp2040;
+      const { pins } = this;
       for (let index = 0; index < 8; index++) {
-        const pin = gpio[index + startIndex];
+        const pin = pins[index + startIndex];
         if (!pin) {
           continue;
         }
