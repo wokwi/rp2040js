@@ -64,6 +64,12 @@ const SHIFTCTRL_AUTOPUSH = 1 << 16;
 const SHIFTCTRL_AUTOPULL = 1 << 17;
 const SHIFTCTRL_IN_SHIFTDIR = 1 << 18; // 1 = shift input shift register to right (data enters from left). 0 = to left
 const SHIFTCTRL_OUT_SHIFTDIR = 1 << 19; // 1 = shift out of output shift register to right. 0 = to left
+const SHIFTCTRL_FJOIN_RX = 1 << 30; // 1 = join RX FIFO with TX FIFO (8-deep RX, TX disabled)
+const SHIFTCTRL_FJOIN_TX = 1 << 31; // 1 = join TX FIFO with RX FIFO (8-deep TX, RX disabled)
+
+// FIFO depth, in 32-bit words
+const FIFO_DEPTH = 4;
+const FIFO_DEPTH_JOINED = 8;
 
 // EXECCTRL bits
 const EXECCTRL_STATUS_SEL = 1 << 4;
@@ -141,8 +147,10 @@ export class StateMachine {
   execCtrl = 0x1f << 12;
   shiftCtrl = 0b11 << 18;
   pinCtrl = 0x5 << 26;
-  readonly rxFIFO = new FIFO(4);
-  readonly txFIFO = new FIFO(4);
+  // Allocated at the joined depth; the usable depth is adjusted by updateFifoJoin()
+  // according to the FJOIN_TX / FJOIN_RX bits in SHIFTCTRL.
+  readonly rxFIFO = new FIFO(FIFO_DEPTH_JOINED);
+  readonly txFIFO = new FIFO(FIFO_DEPTH_JOINED);
 
   outPinValues: number = 0;
   outPinDirection: number = 0;
@@ -161,8 +169,36 @@ export class StateMachine {
     readonly pio: RPPIO,
     readonly index: number,
   ) {
+    this.updateFifoJoin();
     this.updateDMARx();
     this.updateDMATx();
+  }
+
+  /**
+   * Apply the FJOIN_TX / FJOIN_RX bits from SHIFTCTRL. When a direction is joined,
+   * its FIFO becomes 8 entries deep and the opposite direction is disabled (depth 0).
+   * If both bits are set, TX takes priority (the two halves can't both be donated).
+   * Reconfiguring the join empties both FIFOs, as on real hardware (datasheet §3.5.4).
+   */
+  updateFifoJoin() {
+    const joinTx = !!(this.shiftCtrl & SHIFTCTRL_FJOIN_TX);
+    const joinRx = !!(this.shiftCtrl & SHIFTCTRL_FJOIN_RX);
+    let txDepth = FIFO_DEPTH;
+    let rxDepth = FIFO_DEPTH;
+    if (joinTx) {
+      txDepth = FIFO_DEPTH_JOINED;
+      rxDepth = 0;
+    } else if (joinRx) {
+      txDepth = 0;
+      rxDepth = FIFO_DEPTH_JOINED;
+    }
+    if (txDepth === this.txFIFO.size && rxDepth === this.rxFIFO.size) {
+      return;
+    }
+    this.txFIFO.setCapacity(txDepth);
+    this.rxFIFO.setCapacity(rxDepth);
+    this.updateDMATx();
+    this.updateDMARx();
   }
 
   private updateDMATx() {
@@ -814,6 +850,7 @@ export class StateMachine {
         break;
       case SM0_SHIFTCTRL:
         this.shiftCtrl = value;
+        this.updateFifoJoin();
         break;
       case SM0_ADDR:
         /* read-only */
