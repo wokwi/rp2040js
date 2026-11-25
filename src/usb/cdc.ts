@@ -67,6 +67,8 @@ export class USBCDC {
   private descriptors: number[] = [];
   private outEndpoint = -1;
   private inEndpoint = -1;
+  /** Size of an OUT transfer the device armed while we had no data to send. */
+  private pendingReadSize: number | null = null;
 
   constructor(readonly usb: RPUSBController) {
     this.usb.onUSBEnabled = () => {
@@ -116,13 +118,24 @@ export class USBCDC {
     };
     this.usb.onEndpointRead = (endpoint, size) => {
       if (endpoint === this.outEndpoint) {
-        const buffer = new Uint8Array(Math.min(size, this.txFIFO.itemCount));
-        for (let i = 0; i < buffer.length; i++) {
-          buffer[i] = this.txFIFO.pull();
+        if (this.txFIFO.empty) {
+          // A real host NAKs OUT transfers until it has data to send. Completing the
+          // transfer with a zero-length packet instead makes the device re-arm the
+          // endpoint immediately, which floods it with USB interrupts while idle.
+          this.pendingReadSize = size;
+          return;
         }
-        this.usb.endpointReadDone(this.outEndpoint, buffer);
+        this.completeRead(size);
       }
     };
+  }
+
+  private completeRead(size: number) {
+    const buffer = new Uint8Array(Math.min(size, this.txFIFO.itemCount));
+    for (let i = 0; i < buffer.length; i++) {
+      buffer[i] = this.txFIFO.pull();
+    }
+    this.usb.endpointReadDone(this.outEndpoint, buffer);
   }
 
   private cdcSetControlLineState(value = CDC_DTR | CDC_RTS, interfaceNumber = 0) {
@@ -142,5 +155,10 @@ export class USBCDC {
 
   sendSerialByte(data: number) {
     this.txFIFO.push(data);
+    if (this.pendingReadSize != null) {
+      const size = this.pendingReadSize;
+      this.pendingReadSize = null;
+      this.completeRead(size);
+    }
   }
 }
